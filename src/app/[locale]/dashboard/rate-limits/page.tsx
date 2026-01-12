@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { ClientRedirect } from "@/components/client-redirect";
 import { Section } from "@/components/section";
-import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
 import { RateLimitDashboard } from "./_components/rate-limit-dashboard";
 import { RateLimitsContentSkeleton } from "./_components/rate-limits-skeleton";
@@ -12,9 +12,9 @@ export default async function RateLimitsPage({ params }: { params: Promise<{ loc
   const { locale } = await params;
   const session = await getSession();
 
-  // 仅管理员可访问
+  // Only admin can access
   if (!session || session.user.role !== "admin") {
-    return redirect({ href: "/dashboard", locale });
+    return <ClientRedirect to="/dashboard" locale={locale} />;
   }
 
   const t = await getTranslations("dashboard.rateLimits");

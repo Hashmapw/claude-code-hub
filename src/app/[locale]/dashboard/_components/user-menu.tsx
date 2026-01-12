@@ -1,10 +1,10 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { apiFetch, getBasePath } from "@/lib/utils/base-path";
 
 interface UserMenuProps {
   user: {
@@ -16,15 +16,14 @@ interface UserMenuProps {
 
 export function UserMenu({ user }: UserMenuProps) {
   const t = useTranslations("dashboard.nav");
-  const router = useRouter();
 
   const handleLogout = () => {
-    // 立即跳转到登录页面，避免延迟
-    router.push("/login");
-    // 异步调用登出接口，不等待响应
-    fetch("/api/auth/logout", { method: "POST" }).then(() => {
-      router.refresh();
-    });
+    // Navigate to login page immediately, avoiding delay
+    const basePath = getBasePath();
+    const loginPath = basePath ? `${basePath}/login` : "/login";
+    window.location.href = loginPath;
+    // Call logout API asynchronously, don't wait for response
+    apiFetch("/auth/logout", { method: "POST" });
   };
 
   const getInitials = (name: string) => {

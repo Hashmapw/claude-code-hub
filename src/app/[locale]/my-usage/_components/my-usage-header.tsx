@@ -5,8 +5,8 @@ import { useTranslations } from "next-intl";
 import { QuotaCountdownCompact } from "@/components/quota/quota-countdown";
 import { Button } from "@/components/ui/button";
 import { useCountdown } from "@/hooks/useCountdown";
-import { useRouter } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { apiFetch, getBasePath } from "@/lib/utils/base-path";
 
 interface MyUsageHeaderProps {
   onLogout?: () => Promise<void> | void;
@@ -25,7 +25,6 @@ export function MyUsageHeader({
 }: MyUsageHeaderProps) {
   const t = useTranslations("myUsage.header");
   const tExpiration = useTranslations("myUsage.expiration");
-  const router = useRouter();
 
   const keyCountdown = useCountdown(keyExpiresAt ?? null, Boolean(keyExpiresAt));
   const userCountdown = useCountdown(userExpiresAt ?? null, Boolean(userExpiresAt));
@@ -62,9 +61,10 @@ export function MyUsageHeader({
       return;
     }
 
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    await apiFetch("/auth/logout", { method: "POST" });
+    const basePath = getBasePath();
+    const loginPath = basePath ? `${basePath}/login` : "/login";
+    window.location.href = loginPath;
   };
 
   return (

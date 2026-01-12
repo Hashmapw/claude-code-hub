@@ -2,8 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { fetchClientVersionStats } from "@/actions/client-versions";
 import { fetchSystemSettings } from "@/actions/system-config";
+import { ClientRedirect } from "@/components/client-redirect";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
 import { SettingsPageHeader } from "../_components/settings-page-header";
 import { ClientVersionStatsTable } from "./_components/client-version-stats-table";
@@ -25,7 +25,7 @@ export default async function ClientVersionsPage({
   const session = await getSession();
 
   if (!session || session.user.role !== "admin") {
-    return redirect({ href: "/login", locale });
+    return <ClientRedirect to="/login" locale={locale} />;
   }
 
   return (

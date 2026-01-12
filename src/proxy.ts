@@ -19,6 +19,113 @@ const API_PROXY_PATH = "/v1";
 // Create next-intl middleware for locale detection and routing
 const intlMiddleware = createMiddleware(routing);
 
+/**
+ * Build redirect URL that respects reverse proxy paths.
+ *
+ * When running behind a reverse proxy with a dynamic base path (e.g., containing UUIDs),
+ * we need to handle redirects carefully. The issue is:
+ * - request.nextUrl only sees the path as received by Next.js server (e.g., /zh-CN/dashboard)
+ * - The actual client URL may have a long prefix path from the proxy
+ *   (e.g., /ws-xxx/.../proxy/3000/zh-CN/dashboard)
+ *
+ * Solution: Use a relative path without leading slash. When the browser receives
+ * Location: "zh-CN/login" (no leading slash), it resolves it relative to the current
+ * directory, preserving the proxy prefix.
+ *
+ * Example:
+ * - Current URL: https://example.com/ws-xxx/proxy/3000/
+ * - Location header: zh-CN/login?from=/dashboard
+ * - Browser navigates to: https://example.com/ws-xxx/proxy/3000/zh-CN/login?from=/dashboard
+ */
+function createRelativeRedirect(
+  request: NextRequest,
+  targetPath: string,
+  searchParams?: URLSearchParams
+): Response {
+  // Build the full URL using the request's origin
+  const url = new URL(targetPath, request.url);
+  if (searchParams) {
+    searchParams.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+  }
+
+  // Extract just the path portion (without origin) for the redirect
+  // Use "./" prefix to make it a relative path that browsers resolve correctly
+  const pathWithSearch = url.pathname + url.search;
+  const relativePath = "." + pathWithSearch;
+
+  // Use HTML meta refresh for client-side redirect
+  // This avoids Next.js URL validation on the Location header
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=${relativePath}">
+<script>window.location.replace("${relativePath}");</script>
+</head>
+<body>Redirecting...</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+    },
+  });
+}
+
+/**
+ * Convert absolute redirect to relative redirect for proxy compatibility.
+ *
+ * When next-intl middleware returns a redirect (e.g., / -> /zh-CN/),
+ * we need to convert it to a relative path to work with reverse proxies.
+ */
+function convertToRelativeRedirect(response: NextResponse): Response {
+  const location = response.headers.get("Location");
+  if (!location) {
+    return response;
+  }
+
+  // Check if it's a redirect response (3xx status)
+  if (response.status < 300 || response.status >= 400) {
+    return response;
+  }
+
+  // Parse the location to check if it's an absolute path
+  try {
+    // If location is a full URL, extract just the path
+    const url = new URL(location, "http://dummy");
+    const path = url.pathname + url.search;
+
+    // Convert to relative path with "./" prefix
+    // This makes browsers resolve it relative to current directory
+    const relativePath = "." + path;
+
+    // Use HTML meta refresh for client-side redirect
+    // This avoids Next.js URL validation on the Location header
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=${relativePath}">
+<script>window.location.replace("${relativePath}");</script>
+</head>
+<body>Redirecting...</body>
+</html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    });
+  } catch {
+    // If parsing fails, return original response
+    return response;
+  }
+}
+
 async function proxyHandler(request: NextRequest) {
   const method = request.method;
   const pathname = request.nextUrl.pathname;
@@ -27,7 +134,7 @@ async function proxyHandler(request: NextRequest) {
     logger.info("Request received", { method: method.toUpperCase(), pathname });
   }
 
-  // API 代理路由不需要 locale 处理和 Web 鉴权（使用自己的 Bearer token）
+  // API proxy routes don't need locale handling and Web auth (use their own Bearer token)
   if (pathname.startsWith(API_PROXY_PATH)) {
     return NextResponse.next();
   }
@@ -58,7 +165,7 @@ async function proxyHandler(request: NextRequest) {
 
   // Public paths don't require authentication
   if (isPublicPath) {
-    return localeResponse;
+    return convertToRelativeRedirect(localeResponse);
   }
 
   // Check if current path allows read-only access (for canLoginWebUi=false keys)
@@ -71,30 +178,56 @@ async function proxyHandler(request: NextRequest) {
 
   if (!authToken) {
     // Not authenticated, redirect to login page
-    const url = request.nextUrl.clone();
     // Preserve locale in redirect
     const locale = isLocaleInPath ? potentialLocale : routing.defaultLocale;
-    url.pathname = `/${locale}/login`;
-    url.searchParams.set("from", pathWithoutLocale || "/dashboard");
-    return NextResponse.redirect(url);
+    const loginPath = `/${locale}/login`;
+    const searchParams = new URLSearchParams();
+    searchParams.set("from", pathWithoutLocale || "/dashboard");
+    return createRelativeRedirect(request, loginPath, searchParams);
   }
 
   // Validate key permissions (canLoginWebUi, isEnabled, expiresAt, etc.)
   const session = await validateKey(authToken.value, { allowReadOnlyAccess: isReadOnlyPath });
   if (!session) {
     // Invalid key or insufficient permissions, clear cookie and redirect to login
-    const url = request.nextUrl.clone();
     // Preserve locale in redirect
     const locale = isLocaleInPath ? potentialLocale : routing.defaultLocale;
-    url.pathname = `/${locale}/login`;
-    url.searchParams.set("from", pathWithoutLocale || "/dashboard");
-    const response = NextResponse.redirect(url);
-    response.cookies.delete("auth-token");
-    return response;
+    const loginPath = `/${locale}/login`;
+    const searchParams = new URLSearchParams();
+    searchParams.set("from", pathWithoutLocale || "/dashboard");
+
+    // Build the full URL using the request's origin
+    const url = new URL(loginPath, request.url);
+    searchParams.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+
+    // Extract just the path portion for the redirect
+    const pathWithSearch = url.pathname + url.search;
+    const relativePath = "." + pathWithSearch;
+
+    // Use HTML meta refresh for client-side redirect with Set-Cookie to clear auth-token
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=${relativePath}">
+<script>window.location.replace("${relativePath}");</script>
+</head>
+<body>Redirecting...</body>
+</html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Set-Cookie": "auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+      },
+    });
   }
 
   // Authentication passed, return locale response
-  return localeResponse;
+  return convertToRelativeRedirect(localeResponse);
 }
 
 // Default export required for Next.js 16 proxy file

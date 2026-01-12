@@ -1,21 +1,21 @@
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { getProviderLimitUsageBatch, getProviders } from "@/actions/providers";
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { getSystemSettings } from "@/repository/system-config";
 import { ProvidersQuotaSkeleton } from "../_components/providers-quota-skeleton";
 import { ProvidersQuotaManager } from "./_components/providers-quota-manager";
 
-// 强制动态渲染 (此页面需要实时数据和认证)
+// Force dynamic rendering (this page needs real-time data and authentication)
 export const dynamic = "force-dynamic";
 
 async function getProvidersWithQuotas() {
   const providers = await getProviders();
 
-  // 使用批量查询获取所有供应商的限额数据（避免 N+1 查询问题）
-  // 优化前: 50 个供应商 = 52 DB + 250 Redis 查询
-  // 优化后: 50 个供应商 = 2 DB + 2 Redis Pipeline 查询
+  // Use batch query to get quota data for all providers (avoid N+1 query problem)
+  // Before optimization: 50 providers = 52 DB + 250 Redis queries
+  // After optimization: 50 providers = 2 DB + 2 Redis Pipeline queries
   const quotaMap = await getProviderLimitUsageBatch(
     providers.map((p) => ({
       id: p.id,
@@ -48,9 +48,9 @@ export default async function ProvidersQuotaPage({
   const { locale } = await params;
   const session = await getSession();
 
-  // 权限检查：仅 admin 用户可访问
+  // Permission check: only admin users can access
   if (!session || session.user.role !== "admin") {
-    redirect({ href: session ? "/dashboard/my-quota" : "/login", locale });
+    return <ClientRedirect to={session ? "/dashboard/my-quota" : "/login"} locale={locale} />;
   }
 
   const t = await getTranslations("quota.providers");
