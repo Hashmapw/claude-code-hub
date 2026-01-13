@@ -15,7 +15,15 @@
     "EPROTO": "Protocol error (SSL/TLS handshake failed)",
     "CLIENT_ABORT": "Client aborted request",
     "PROVIDER_TIMEOUT": "Provider response timeout (high first-byte latency)",
-    "STREAMING_IDLE_TIMEOUT": "Streaming idle timeout (provider stopped sending data)"
+    "STREAMING_IDLE_TIMEOUT": "Streaming idle timeout (provider stopped sending data)",
+    "UND_ERR_CONNECT_TIMEOUT": "Connection timeout (unable to establish connection in time)",
+    "UND_ERR_HEADERS_TIMEOUT": "Headers timeout (server did not return headers in time)",
+    "UND_ERR_BODY_TIMEOUT": "Body timeout (server did not return complete response in time)",
+    "UND_ERR_SOCKET": "Socket error (underlying network connection issue)",
+    "UND_ERR_DESTROYED": "Connection destroyed (request was interrupted)",
+    "UND_ERR_ABORTED": "Request aborted",
+    "UND_ERR_INFO": "Informational error",
+    "UND_ERR_REQ_CONTENT_LENGTH_MISMATCH": "Request content length mismatch"
   },
   "summary": {
     "singleSuccess": "{total} providers, {healthy} healthy → {provider} ✓",

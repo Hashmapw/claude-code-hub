@@ -28,41 +28,79 @@ const intlMiddleware = createMiddleware(routing);
  * - The actual client URL may have a long prefix path from the proxy
  *   (e.g., /ws-xxx/.../proxy/3000/zh-CN/dashboard)
  *
- * Solution: Use a relative path without leading slash. When the browser receives
- * Location: "zh-CN/login" (no leading slash), it resolves it relative to the current
- * directory, preserving the proxy prefix.
- *
- * Example:
- * - Current URL: https://example.com/ws-xxx/proxy/3000/
- * - Location header: zh-CN/login?from=/dashboard
- * - Browser navigates to: https://example.com/ws-xxx/proxy/3000/zh-CN/login?from=/dashboard
+ * Solution: Use JavaScript to detect the base path from window.location.pathname
+ * and construct the correct absolute URL. This avoids issues with relative paths
+ * that can cause locale segment duplication.
  */
 function createRelativeRedirect(
-  request: NextRequest,
+  _request: NextRequest,
   targetPath: string,
   searchParams?: URLSearchParams
 ): Response {
-  // Build the full URL using the request's origin
-  const url = new URL(targetPath, request.url);
-  if (searchParams) {
-    searchParams.forEach((value, key) => {
-      url.searchParams.set(key, value);
-    });
+  // Build the target path with search params
+  let fullTargetPath = targetPath;
+  if (searchParams?.toString()) {
+    fullTargetPath += `?${searchParams.toString()}`;
   }
 
-  // Extract just the path portion (without origin) for the redirect
-  // Use "./" prefix to make it a relative path that browsers resolve correctly
-  const pathWithSearch = url.pathname + url.search;
-  const relativePath = "." + pathWithSearch;
-
-  // Use HTML meta refresh for client-side redirect
-  // This avoids Next.js URL validation on the Location header
+  // Use JavaScript to detect base path and redirect correctly
   const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0;url=${relativePath}">
-<script>window.location.replace("${relativePath}");</script>
+<script>
+(function() {
+  var targetPath = ${JSON.stringify(fullTargetPath)};
+  var locales = ["zh-CN", "zh-TW", "en", "ja", "ru"];
+  var currentPath = window.location.pathname;
+  var basePath = "";
+
+  // Find the first locale segment to determine base path
+  for (var i = 0; i < locales.length; i++) {
+    var localePattern = "/" + locales[i];
+    var idx = currentPath.indexOf(localePattern);
+    if (idx !== -1) {
+      var afterLocale = currentPath.substring(idx + localePattern.length);
+      if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+        basePath = currentPath.substring(0, idx);
+        break;
+      }
+    }
+  }
+
+  // If no locale found, check for known app paths
+  if (!basePath) {
+    var knownPaths = ["/api/", "/v1/", "/_next/"];
+    for (var j = 0; j < knownPaths.length; j++) {
+      var idx2 = currentPath.indexOf(knownPaths[j]);
+      if (idx2 > 0) {
+        basePath = currentPath.substring(0, idx2);
+        break;
+      }
+    }
+  }
+
+  // If still no base path found and current path ends with /,
+  // the entire path (minus trailing /) is the base path
+  // This handles the case of accessing proxy root like /ws-xxx/.../proxy/3000/
+  if (!basePath && currentPath.length > 1) {
+    // Remove trailing slash if present
+    var pathWithoutTrailingSlash = currentPath.replace(/\\/+$/, "");
+    // If the path doesn't start with a known app route, treat it as base path
+    if (pathWithoutTrailingSlash &&
+        !pathWithoutTrailingSlash.match(/^\\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\\/|$)/)) {
+      basePath = pathWithoutTrailingSlash;
+    }
+  }
+
+  // Construct full path and redirect
+  var fullPath = basePath + targetPath;
+  window.location.replace(fullPath);
+})();
+</script>
+<noscript>
+<meta http-equiv="refresh" content="0;url=${fullTargetPath}">
+</noscript>
 </head>
 <body>Redirecting...</body>
 </html>`;
@@ -80,6 +118,14 @@ function createRelativeRedirect(
  *
  * When next-intl middleware returns a redirect (e.g., / -> /zh-CN/),
  * we need to convert it to a relative path to work with reverse proxies.
+ *
+ * IMPORTANT: We use JavaScript-based redirect instead of relative paths
+ * because relative paths like "./zh-CN/dashboard" can cause issues when
+ * the current URL already contains locale segments (e.g., /proxy/zh-CN/page
+ * would resolve ./zh-CN/dashboard to /proxy/zh-CN/zh-CN/dashboard).
+ *
+ * The JavaScript approach uses window.location.pathname to detect the
+ * actual proxy base path and construct the correct absolute URL.
  */
 function convertToRelativeRedirect(response: NextResponse): Response {
   const location = response.headers.get("Location");
@@ -96,20 +142,67 @@ function convertToRelativeRedirect(response: NextResponse): Response {
   try {
     // If location is a full URL, extract just the path
     const url = new URL(location, "http://dummy");
-    const path = url.pathname + url.search;
+    const targetPath = url.pathname + url.search;
 
-    // Convert to relative path with "./" prefix
-    // This makes browsers resolve it relative to current directory
-    const relativePath = "." + path;
-
-    // Use HTML meta refresh for client-side redirect
-    // This avoids Next.js URL validation on the Location header
+    // Use JavaScript to detect base path and redirect correctly
+    // This handles the case where we're behind a reverse proxy with dynamic paths
     const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0;url=${relativePath}">
-<script>window.location.replace("${relativePath}");</script>
+<script>
+(function() {
+  var targetPath = ${JSON.stringify(targetPath)};
+  var locales = ["zh-CN", "zh-TW", "en", "ja", "ru"];
+  var currentPath = window.location.pathname;
+  var basePath = "";
+
+  // Find the first locale segment to determine base path
+  for (var i = 0; i < locales.length; i++) {
+    var localePattern = "/" + locales[i];
+    var idx = currentPath.indexOf(localePattern);
+    if (idx !== -1) {
+      var afterLocale = currentPath.substring(idx + localePattern.length);
+      if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+        basePath = currentPath.substring(0, idx);
+        break;
+      }
+    }
+  }
+
+  // If no locale found, check for known app paths
+  if (!basePath) {
+    var knownPaths = ["/api/", "/v1/", "/_next/"];
+    for (var j = 0; j < knownPaths.length; j++) {
+      var idx2 = currentPath.indexOf(knownPaths[j]);
+      if (idx2 > 0) {
+        basePath = currentPath.substring(0, idx2);
+        break;
+      }
+    }
+  }
+
+  // If still no base path found and current path ends with /,
+  // the entire path (minus trailing /) is the base path
+  // This handles the case of accessing proxy root like /ws-xxx/.../proxy/3000/
+  if (!basePath && currentPath.length > 1) {
+    // Remove trailing slash if present
+    var pathWithoutTrailingSlash = currentPath.replace(/\\/+$/, "");
+    // If the path doesn't start with a known app route, treat it as base path
+    if (pathWithoutTrailingSlash &&
+        !pathWithoutTrailingSlash.match(/^\\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\\/|$)/)) {
+      basePath = pathWithoutTrailingSlash;
+    }
+  }
+
+  // Construct full path and redirect
+  var fullPath = basePath + targetPath;
+  window.location.replace(fullPath);
+})();
+</script>
+<noscript>
+<meta http-equiv="refresh" content="0;url=${targetPath}">
+</noscript>
 </head>
 <body>Redirecting...</body>
 </html>`;
@@ -196,23 +289,57 @@ async function proxyHandler(request: NextRequest) {
     const searchParams = new URLSearchParams();
     searchParams.set("from", pathWithoutLocale || "/dashboard");
 
-    // Build the full URL using the request's origin
-    const url = new URL(loginPath, request.url);
-    searchParams.forEach((value, key) => {
-      url.searchParams.set(key, value);
-    });
+    // Build the target path with search params
+    const fullTargetPath = `${loginPath}?${searchParams.toString()}`;
 
-    // Extract just the path portion for the redirect
-    const pathWithSearch = url.pathname + url.search;
-    const relativePath = "." + pathWithSearch;
-
-    // Use HTML meta refresh for client-side redirect with Set-Cookie to clear auth-token
+    // Use JavaScript to detect base path and redirect correctly
     const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0;url=${relativePath}">
-<script>window.location.replace("${relativePath}");</script>
+<script>
+(function() {
+  var targetPath = ${JSON.stringify(fullTargetPath)};
+  var locales = ["zh-CN", "zh-TW", "en", "ja", "ru"];
+  var currentPath = window.location.pathname;
+  var basePath = "";
+
+  // Find the first locale segment to determine base path
+  for (var i = 0; i < locales.length; i++) {
+    var localePattern = "/" + locales[i];
+    var idx = currentPath.indexOf(localePattern);
+    if (idx !== -1) {
+      var afterLocale = currentPath.substring(idx + localePattern.length);
+      if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+        basePath = currentPath.substring(0, idx);
+        break;
+      }
+    }
+  }
+
+  // If no locale found, check for known app paths
+  if (!basePath) {
+    var knownPaths = ["/api/", "/v1/", "/_next/"];
+    for (var j = 0; j < knownPaths.length; j++) {
+      var idx2 = currentPath.indexOf(knownPaths[j]);
+      if (idx2 > 0) {
+        basePath = currentPath.substring(0, idx2);
+        break;
+      }
+    }
+  }
+
+  // Clear auth cookie
+  document.cookie = "auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+  // Construct full path and redirect
+  var fullPath = basePath + targetPath;
+  window.location.replace(fullPath);
+})();
+</script>
+<noscript>
+<meta http-equiv="refresh" content="0;url=${fullTargetPath}">
+</noscript>
 </head>
 <body>Redirecting...</body>
 </html>`;

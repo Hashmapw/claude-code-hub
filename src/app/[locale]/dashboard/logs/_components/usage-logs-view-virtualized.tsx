@@ -2,13 +2,14 @@
 
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, Play, RefreshCw } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getKeys } from "@/actions/keys";
 import { getProviders } from "@/actions/providers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "@/i18n/routing";
 import type { CurrencyCode } from "@/lib/utils/currency";
 import type { Key } from "@/types/key";
 import type { ProviderDisplay } from "@/types/provider";

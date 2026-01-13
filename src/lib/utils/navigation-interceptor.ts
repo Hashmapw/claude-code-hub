@@ -1,13 +1,13 @@
 /**
  * Navigation interceptor for reverse proxy base path support.
  *
- * This module patches browser navigation APIs and modifies link elements
- * to handle base path prefixing when running behind a reverse proxy.
+ * This module intercepts navigation events to handle base path prefixing
+ * when running behind a reverse proxy with a dynamic path prefix.
  *
  * Strategy:
- * 1. Use MutationObserver to modify link href attributes as they're added to DOM
- * 2. Intercept click events as a fallback
- * 3. Patch history.pushState/replaceState for programmatic navigation
+ * - Intercept click events on links and redirect with correct base path
+ * - Patch history.pushState/replaceState for programmatic navigation
+ * - Do NOT modify href attributes (this interferes with Next.js/next-intl)
  *
  * This ensures all navigation methods work correctly with the proxy base path.
  */
@@ -15,7 +15,6 @@
 import { getBasePath } from "./base-path";
 
 let isPatched = false;
-let observer: MutationObserver | null = null;
 
 /**
  * Check if a URL should have base path prepended
@@ -63,33 +62,6 @@ function prependBasePath(href: string, basePath: string): string {
 }
 
 /**
- * Process a single anchor element, modifying its href if needed
- */
-function processAnchor(anchor: HTMLAnchorElement, basePath: string): void {
-  const href = anchor.getAttribute("href");
-  if (href && shouldPrependBasePath(href, basePath)) {
-    const newHref = prependBasePath(href, basePath);
-    anchor.setAttribute("href", newHref);
-  }
-}
-
-/**
- * Process all anchor elements in a node and its descendants
- */
-function processNode(node: Node, basePath: string): void {
-  if (node instanceof HTMLAnchorElement) {
-    processAnchor(node, basePath);
-  }
-
-  if (node instanceof HTMLElement) {
-    const anchors = node.querySelectorAll("a[href]");
-    anchors.forEach((anchor) => {
-      processAnchor(anchor as HTMLAnchorElement, basePath);
-    });
-  }
-}
-
-/**
  * Patch navigation APIs for proxy support.
  * This function is idempotent - calling it multiple times has no effect.
  */
@@ -106,47 +78,8 @@ export function patchNavigationForProxy(): void {
     return;
   }
 
-  // Process all existing anchors
-  processNode(document.body, basePath);
-
-  // Set up MutationObserver to handle dynamically added links
-  observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      // Handle added nodes
-      for (const node of mutation.addedNodes) {
-        processNode(node, basePath);
-      }
-
-      // Handle attribute changes on anchor elements
-      if (
-        mutation.type === "attributes" &&
-        mutation.attributeName === "href" &&
-        mutation.target instanceof HTMLAnchorElement
-      ) {
-        const anchor = mutation.target;
-        const href = anchor.getAttribute("href");
-        // Only process if it doesn't already have base path (avoid infinite loop)
-        if (href && shouldPrependBasePath(href, basePath)) {
-          // Use setTimeout to avoid triggering observer recursively
-          setTimeout(() => {
-            const currentHref = anchor.getAttribute("href");
-            if (currentHref && shouldPrependBasePath(currentHref, basePath)) {
-              anchor.setAttribute("href", prependBasePath(currentHref, basePath));
-            }
-          }, 0);
-        }
-      }
-    }
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["href"],
-  });
-
-  // Fallback: Intercept click events for any links we might have missed
+  // Intercept click events on links
+  // Use capture phase to intercept before Next.js handles the click
   document.addEventListener(
     "click",
     (event) => {
@@ -158,17 +91,33 @@ export function patchNavigationForProxy(): void {
       const href = anchor.getAttribute("href");
       if (!href) return;
 
-      // If the href still needs base path (shouldn't happen, but just in case)
-      if (shouldPrependBasePath(href, basePath)) {
-        event.preventDefault();
-        event.stopPropagation();
-        window.location.href = prependBasePath(href, basePath);
-      }
+      // Check if we need to add base path
+      if (!shouldPrependBasePath(href, basePath)) return;
+
+      // Skip if it has target="_blank" or similar
+      const anchorTarget = anchor.getAttribute("target");
+      if (anchorTarget && anchorTarget !== "_self") return;
+
+      // Skip if modifier keys are pressed (user wants to open in new tab)
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+      // Skip download links
+      if (anchor.hasAttribute("download")) return;
+
+      // Prevent Next.js from handling this navigation
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      // Navigate with the correct base path
+      const newHref = prependBasePath(href, basePath);
+      window.location.href = newHref;
     },
-    true
+    true // Capture phase
   );
 
   // Patch history.pushState and history.replaceState
+  // This handles programmatic navigation via router.push()
   const originalPushState = history.pushState.bind(history);
   history.pushState = (data: unknown, unused: string, url?: string | URL | null): void => {
     if (url) {
@@ -199,15 +148,4 @@ export function patchNavigationForProxy(): void {
  */
 export function isNavigationPatched(): boolean {
   return isPatched;
-}
-
-/**
- * Clean up the navigation interceptor (useful for testing)
- */
-export function cleanupNavigationInterceptor(): void {
-  if (observer) {
-    observer.disconnect();
-    observer = null;
-  }
-  isPatched = false;
 }

@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
+import { getBasePath } from "@/lib/utils/base-path";
 
 interface ClientRedirectProps {
   /**
@@ -31,19 +32,9 @@ interface ClientRedirectProps {
  */
 export function ClientRedirect({ to, locale }: ClientRedirectProps) {
   useEffect(() => {
-    // Get the current pathname from the browser
-    const currentPath = window.location.pathname;
-
-    // Find the locale segment in the current path to determine the base path
-    // The locale should appear as a path segment like /zh-CN/, /en/, etc.
-    const localePattern = new RegExp(`^(.*?)/${locale}(?:/|$)`);
-    const match = currentPath.match(localePattern);
-
-    let basePath = "";
-    if (match) {
-      // Extract everything before the locale as the base path
-      basePath = match[1] || "";
-    }
+    // Use the centralized getBasePath function which has robust logic
+    // for finding the proxy base path before the locale segment
+    const basePath = getBasePath();
 
     // Construct the full redirect URL
     // Ensure the target path starts with /

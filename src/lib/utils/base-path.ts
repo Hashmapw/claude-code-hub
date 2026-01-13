@@ -55,6 +55,21 @@ export function getBasePath(): string {
     }
   }
 
+  // If still no base path found and current path has content,
+  // check if the entire path (minus trailing /) could be the base path
+  // This handles the case of accessing proxy root like /ws-xxx/.../proxy/3000/
+  if (currentPath.length > 1) {
+    // Remove trailing slash if present
+    const pathWithoutTrailingSlash = currentPath.replace(/\/+$/, "");
+    // If the path doesn't start with a known app route, treat it as base path
+    if (
+      pathWithoutTrailingSlash &&
+      !pathWithoutTrailingSlash.match(/^\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\/|$)/)
+    ) {
+      return pathWithoutTrailingSlash;
+    }
+  }
+
   return "";
 }
 
