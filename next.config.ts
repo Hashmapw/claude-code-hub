@@ -15,7 +15,7 @@ function getAssetPrefix(): string | undefined {
 
   try {
     // Replace {{port}} placeholder with actual port
-    const port = process.env.PORT || "3000";
+    const port = process.env.PORT || "4000";
     const resolvedUri = proxyUri.replace("{{port}}", port);
 
     // Parse URL and extract path (without trailing slash for assetPrefix)

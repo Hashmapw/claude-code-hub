@@ -30,7 +30,7 @@ RUN bun run build
 # 运行阶段：使用 Node.js（避免 Bun 流式响应内存泄漏 Issue #18488）
 FROM node:trixie-slim AS runner
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=4000
 ENV HOST=0.0.0.0
 WORKDIR /app
 
@@ -55,6 +55,6 @@ COPY --from=build --chown=node:node /app/.next/server ./.next/server
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 
 USER node
-EXPOSE 3000
+EXPOSE 4000
 
 CMD ["node", "server.js"]
