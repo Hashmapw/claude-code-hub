@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { ClientRedirect } from "@/components/client-redirect";
 import { Section } from "@/components/section";
-import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
 import { ActiveSessionsSkeleton } from "./_components/active-sessions-skeleton";
 import {
@@ -19,12 +19,11 @@ export default async function UsageLogsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Await params to ensure locale is available in the async context
   const { locale } = await params;
 
   const session = await getSession();
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return <ClientRedirect to="/login" locale={locale} />;
   }
 
   const isAdmin = session.user.role === "admin";

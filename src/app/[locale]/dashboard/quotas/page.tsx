@@ -1,18 +1,17 @@
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 
 export default async function QuotasPage({ params }: { params: Promise<{ locale: string }> }) {
-  // Await params to ensure locale is available in the async context
   const { locale } = await params;
 
   const session = await getSession();
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return <ClientRedirect to="/login" locale={locale} />;
   }
 
   if (session.user.role !== "admin") {
-    return redirect({ href: "/dashboard/my-quota", locale });
+    return <ClientRedirect to="/dashboard/my-quota" locale={locale} />;
   }
 
-  return redirect({ href: "/dashboard/quotas/users", locale });
+  return <ClientRedirect to="/dashboard/quotas/users" locale={locale} />;
 }

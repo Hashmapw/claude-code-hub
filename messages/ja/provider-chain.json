@@ -15,7 +15,15 @@
     "EPROTO": "プロトコルエラー（SSL/TLS ハンドシェイク失敗）",
     "CLIENT_ABORT": "クライアントがリクエストを中断",
     "PROVIDER_TIMEOUT": "プロバイダーレスポンスタイムアウト（最初のバイト遅延が高い）",
-    "STREAMING_IDLE_TIMEOUT": "ストリーミングアイドルタイムアウト（プロバイダーがデータ送信を停止）"
+    "STREAMING_IDLE_TIMEOUT": "ストリーミングアイドルタイムアウト（プロバイダーがデータ送信を停止）",
+    "UND_ERR_CONNECT_TIMEOUT": "接続タイムアウト（規定時間内に接続を確立できませんでした）",
+    "UND_ERR_HEADERS_TIMEOUT": "ヘッダータイムアウト（サーバーが規定時間内にヘッダーを返しませんでした）",
+    "UND_ERR_BODY_TIMEOUT": "ボディタイムアウト（サーバーが規定時間内に完全なレスポンスを返しませんでした）",
+    "UND_ERR_SOCKET": "ソケットエラー（基盤ネットワーク接続の問題）",
+    "UND_ERR_DESTROYED": "接続が破棄されました（リクエストが中断されました）",
+    "UND_ERR_ABORTED": "リクエストが中止されました",
+    "UND_ERR_INFO": "情報エラー",
+    "UND_ERR_REQ_CONTENT_LENGTH_MISMATCH": "リクエストコンテンツ長の不一致"
   },
   "summary": {
     "singleSuccess": "{total}個のプロバイダー、{healthy}個正常 → {provider} ✓",

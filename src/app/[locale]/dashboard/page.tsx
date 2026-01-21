@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { hasPriceTable } from "@/actions/model-prices";
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import {
   DashboardLeaderboardSection,
@@ -16,13 +16,11 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
-  // Await params to ensure locale is available in the async context
   const { locale } = await params;
 
-  // 检查价格表是否存在，如果不存在则跳转到价格上传页面
   const hasPrices = await hasPriceTable();
   if (!hasPrices) {
-    return redirect({ href: "/settings/prices?required=true", locale });
+    return <ClientRedirect to="/settings/prices?required=true" locale={locale} />;
   }
 
   const session = await getSession();

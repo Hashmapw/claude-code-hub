@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { Link, useRouter } from "@/i18n/routing";
+import { Link } from "@/i18n/routing";
+import { apiFetch, getBasePath } from "@/lib/utils/base-path";
 
 export default function LoginPage() {
   return (
@@ -22,7 +23,6 @@ export default function LoginPage() {
 
 function LoginPageContent() {
   const t = useTranslations("auth");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/dashboard";
 
@@ -31,7 +31,6 @@ function LoginPageContent() {
   const [error, setError] = useState("");
   const [showHttpWarning, setShowHttpWarning] = useState(false);
 
-  // 检测是否为 HTTP（非 localhost）
   useEffect(() => {
     if (typeof window !== "undefined") {
       const isHttp = window.location.protocol === "http:";
@@ -47,7 +46,7 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await apiFetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: apiKey }),
@@ -60,10 +59,10 @@ function LoginPageContent() {
         return;
       }
 
-      // 登录成功，按服务端返回的目标跳转，回退到原页面
       const redirectTarget = data.redirectTo || from;
-      router.push(redirectTarget);
-      router.refresh();
+      const basePath = getBasePath();
+      const fullPath = basePath ? `${basePath}${redirectTarget}` : redirectTarget;
+      window.location.href = fullPath;
     } catch {
       setError(t("errors.networkError"));
     } finally {

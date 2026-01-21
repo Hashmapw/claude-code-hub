@@ -15,7 +15,15 @@
     "EPROTO": "协议错误（SSL/TLS 握手失败）",
     "CLIENT_ABORT": "客户端中断请求",
     "PROVIDER_TIMEOUT": "供应商响应超时（首字节延迟过高）",
-    "STREAMING_IDLE_TIMEOUT": "流式响应静默超时（供应商停止发送数据）"
+    "STREAMING_IDLE_TIMEOUT": "流式响应静默超时（供应商停止发送数据）",
+    "UND_ERR_CONNECT_TIMEOUT": "连接超时（无法在规定时间内建立连接）",
+    "UND_ERR_HEADERS_TIMEOUT": "响应头超时（服务器未在规定时间内返回响应头）",
+    "UND_ERR_BODY_TIMEOUT": "响应体超时（服务器未在规定时间内返回完整响应）",
+    "UND_ERR_SOCKET": "Socket 错误（底层网络连接异常）",
+    "UND_ERR_DESTROYED": "连接已销毁（请求被中断）",
+    "UND_ERR_ABORTED": "请求被中止",
+    "UND_ERR_INFO": "信息性错误",
+    "UND_ERR_REQ_CONTENT_LENGTH_MISMATCH": "请求内容长度不匹配"
   },
   "summary": {
     "singleSuccess": "{total} 个供应商，{healthy} 个健康 → {provider} ✓",

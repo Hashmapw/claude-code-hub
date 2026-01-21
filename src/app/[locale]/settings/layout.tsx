@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { redirect } from "@/i18n/routing";
 
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { DashboardHeader } from "../dashboard/_components/dashboard-header";
 import { SettingsNav } from "./_components/settings-nav";
@@ -13,20 +13,18 @@ export default async function SettingsLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  // Await params to ensure locale is available in the async context
   const { locale } = await params;
 
   const session = await getSession();
 
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return <ClientRedirect to="/login" locale={locale} />;
   }
 
   if (session.user.role !== "admin") {
-    return redirect({ href: "/dashboard", locale });
+    return <ClientRedirect to="/dashboard" locale={locale} />;
   }
 
-  // Get translated navigation items
   const translatedNavItems = await getTranslatedNavItems();
 
   return (
