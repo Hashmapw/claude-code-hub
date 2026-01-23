@@ -17,6 +17,62 @@
 
 const SUPPORTED_LOCALES = ["zh-CN", "zh-TW", "en", "ja", "ru"];
 
+// Known application routes that should NOT be part of the base path
+// These patterns indicate we've entered the app's routing space
+const APP_ROUTES = [
+  "/dashboard",
+  "/settings",
+  "/login",
+  "/logout",
+  "/my-usage",
+  "/usage-doc",
+  "/internal",
+  "/api",
+  "/v1",
+  "/v1beta",
+  "/_next",
+];
+
+/**
+ * Clean the base path by removing any application routes that may have been
+ * incorrectly included (e.g., due to URL pollution from navigation loops).
+ *
+ * @param basePath - The potentially polluted base path
+ * @returns The cleaned base path containing only the proxy prefix
+ */
+function cleanBasePath(basePath: string): string {
+  if (!basePath) return "";
+
+  // Find the first occurrence of any app route in the base path
+  let earliestAppRouteIdx = -1;
+  for (const route of APP_ROUTES) {
+    const idx = basePath.indexOf(route);
+    if (idx !== -1 && (earliestAppRouteIdx === -1 || idx < earliestAppRouteIdx)) {
+      earliestAppRouteIdx = idx;
+    }
+  }
+
+  // Also check for locale patterns that shouldn't be in base path
+  for (const locale of SUPPORTED_LOCALES) {
+    const localePattern = `/${locale}`;
+    const idx = basePath.indexOf(localePattern);
+    if (idx !== -1 && (earliestAppRouteIdx === -1 || idx < earliestAppRouteIdx)) {
+      // Verify it's a locale segment (followed by / or end)
+      const afterLocale = basePath.substring(idx + localePattern.length);
+      if (afterLocale === "" || afterLocale.startsWith("/")) {
+        earliestAppRouteIdx = idx;
+      }
+    }
+  }
+
+  // If we found an app route or locale in the base path, truncate before it
+  if (earliestAppRouteIdx > 0) {
+    return basePath.substring(0, earliestAppRouteIdx);
+  }
+
+  return basePath;
+}
+
 /**
  * Get the base path prefix from the current URL.
  * This extracts the proxy path prefix before the locale segment.
@@ -39,8 +95,9 @@ export function getBasePath(): string {
       // Check if it's actually a locale segment (followed by / or end of string)
       const afterLocale = currentPath.substring(idx + localePattern.length);
       if (afterLocale === "" || afterLocale.startsWith("/")) {
-        // Return everything before the locale segment
-        return currentPath.substring(0, idx);
+        // Return everything before the locale segment, cleaned of any app routes
+        const rawBasePath = currentPath.substring(0, idx);
+        return cleanBasePath(rawBasePath);
       }
     }
   }
@@ -51,7 +108,8 @@ export function getBasePath(): string {
   for (const knownPath of knownPaths) {
     const idx = currentPath.indexOf(knownPath);
     if (idx > 0) {
-      return currentPath.substring(0, idx);
+      const rawBasePath = currentPath.substring(0, idx);
+      return cleanBasePath(rawBasePath);
     }
   }
 
@@ -66,7 +124,7 @@ export function getBasePath(): string {
       pathWithoutTrailingSlash &&
       !pathWithoutTrailingSlash.match(/^\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\/|$)/)
     ) {
-      return pathWithoutTrailingSlash;
+      return cleanBasePath(pathWithoutTrailingSlash);
     }
   }
 
