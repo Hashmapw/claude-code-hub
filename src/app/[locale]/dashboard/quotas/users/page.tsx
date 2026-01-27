@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { getUserLimitUsage, getUsers } from "@/actions/users";
 import { QuotaToolbar } from "@/components/quota/quota-toolbar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Link, redirect } from "@/i18n/routing";
+import { Link } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { sumKeyTotalCostById, sumUserTotalCost } from "@/repository/statistics";
 import { getSystemSettings } from "@/repository/system-config";
@@ -81,7 +82,7 @@ export default async function UsersQuotaPage({ params }: { params: Promise<{ loc
 
   // 权限检查：仅 admin 用户可访问
   if (!session || session.user.role !== "admin") {
-    return redirect({ href: session ? "/dashboard/my-quota" : "/login", locale });
+    return <ClientRedirect to={session ? "/dashboard/my-quota" : "/login"} locale={locale} />;
   }
 
   const t = await getTranslations("quota.users");

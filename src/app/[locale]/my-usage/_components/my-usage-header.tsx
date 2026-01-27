@@ -3,7 +3,7 @@
 import { LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "@/i18n/routing";
+import { apiFetch, getBasePath } from "@/lib/utils/base-path";
 
 interface MyUsageHeaderProps {
   onLogout?: () => Promise<void> | void;
@@ -13,7 +13,6 @@ interface MyUsageHeaderProps {
 
 export function MyUsageHeader({ onLogout, keyName, userName }: MyUsageHeaderProps) {
   const t = useTranslations("myUsage.header");
-  const router = useRouter();
 
   const handleLogout = async () => {
     if (onLogout) {
@@ -21,9 +20,10 @@ export function MyUsageHeader({ onLogout, keyName, userName }: MyUsageHeaderProp
       return;
     }
 
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    await apiFetch("/auth/logout", { method: "POST" });
+    const basePath = getBasePath();
+    const loginPath = basePath ? `${basePath}/login` : "/login";
+    window.location.href = loginPath;
   };
 
   return (

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { Footer } from "@/components/customs/footer";
+import { ProxyFetchInitializer } from "@/components/proxy-fetch-initializer";
 import { Toaster } from "@/components/ui/sonner";
 import { type Locale, locales } from "@/i18n/config";
 import { logger } from "@/lib/logger";
@@ -74,6 +75,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className="antialiased">
+        <ProxyFetchInitializer />
         <NextIntlClientProvider messages={messages}>
           <AppProviders>
             <div className="flex min-h-screen flex-col bg-background text-foreground">

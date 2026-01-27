@@ -1,7 +1,8 @@
 "use client";
 
 import { Pause, Play, RefreshCw } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { getUsageLogs } from "@/actions/usage-logs";
