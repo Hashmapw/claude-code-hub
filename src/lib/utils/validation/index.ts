@@ -39,7 +39,7 @@ export function maskKey(key: string): string {
  * @returns 基础域名（包含协议和主机名，不含路径）
  * @example
  * extractBaseUrl("https://api.minimaxi.com/anthropic/v1/messages") // "https://api.minimaxi.com"
- * extractBaseUrl("http://localhost:3000/api") // "http://localhost:3000"
+ * extractBaseUrl("http://localhost:4000/api") // "http://localhost:4000"
  */
 export function extractBaseUrl(url: string): string {
   try {

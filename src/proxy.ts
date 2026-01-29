@@ -19,6 +19,235 @@ const API_PROXY_PATH = "/v1";
 // Create next-intl middleware for locale detection and routing
 const intlMiddleware = createMiddleware(routing);
 
+function createRelativeRedirect(
+  _request: NextRequest,
+  targetPath: string,
+  searchParams?: URLSearchParams
+): Response {
+  let fullTargetPath = targetPath;
+  if (searchParams?.toString()) {
+    fullTargetPath += `?${searchParams.toString()}`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>
+(function() {
+  var targetPath = ${JSON.stringify(fullTargetPath)};
+  var locales = ["zh-CN", "zh-TW", "en", "ja", "ru"];
+  var appRoutes = ["/dashboard", "/settings", "/login", "/logout", "/my-usage", "/usage-doc", "/internal", "/api", "/v1", "/v1beta", "/_next"];
+  var currentPath = window.location.pathname;
+  var basePath = "";
+
+  function cleanBasePath(path) {
+    if (!path) return "";
+    var earliestAppRouteIdx = -1;
+
+    for (var i = 0; i < appRoutes.length; i++) {
+      var route = appRoutes[i];
+      var routeIdx = path.indexOf(route);
+      if (routeIdx !== -1 && (earliestAppRouteIdx === -1 || routeIdx < earliestAppRouteIdx)) {
+        earliestAppRouteIdx = routeIdx;
+      }
+    }
+
+    for (var j = 0; j < locales.length; j++) {
+      var localePattern = "/" + locales[j];
+      var localeIdx = path.indexOf(localePattern);
+      if (localeIdx !== -1 && (earliestAppRouteIdx === -1 || localeIdx < earliestAppRouteIdx)) {
+        var afterLocale = path.substring(localeIdx + localePattern.length);
+        if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+          earliestAppRouteIdx = localeIdx;
+        }
+      }
+    }
+
+    if (earliestAppRouteIdx >= 0) {
+      return path.substring(0, earliestAppRouteIdx);
+    }
+
+    return path;
+  }
+
+  var proxyMatch = currentPath.match(/^(.*?\\/proxy\\/\\d+)(?:\\/|$)/);
+  if (proxyMatch) {
+    basePath = proxyMatch[1];
+  }
+
+  if (!basePath) {
+    for (var k = 0; k < locales.length; k++) {
+      var localePattern = "/" + locales[k];
+      var idx = currentPath.indexOf(localePattern);
+      if (idx !== -1) {
+        var afterLocale = currentPath.substring(idx + localePattern.length);
+        if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+          basePath = currentPath.substring(0, idx);
+          break;
+        }
+      }
+    }
+  }
+
+  if (!basePath) {
+    var knownPaths = ["/api/", "/v1/", "/_next/"];
+    for (var j = 0; j < knownPaths.length; j++) {
+      var idx2 = currentPath.indexOf(knownPaths[j]);
+      if (idx2 > 0) {
+        basePath = currentPath.substring(0, idx2);
+        break;
+      }
+    }
+  }
+
+  if (!basePath && currentPath.length > 1) {
+    var pathWithoutTrailingSlash = currentPath.replace(/\\/+$/, "");
+    if (pathWithoutTrailingSlash &&
+        !pathWithoutTrailingSlash.match(/^\\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\\/|$)/)) {
+      basePath = pathWithoutTrailingSlash;
+    }
+  }
+
+  basePath = cleanBasePath(basePath);
+
+  var fullPath = basePath + targetPath;
+  window.location.replace(fullPath);
+})();
+</script>
+<noscript>
+<meta http-equiv="refresh" content="0;url=${fullTargetPath}">
+</noscript>
+</head>
+<body></body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+    },
+  });
+}
+
+function convertToRelativeRedirect(response: NextResponse): Response {
+  const location = response.headers.get("Location");
+  if (!location) {
+    return response;
+  }
+
+  if (response.status < 300 || response.status >= 400) {
+    return response;
+  }
+
+  try {
+    const url = new URL(location, "http://dummy");
+    const targetPath = url.pathname + url.search;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>
+(function() {
+  var targetPath = ${JSON.stringify(targetPath)};
+  var locales = ["zh-CN", "zh-TW", "en", "ja", "ru"];
+  var appRoutes = ["/dashboard", "/settings", "/login", "/logout", "/my-usage", "/usage-doc", "/internal", "/api", "/v1", "/v1beta", "/_next"];
+  var currentPath = window.location.pathname;
+  var basePath = "";
+
+  function cleanBasePath(path) {
+    if (!path) return "";
+    var earliestAppRouteIdx = -1;
+
+    for (var i = 0; i < appRoutes.length; i++) {
+      var route = appRoutes[i];
+      var routeIdx = path.indexOf(route);
+      if (routeIdx !== -1 && (earliestAppRouteIdx === -1 || routeIdx < earliestAppRouteIdx)) {
+        earliestAppRouteIdx = routeIdx;
+      }
+    }
+
+    for (var j = 0; j < locales.length; j++) {
+      var localePattern = "/" + locales[j];
+      var localeIdx = path.indexOf(localePattern);
+      if (localeIdx !== -1 && (earliestAppRouteIdx === -1 || localeIdx < earliestAppRouteIdx)) {
+        var afterLocale = path.substring(localeIdx + localePattern.length);
+        if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+          earliestAppRouteIdx = localeIdx;
+        }
+      }
+    }
+
+    if (earliestAppRouteIdx >= 0) {
+      return path.substring(0, earliestAppRouteIdx);
+    }
+
+    return path;
+  }
+
+  var proxyMatch = currentPath.match(/^(.*?\\/proxy\\/\\d+)(?:\\/|$)/);
+  if (proxyMatch) {
+    basePath = proxyMatch[1];
+  }
+
+  if (!basePath) {
+    for (var k = 0; k < locales.length; k++) {
+      var localePattern = "/" + locales[k];
+      var idx = currentPath.indexOf(localePattern);
+      if (idx !== -1) {
+        var afterLocale = currentPath.substring(idx + localePattern.length);
+        if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+          basePath = currentPath.substring(0, idx);
+          break;
+        }
+      }
+    }
+  }
+
+  if (!basePath) {
+    var knownPaths = ["/api/", "/v1/", "/_next/"];
+    for (var j = 0; j < knownPaths.length; j++) {
+      var idx2 = currentPath.indexOf(knownPaths[j]);
+      if (idx2 > 0) {
+        basePath = currentPath.substring(0, idx2);
+        break;
+      }
+    }
+  }
+
+  if (!basePath && currentPath.length > 1) {
+    var pathWithoutTrailingSlash = currentPath.replace(/\\/+$/, "");
+    if (pathWithoutTrailingSlash &&
+        !pathWithoutTrailingSlash.match(/^\\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\\/|$)/)) {
+      basePath = pathWithoutTrailingSlash;
+    }
+  }
+
+  basePath = cleanBasePath(basePath);
+
+  var fullPath = basePath + targetPath;
+  window.location.replace(fullPath);
+})();
+</script>
+<noscript>
+<meta http-equiv="refresh" content="0;url=${targetPath}">
+</noscript>
+</head>
+<body></body>
+</html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    });
+  } catch {
+    return response;
+  }
+}
+
 async function proxyHandler(request: NextRequest) {
   const method = request.method;
   const pathname = request.nextUrl.pathname;
@@ -58,7 +287,7 @@ async function proxyHandler(request: NextRequest) {
 
   // Public paths don't require authentication
   if (isPublicPath) {
-    return localeResponse;
+    return convertToRelativeRedirect(localeResponse);
   }
 
   // Check if current path allows read-only access (for canLoginWebUi=false keys)
@@ -70,31 +299,129 @@ async function proxyHandler(request: NextRequest) {
   const authToken = request.cookies.get("auth-token");
 
   if (!authToken) {
-    // Not authenticated, redirect to login page
-    const url = request.nextUrl.clone();
-    // Preserve locale in redirect
     const locale = isLocaleInPath ? potentialLocale : routing.defaultLocale;
-    url.pathname = `/${locale}/login`;
-    url.searchParams.set("from", pathWithoutLocale || "/dashboard");
-    return NextResponse.redirect(url);
+    const loginPath = `/${locale}/login`;
+    const searchParams = new URLSearchParams();
+    searchParams.set("from", pathWithoutLocale || "/dashboard");
+    return createRelativeRedirect(request, loginPath, searchParams);
   }
 
   // Validate key permissions (canLoginWebUi, isEnabled, expiresAt, etc.)
   const session = await validateKey(authToken.value, { allowReadOnlyAccess: isReadOnlyPath });
   if (!session) {
-    // Invalid key or insufficient permissions, clear cookie and redirect to login
-    const url = request.nextUrl.clone();
-    // Preserve locale in redirect
     const locale = isLocaleInPath ? potentialLocale : routing.defaultLocale;
-    url.pathname = `/${locale}/login`;
-    url.searchParams.set("from", pathWithoutLocale || "/dashboard");
-    const response = NextResponse.redirect(url);
-    response.cookies.delete("auth-token");
-    return response;
+    const loginPath = `/${locale}/login`;
+    const searchParams = new URLSearchParams();
+    searchParams.set("from", pathWithoutLocale || "/dashboard");
+
+    const fullTargetPath = `${loginPath}?${searchParams.toString()}`;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script>
+(function() {
+  var targetPath = ${JSON.stringify(fullTargetPath)};
+  var locales = ["zh-CN", "zh-TW", "en", "ja", "ru"];
+  var appRoutes = ["/dashboard", "/settings", "/login", "/logout", "/my-usage", "/usage-doc", "/internal", "/api", "/v1", "/v1beta", "/_next"];
+  var currentPath = window.location.pathname;
+  var basePath = "";
+
+  function cleanBasePath(path) {
+    if (!path) return "";
+    var earliestAppRouteIdx = -1;
+
+    for (var i = 0; i < appRoutes.length; i++) {
+      var route = appRoutes[i];
+      var routeIdx = path.indexOf(route);
+      if (routeIdx !== -1 && (earliestAppRouteIdx === -1 || routeIdx < earliestAppRouteIdx)) {
+        earliestAppRouteIdx = routeIdx;
+      }
+    }
+
+    for (var j = 0; j < locales.length; j++) {
+      var localePattern = "/" + locales[j];
+      var localeIdx = path.indexOf(localePattern);
+      if (localeIdx !== -1 && (earliestAppRouteIdx === -1 || localeIdx < earliestAppRouteIdx)) {
+        var afterLocale = path.substring(localeIdx + localePattern.length);
+        if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+          earliestAppRouteIdx = localeIdx;
+        }
+      }
+    }
+
+    if (earliestAppRouteIdx >= 0) {
+      return path.substring(0, earliestAppRouteIdx);
+    }
+
+    return path;
+  }
+
+  var proxyMatch = currentPath.match(/^(.*?\\/proxy\\/\\d+)(?:\\/|$)/);
+  if (proxyMatch) {
+    basePath = proxyMatch[1];
+  }
+
+  if (!basePath) {
+    for (var k = 0; k < locales.length; k++) {
+      var localePattern = "/" + locales[k];
+      var idx = currentPath.indexOf(localePattern);
+      if (idx !== -1) {
+        var afterLocale = currentPath.substring(idx + localePattern.length);
+        if (afterLocale === "" || afterLocale.charAt(0) === "/") {
+          basePath = currentPath.substring(0, idx);
+          break;
+        }
+      }
+    }
+  }
+
+  if (!basePath) {
+    var knownPaths = ["/api/", "/v1/", "/_next/"];
+    for (var j = 0; j < knownPaths.length; j++) {
+      var idx2 = currentPath.indexOf(knownPaths[j]);
+      if (idx2 > 0) {
+        basePath = currentPath.substring(0, idx2);
+        break;
+      }
+    }
+  }
+
+  if (!basePath && currentPath.length > 1) {
+    var pathWithoutTrailingSlash = currentPath.replace(/\\/+$/, "");
+    if (pathWithoutTrailingSlash &&
+        !pathWithoutTrailingSlash.match(/^\\/(zh-CN|zh-TW|en|ja|ru|api|v1|_next)(\\/|$)/)) {
+      basePath = pathWithoutTrailingSlash;
+    }
+  }
+
+  basePath = cleanBasePath(basePath);
+
+  document.cookie = "auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+  var fullPath = basePath + targetPath;
+  window.location.replace(fullPath);
+})();
+</script>
+<noscript>
+<meta http-equiv="refresh" content="0;url=${fullTargetPath}">
+</noscript>
+</head>
+<body></body>
+</html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Set-Cookie": "auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+      },
+    });
   }
 
   // Authentication passed, return locale response
-  return localeResponse;
+  return convertToRelativeRedirect(localeResponse);
 }
 
 // Default export required for Next.js 16 proxy file

@@ -1540,7 +1540,7 @@ services:
   app:
     image: claude-code-hub:latest
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
       - DSN=postgresql://...
       - REDIS_URL=redis://...

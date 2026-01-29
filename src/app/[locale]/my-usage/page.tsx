@@ -8,7 +8,7 @@ import {
   type MyUsageQuota,
 } from "@/actions/my-usage";
 import { getServerTimeZone } from "@/actions/system-config";
-import { useRouter } from "@/i18n/routing";
+import { apiFetch, getBasePath } from "@/lib/utils/base-path";
 import { CollapsibleQuotaCard } from "./_components/collapsible-quota-card";
 import { ExpirationInfo } from "./_components/expiration-info";
 import { MyUsageHeader } from "./_components/my-usage-header";
@@ -17,8 +17,6 @@ import { StatisticsSummaryCard } from "./_components/statistics-summary-card";
 import { UsageLogsSection } from "./_components/usage-logs-section";
 
 export default function MyUsagePage() {
-  const router = useRouter();
-
   const [quota, setQuota] = useState<MyUsageQuota | null>(null);
   const [logsData, setLogsData] = useState<MyUsageLogsResult | null>(null);
   const [isQuotaLoading, setIsQuotaLoading] = useState(true);
@@ -51,9 +49,10 @@ export default function MyUsagePage() {
   }, [loadInitial]);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    await apiFetch("/auth/logout", { method: "POST" });
+    const basePath = getBasePath();
+    const loginPath = basePath ? `${basePath}/login` : "/login";
+    window.location.href = loginPath;
   };
 
   const keyExpiresAt = quota?.expiresAt ?? null;

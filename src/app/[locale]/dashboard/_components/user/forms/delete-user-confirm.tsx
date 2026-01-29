@@ -1,5 +1,5 @@
 "use client";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { removeUser } from "@/actions/users";

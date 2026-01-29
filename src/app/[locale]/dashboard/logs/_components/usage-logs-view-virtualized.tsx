@@ -179,7 +179,7 @@ function UsageLogsViewContent({
     queryKey: ["overview-data"],
     queryFn: fetchOverviewData,
     enabled: isFullscreenOpen,
-    refetchInterval: isFullscreenOpen ? 3000 : false,
+    refetchInterval: isFullscreenOpen ? 4000 : false,
     refetchOnWindowFocus: false,
   });
 

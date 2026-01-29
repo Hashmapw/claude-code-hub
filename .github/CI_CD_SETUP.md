@@ -122,7 +122,7 @@ docker pull ding113/claude-code-hub:1.0.0
 
 # 运行容器
 docker run -d \
-  -p 3000:3000 \
+  -p 4000:4000 \
   --env-file .env \
   ding113/claude-code-hub:latest
 ```

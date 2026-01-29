@@ -4,8 +4,45 @@ import createNextIntlPlugin from "next-intl/plugin";
 // Create next-intl plugin with i18n request configuration
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+function getBasePath(): string {
+  if (process.env.NEXT_PUBLIC_BASE_PATH) {
+    return process.env.NEXT_PUBLIC_BASE_PATH.replace(/\/$/, "");
+  }
+
+  return "";
+}
+
+function getAssetPrefix(): string | undefined {
+  const proxyUri = process.env.VSCODE_PROXY_URI;
+  if (!proxyUri) {
+    return undefined;
+  }
+
+  try {
+    const port = process.env.PORT || "4000";
+    const resolvedUri = proxyUri.replace("{{port}}", port);
+
+    const url = new URL(resolvedUri);
+    let path = url.pathname;
+
+    if (path.endsWith("/")) {
+      path = path.slice(0, -1);
+    }
+
+    return path || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const basePath = getBasePath();
+const assetPrefix = getAssetPrefix();
+
 const nextConfig: NextConfig = {
   output: "standalone",
+
+  ...(basePath && { basePath }),
+  ...(assetPrefix && { assetPrefix }),
 
   // 转译 ESM 模块（@lobehub/icons 需要）
   transpilePackages: ["@lobehub/icons"],

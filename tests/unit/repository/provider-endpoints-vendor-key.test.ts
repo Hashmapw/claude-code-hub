@@ -7,7 +7,7 @@ describe("computeVendorKey", () => {
       expect(
         await computeVendorKey({
           providerUrl: "https://api.example.com:8080/v1/messages",
-          websiteUrl: "https://example.com:3000",
+          websiteUrl: "https://example.com:4000",
         })
       ).toBe("example.com");
     });
@@ -112,10 +112,10 @@ describe("computeVendorKey", () => {
     test("handles localhost with port", async () => {
       expect(
         await computeVendorKey({
-          providerUrl: "http://localhost:3000/v1/messages",
+          providerUrl: "http://localhost:4000/v1/messages",
           websiteUrl: null,
         })
-      ).toBe("localhost:3000");
+      ).toBe("localhost:4000");
     });
 
     test("handles localhost without explicit port", async () => {

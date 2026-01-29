@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { ActiveSessionsSkeleton } from "./_components/active-sessions-skeleton";
 import {
@@ -21,7 +21,7 @@ export default async function UsageLogsPage({
 
   const session = await getSession();
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return <ClientRedirect to="/login" locale={locale} />;
   }
 
   const isAdmin = session.user.role === "admin";

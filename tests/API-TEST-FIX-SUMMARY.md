@@ -72,12 +72,12 @@ import { beforeAll, afterAll } from "vitest";
 import { spawn } from "child_process";
 
 let serverProcess;
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "http://localhost:4000";
 
 beforeAll(async () => {
   // 启动 Next.js 服务器
   serverProcess = spawn("npm", ["run", "dev"], {
-    env: { ...process.env, PORT: "3000" }
+    env: { ...process.env, PORT: "4000" }
   });
 
   // 等待服务器准备就绪

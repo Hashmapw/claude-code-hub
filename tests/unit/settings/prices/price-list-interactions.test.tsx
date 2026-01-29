@@ -79,7 +79,7 @@ describe("PriceList: 交互与数据刷新", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = "";
-    window.history.replaceState({}, "", "http://localhost:3000/settings/prices");
+    window.history.replaceState({}, "", "http://localhost:4000/settings/prices");
   });
 
   afterEach(() => {

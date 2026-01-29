@@ -60,9 +60,9 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN:-cch-dev-admin}
       TZ: Asia/Shanghai
     ports:
-      - "${APP_PORT:-23000}:3000"
+      - "${APP_PORT:-23000}:4000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/actions/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/api/actions/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 20

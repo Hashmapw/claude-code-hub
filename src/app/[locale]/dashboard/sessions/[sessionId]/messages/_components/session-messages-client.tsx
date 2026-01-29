@@ -139,10 +139,11 @@ export function SessionMessagesClient() {
     (seq: number) => {
       const params = new URLSearchParams(window.location.search);
       params.set("seq", seq.toString());
-      router.replace(`${pathname}?${params.toString()}`);
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState(null, "", newUrl);
       setIsMobileMenuOpen(false);
     },
-    [router, pathname]
+    []
   );
 
   useEffect(() => {

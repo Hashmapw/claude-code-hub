@@ -4,9 +4,10 @@ import { AutoSortPriorityDialog } from "@/app/[locale]/settings/providers/_compo
 import { ProviderManagerLoader } from "@/app/[locale]/settings/providers/_components/provider-manager-loader";
 import { ReclusterVendorsDialog } from "@/app/[locale]/settings/providers/_components/recluster-vendors-dialog";
 import { SchedulingRulesDialog } from "@/app/[locale]/settings/providers/_components/scheduling-rules-dialog";
+import { ClientRedirect } from "@/components/client-redirect";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
-import { Link, redirect } from "@/i18n/routing";
+import { Link } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function DashboardProvidersPage({
   // 权限检查：仅 admin 用户可访问
   const session = await getSession();
   if (!session || session.user.role !== "admin") {
-    redirect({ href: session ? "/dashboard" : "/login", locale });
+    return <ClientRedirect to={session ? "/dashboard" : "/login"} locale={locale} />;
   }
 
   // TypeScript: session is guaranteed to be non-null after the redirect check

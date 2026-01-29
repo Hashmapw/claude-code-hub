@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { hasPriceTable } from "@/actions/model-prices";
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { DashboardBentoSection } from "./_components/dashboard-bento-sections";
 import { DashboardOverviewSkeleton } from "./_components/dashboard-skeletons";
@@ -12,7 +12,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
 
   const hasPrices = await hasPriceTable();
   if (!hasPrices) {
-    return redirect({ href: "/settings/prices?required=true", locale });
+    return <ClientRedirect to="/settings/prices?required=true" locale={locale} />;
   }
 
   const session = await getSession();

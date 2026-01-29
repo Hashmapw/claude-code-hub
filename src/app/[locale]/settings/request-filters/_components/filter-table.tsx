@@ -1,7 +1,7 @@
 "use client";
 
 import { Globe, Package, Pencil, Plus, RefreshCw, Tags, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
