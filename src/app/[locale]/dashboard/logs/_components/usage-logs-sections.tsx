@@ -1,6 +1,5 @@
 import { cache } from "react";
-import { ActiveSessionsList } from "@/components/customs/active-sessions-list";
-import { resolveSystemTimezone } from "@/lib/utils/timezone";
+import { ActiveSessionsCards } from "@/components/customs/active-sessions-cards";
 import { getSystemSettings } from "@/repository/system-config";
 import { UsageLogsViewVirtualized } from "./usage-logs-view-virtualized";
 
@@ -14,13 +13,7 @@ interface UsageLogsDataSectionProps {
 
 export async function UsageLogsActiveSessionsSection() {
   const systemSettings = await getCachedSystemSettings();
-  return (
-    <ActiveSessionsList
-      currencyCode={systemSettings.currencyDisplay}
-      maxHeight="200px"
-      showTokensCost={false}
-    />
-  );
+  return <ActiveSessionsCards currencyCode={systemSettings.currencyDisplay} />;
 }
 
 export async function UsageLogsDataSection({
@@ -29,14 +22,12 @@ export async function UsageLogsDataSection({
   searchParams,
 }: UsageLogsDataSectionProps) {
   const resolvedSearchParams = await searchParams;
-  const serverTimeZone = await resolveSystemTimezone();
 
   return (
     <UsageLogsViewVirtualized
       isAdmin={isAdmin}
       userId={userId}
       searchParams={resolvedSearchParams}
-      serverTimeZone={serverTimeZone}
     />
   );
 }

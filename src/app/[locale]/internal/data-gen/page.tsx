@@ -1,4 +1,4 @@
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { DataGeneratorPage } from "./_components/data-generator-page";
 
@@ -11,7 +11,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const session = await getSession();
 
   if (!session || session.user.role !== "admin") {
-    return redirect({ href: "/login", locale });
+    return <ClientRedirect to="/login" locale={locale} />;
   }
 
   return <DataGeneratorPage />;

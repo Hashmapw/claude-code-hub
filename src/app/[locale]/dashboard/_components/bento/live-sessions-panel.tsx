@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, AlertCircle, Circle, XCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

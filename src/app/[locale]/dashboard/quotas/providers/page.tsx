@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { getProviderLimitUsageBatch, getProviders } from "@/actions/providers";
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 import { getSystemSettings } from "@/repository/system-config";
 import { ProvidersQuotaSkeleton } from "../_components/providers-quota-skeleton";
@@ -50,7 +50,7 @@ export default async function ProvidersQuotaPage({
 
   // 权限检查：仅 admin 用户可访问
   if (!session || session.user.role !== "admin") {
-    redirect({ href: session ? "/dashboard/my-quota" : "/login", locale });
+    return <ClientRedirect to={session ? "/dashboard/my-quota" : "/login"} locale={locale} />;
   }
 
   const t = await getTranslations("quota.providers");

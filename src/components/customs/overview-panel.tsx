@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Clock, DollarSign, TrendingUp } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import type { OverviewData } from "@/actions/overview";
 import { getOverviewData } from "@/actions/overview";
