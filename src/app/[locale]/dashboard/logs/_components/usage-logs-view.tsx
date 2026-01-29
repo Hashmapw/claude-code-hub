@@ -1,7 +1,8 @@
 "use client";
 
 import { Pause, Play, RefreshCw } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { getUsageLogs } from "@/actions/usage-logs";
@@ -25,7 +26,6 @@ interface UsageLogsViewProps {
   searchParams: { [key: string]: string | string[] | undefined };
   currencyCode?: CurrencyCode;
   billingModelSource?: BillingModelSource;
-  serverTimeZone?: string;
 }
 
 export function UsageLogsView({
@@ -35,7 +35,6 @@ export function UsageLogsView({
   searchParams,
   currencyCode = "USD",
   billingModelSource = "original",
-  serverTimeZone,
 }: UsageLogsViewProps) {
   const t = useTranslations("dashboard");
   const router = useRouter();
@@ -192,7 +191,6 @@ export function UsageLogsView({
             filters={filters}
             onChange={handleFilterChange}
             onReset={() => router.push("/dashboard/logs")}
-            serverTimeZone={serverTimeZone}
           />
         </CardContent>
       </Card>

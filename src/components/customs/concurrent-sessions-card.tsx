@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Activity } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { getConcurrentSessions } from "@/actions/concurrent-sessions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

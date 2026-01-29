@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, CheckCircle, FileJson, Loader2, Upload, XCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { redirect } from "@/i18n/routing";
+import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 
 export default async function MyUsageLayout({
@@ -13,11 +13,11 @@ export default async function MyUsageLayout({
   const session = await getSession({ allowReadOnlyAccess: true });
 
   if (!session) {
-    return redirect({ href: "/login?from=/my-usage", locale });
+    return <ClientRedirect to="/login?from=/my-usage" locale={locale} />;
   }
 
   if (session.user.role === "admin" || session.key.canLoginWebUi) {
-    return redirect({ href: "/dashboard", locale });
+    return <ClientRedirect to="/dashboard" locale={locale} />;
   }
 
   return (
