@@ -31,6 +31,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'circuit_breaker',
   'daily_leaderboard',
   'cost_alert',
+  'vip_group_usage',
 ]);
 
 // Users table
@@ -649,6 +650,9 @@ export const notificationSettings = pgTable('notification_settings', {
   costAlertWebhook: varchar('cost_alert_webhook', { length: 512 }),
   costAlertThreshold: numeric('cost_alert_threshold', { precision: 5, scale: 2 }).default('0.80'), // 阈值 0-1 (80% = 0.80)
   costAlertCheckInterval: integer('cost_alert_check_interval').default(60), // 检查间隔（分钟）
+
+  // VIP 组使用通知配置
+  vipGroupUsageEnabled: boolean('vip_group_usage_enabled').notNull().default(false),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

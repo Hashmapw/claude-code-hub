@@ -2,13 +2,13 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, RefreshCw, Users } from "lucide-react";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { renewUser } from "@/actions/users";
 import { Button } from "@/components/ui/button";
 import { useVirtualizer } from "@/hooks/use-virtualizer";
+import { useRouter } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import type { User, UserDisplay } from "@/types/user";
 import { BatchEditToolbar } from "./batch-edit/batch-edit-toolbar";

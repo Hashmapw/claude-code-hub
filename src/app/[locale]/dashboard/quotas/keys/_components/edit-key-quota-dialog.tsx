@@ -1,7 +1,6 @@
 "use client";
 
 import { Loader2, Settings } from "lucide-react";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -25,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRouter } from "@/i18n/routing";
 import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/utils/currency";
 
 interface KeyQuota {

@@ -23,8 +23,7 @@ describe("getBasePath (server)", () => {
   it("falls back to VSCODE_PROXY_URI when base path is not set", async () => {
     delete process.env.NEXT_PUBLIC_BASE_PATH;
     process.env.PORT = "4000";
-    process.env.VSCODE_PROXY_URI =
-      "https://example.com/ws-123/vscode/abc/proxy/{{port}}/";
+    process.env.VSCODE_PROXY_URI = "https://example.com/ws-123/vscode/abc/proxy/{{port}}/";
 
     const { getBasePath } = await import("@/lib/utils/base-path");
 

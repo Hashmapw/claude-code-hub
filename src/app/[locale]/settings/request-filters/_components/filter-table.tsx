@@ -1,7 +1,6 @@
 "use client";
 
 import { Globe, Package, Pencil, Plus, RefreshCw, Tags, Trash2 } from "lucide-react";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -14,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRouter } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import type { RequestFilter } from "@/repository/request-filters";
 import { FilterDialog } from "./filter-dialog";

@@ -33,6 +33,15 @@ export const DEFAULT_TEMPLATES = {
     quotaLimit: "{{quota_limit}}",
     usagePercent: "{{usage_percent}}",
   },
+
+  vip_group_usage: {
+    title: "{{title}}",
+    userId: "{{user_id}}",
+    userName: "{{user_name}}",
+    keyGroup: "{{key_group}}",
+    model: "{{model}}",
+    sessionId: "{{session_id}}",
+  },
 } as const;
 
 export const DEFAULT_TEMPLATE_BY_NOTIFICATION_TYPE: Record<
@@ -42,4 +51,5 @@ export const DEFAULT_TEMPLATE_BY_NOTIFICATION_TYPE: Record<
   circuit_breaker: DEFAULT_TEMPLATES.circuit_breaker,
   daily_leaderboard: DEFAULT_TEMPLATES.daily_leaderboard,
   cost_alert: DEFAULT_TEMPLATES.cost_alert,
+  vip_group_usage: DEFAULT_TEMPLATES.vip_group_usage,
 };

@@ -2,7 +2,6 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Trash2, UserCog } from "lucide-react";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -28,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "@/i18n/routing";
 import { useZodForm } from "@/lib/hooks/use-zod-form";
 import { cn } from "@/lib/utils";
 import { UpdateUserSchema } from "@/lib/validation/schemas";

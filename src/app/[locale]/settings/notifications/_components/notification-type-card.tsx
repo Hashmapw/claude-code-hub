@@ -59,6 +59,13 @@ function getTypeConfig(type: NotificationType): TypeConfig {
         borderColor: "border-border/50 hover:border-border",
         IconComponent: DollarSign,
       };
+    case "vip_group_usage":
+      return {
+        iconColor: "text-yellow-400",
+        iconBgColor: "bg-yellow-500/10",
+        borderColor: "border-border/50 hover:border-border",
+        IconComponent: AlertTriangle,
+      };
   }
 }
 
@@ -98,6 +105,14 @@ export function NotificationTypeCard({
           enabled: settings.costAlertEnabled,
           enabledKey: "costAlertEnabled" as const,
           enableLabel: t("notifications.costAlert.enable"),
+        };
+      case "vip_group_usage":
+        return {
+          title: t("notifications.vipGroupUsage.title"),
+          description: t("notifications.vipGroupUsage.description"),
+          enabled: settings.vipGroupUsageEnabled,
+          enabledKey: "vipGroupUsageEnabled" as const,
+          enableLabel: t("notifications.vipGroupUsage.enable"),
         };
     }
   }, [settings, t, type]);

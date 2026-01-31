@@ -1,12 +1,12 @@
 "use client";
 import { useQueryClient } from "@tanstack/react-query";
 import { ServerCog } from "lucide-react";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { FormErrorBoundary } from "@/components/form-error-boundary";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { useRouter } from "@/i18n/routing";
 import { ProviderForm } from "./forms/provider-form";
 
 interface AddProviderDialogProps {

@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -12,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "@/i18n/routing";
 
 interface DeleteKeyConfirmProps {
   keyData?: {

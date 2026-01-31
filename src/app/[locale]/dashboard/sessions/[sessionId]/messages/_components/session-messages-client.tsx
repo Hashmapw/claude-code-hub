@@ -135,16 +135,13 @@ export function SessionMessagesClient() {
 
   const currencyCode = systemSettings?.currencyDisplay || "USD";
 
-  const handleSelectRequest = useCallback(
-    (seq: number) => {
-      const params = new URLSearchParams(window.location.search);
-      params.set("seq", seq.toString());
-      const newUrl = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState(null, "", newUrl);
-      setIsMobileMenuOpen(false);
-    },
-    []
-  );
+  const handleSelectRequest = useCallback((seq: number) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("seq", seq.toString());
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", newUrl);
+    setIsMobileMenuOpen(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

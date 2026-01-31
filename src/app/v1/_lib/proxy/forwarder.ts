@@ -493,6 +493,26 @@ export class ProxyForwarder {
             statusCode: response.status,
           });
 
+          // VIP group usage notification (when provider groupTag contains "vip")
+          // groupTag can be comma-separated (e.g., "default,vip"), so we parse and check
+          const providerGroupTag = currentProvider.groupTag;
+          const providerTags = providerGroupTag
+            ? providerGroupTag.split(",").map((t) => t.trim()).filter(Boolean)
+            : [];
+          if (providerTags.includes("vip")) {
+            const { sendVipGroupUsageAlert } = await import("@/lib/notification/notifier");
+            void sendVipGroupUsageAlert({
+              userId: session.authState?.user?.id || 0,
+              userName: session.authState?.user?.name || session.userName || "unknown",
+              providerId: currentProvider.id,
+              providerName: currentProvider.name,
+              providerGroupTag: providerGroupTag || "vip",
+              model: session.getCurrentModel() || session.request.model || "unknown",
+              sessionId: session.sessionId || "unknown",
+              timestamp: new Date().toISOString(),
+            });
+          }
+
           return response; // ⭐ 成功：立即返回，结束所有循环
         } catch (error) {
           lastError = error as Error;
