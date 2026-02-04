@@ -130,6 +130,13 @@
     "interval": "检查间隔（分钟）",
     "test": "测试连接"
   },
+  "vipGroupUsage": {
+    "title": "高成本分组使用提醒",
+    "description": "当供应商分组为 VIP 且被调用时发送提醒信息",
+    "enable": "启用高成本分组使用提醒",
+    "cooldown": "冷却时间（秒）",
+    "cooldownHint": "同一供应商和会话在冷却时间内不会重复提醒，设为 0 则每次都提醒"
+  },
   "form": {
     "save": "保存设置",
     "saving": "保存中...",

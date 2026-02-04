@@ -50,6 +50,13 @@
     "webhook": "Webhook URL",
     "webhookPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
   },
+  "vipGroupUsage": {
+    "title": "高コストグループ使用通知",
+    "description": "VIPグループタグを持つプロバイダーが使用された時に通知を送信",
+    "enable": "高コストグループ使用通知を有効にする",
+    "cooldown": "クールダウン（秒）",
+    "cooldownHint": "同じプロバイダーとセッションはクールダウン期間内に再通知されません。0に設定すると毎回通知します。"
+  },
   "description": "Webhook プッシュ通知を設定",
   "form": {
     "loadError": "通知設定の読み込みに失敗しました",

@@ -1,12 +1,12 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { checkLiteLLMSyncConflicts, syncLiteLLMPrices } from "@/actions/model-prices";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "@/i18n/routing";
 import type { SyncConflict } from "@/types/model-price";
 import { SyncConflictDialog } from "./sync-conflict-dialog";
 

@@ -59,6 +59,13 @@ function getTypeConfig(type: NotificationType): TypeConfig {
         borderColor: "border-border/50 hover:border-border",
         IconComponent: DollarSign,
       };
+    case "vip_group_usage":
+      return {
+        iconColor: "text-purple-400",
+        iconBgColor: "bg-purple-500/10",
+        borderColor: "border-border/50 hover:border-border",
+        IconComponent: AlertTriangle,
+      };
   }
 }
 
@@ -98,6 +105,14 @@ export function NotificationTypeCard({
           enabled: settings.costAlertEnabled,
           enabledKey: "costAlertEnabled" as const,
           enableLabel: t("notifications.costAlert.enable"),
+        };
+      case "vip_group_usage":
+        return {
+          title: t("notifications.vipGroupUsage.title"),
+          description: t("notifications.vipGroupUsage.description"),
+          enabled: settings.vipGroupUsageEnabled,
+          enabledKey: "vipGroupUsageEnabled" as const,
+          enableLabel: t("notifications.vipGroupUsage.enable"),
         };
     }
   }, [settings, t, type]);
@@ -260,6 +275,36 @@ export function NotificationTypeCard({
                   )}
                 />
               </div>
+            </div>
+          )}
+
+          {type === "vip_group_usage" && (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="vipGroupUsageCooldown"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                {t("notifications.vipGroupUsage.cooldown")}
+              </label>
+              <input
+                id="vipGroupUsageCooldown"
+                type="number"
+                min={0}
+                max={86400}
+                value={settings.vipGroupUsageCooldown}
+                disabled={!settings.enabled}
+                onChange={(e) =>
+                  onUpdateSettings({ vipGroupUsageCooldown: Number(e.target.value) })
+                }
+                className={cn(
+                  "w-full bg-muted/50 border border-border rounded-lg py-2 px-3 text-sm text-foreground",
+                  "focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("notifications.vipGroupUsage.cooldownHint")}
+              </p>
             </div>
           )}
 

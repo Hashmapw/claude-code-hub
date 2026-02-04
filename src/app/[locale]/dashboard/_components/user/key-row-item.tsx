@@ -11,7 +11,6 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -32,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RelativeTime } from "@/components/ui/relative-time";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRouter } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import { CURRENCY_CONFIG, type CurrencyCode, formatCurrency } from "@/lib/utils/currency";
 import { formatDate } from "@/lib/utils/date-format";

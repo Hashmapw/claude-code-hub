@@ -7,11 +7,13 @@ import {
   buildCircuitBreakerMessage,
   buildCostAlertMessage,
   buildDailyLeaderboardMessage,
+  buildVipGroupUsageMessage,
   type CircuitBreakerAlertData,
   type CostAlertData,
   type DailyLeaderboardData,
   type StructuredMessage,
   sendWebhookMessage,
+  type VipGroupUsageData,
   type WebhookNotificationType,
 } from "@/lib/webhook";
 import { generateCostAlerts } from "./tasks/cost-alert";
@@ -27,7 +29,7 @@ export interface NotificationJobData {
   // 新模式使用（多目标）
   targetId?: number;
   bindingId?: number;
-  data?: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData; // 可选：定时任务会在执行时动态生成
+  data?: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData | VipGroupUsageData;
 }
 
 function toWebhookNotificationType(type: NotificationJobType): WebhookNotificationType {
@@ -38,6 +40,8 @@ function toWebhookNotificationType(type: NotificationJobType): WebhookNotificati
       return "daily_leaderboard";
     case "cost-alert":
       return "cost_alert";
+    case "vip-group-usage":
+      return "vip_group_usage";
   }
 }
 
@@ -152,8 +156,12 @@ function setupQueueProcessor(queue: Queue.Queue<NotificationJobData>): void {
 
       // 构建结构化消息
       let message: StructuredMessage;
-      let templateData: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData | undefined =
-        data;
+      let templateData:
+        | CircuitBreakerAlertData
+        | DailyLeaderboardData
+        | CostAlertData
+        | VipGroupUsageData
+        | undefined = data;
       switch (type) {
         case "circuit-breaker":
           message = buildCircuitBreakerMessage(data as CircuitBreakerAlertData, timezone);
@@ -199,6 +207,9 @@ function setupQueueProcessor(queue: Queue.Queue<NotificationJobData>): void {
           message = buildCostAlertMessage(alerts[0]);
           break;
         }
+        case "vip-group-usage":
+          message = buildVipGroupUsageMessage(data as VipGroupUsageData, timezone);
+          break;
         default:
           throw new Error(`Unknown notification type: ${type}`);
       }
@@ -315,7 +326,7 @@ export async function addNotificationJobForTarget(
   type: NotificationJobType,
   targetId: number,
   bindingId: number | null,
-  data: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData
+  data: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData | VipGroupUsageData
 ): Promise<void> {
   try {
     const queue = getNotificationQueue();

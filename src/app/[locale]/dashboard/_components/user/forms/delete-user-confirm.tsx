@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { removeUser } from "@/actions/users";
@@ -11,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "@/i18n/routing";
 
 interface DeleteUserConfirmProps {
   user?: {

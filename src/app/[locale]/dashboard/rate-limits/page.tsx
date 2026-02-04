@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { Section } from "@/components/section";
 import { ClientRedirect } from "@/components/client-redirect";
+import { Section } from "@/components/section";
 import { getSession } from "@/lib/auth";
 import { RateLimitDashboard } from "./_components/rate-limit-dashboard";
 import { RateLimitsContentSkeleton } from "./_components/rate-limits-skeleton";

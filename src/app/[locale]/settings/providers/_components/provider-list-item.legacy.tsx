@@ -1,7 +1,6 @@
 "use client";
 import { formatInTimeZone } from "date-fns-tz";
 import { CheckCircle, Copy, Edit, Globe, Key, RotateCcw } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTimeZone, useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -31,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRouter } from "@/i18n/routing";
 import { PROVIDER_LIMITS } from "@/lib/constants/provider.constants";
 import { getProviderTypeConfig, getProviderTypeTranslationKey } from "@/lib/provider-type-utils";
 import { copyToClipboard, isClipboardSupported } from "@/lib/utils/clipboard";

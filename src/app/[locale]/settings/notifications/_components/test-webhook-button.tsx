@@ -30,6 +30,7 @@ export function TestWebhookButton({ targetId, disabled, onTest }: TestWebhookBut
       { value: "circuit_breaker" as const, label: t("notifications.circuitBreaker.title") },
       { value: "daily_leaderboard" as const, label: t("notifications.dailyLeaderboard.title") },
       { value: "cost_alert" as const, label: t("notifications.costAlert.title") },
+      { value: "vip_group_usage" as const, label: t("notifications.vipGroupUsage.title") },
     ],
     [t]
   );

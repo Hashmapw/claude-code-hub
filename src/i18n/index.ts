@@ -5,7 +5,9 @@
 
 // Configuration
 export { defaultLocale, type Locale, localeLabels, localeNamesInEnglish, locales } from "./config";
+export { Link } from "./link";
 // Request configuration (for use in next.config.ts)
 export { default as getRequestConfig } from "./request";
+export { useRouter } from "./router";
 // Routing and navigation
-export { Link, type Routing, redirect, routing, usePathname, useRouter } from "./routing";
+export { type Routing, redirect, routing, usePathname } from "./routing";

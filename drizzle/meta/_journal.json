@@ -435,6 +435,20 @@
       "when": 1769852342867,
       "tag": "0061_exotic_trauma",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1770000000000,
+      "tag": "0062_vip_group_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1770193264694,
+      "tag": "0063_black_paper_doll",
+      "breakpoints": true
     }
   ]
 }

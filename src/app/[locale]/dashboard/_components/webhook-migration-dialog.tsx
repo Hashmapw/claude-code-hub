@@ -1,7 +1,6 @@
 "use client";
 
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Settings, Webhook } from "lucide-react";
-import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { getNotificationSettingsAction } from "@/actions/notifications";
@@ -22,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRouter } from "@/i18n/routing";
 import { logger } from "@/lib/logger";
 import { setOnboardingCompleted, shouldShowOnboarding } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";

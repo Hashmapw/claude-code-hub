@@ -29,6 +29,10 @@ export interface NotificationSettings {
   costAlertThreshold: string | null; // numeric 类型作为 string
   costAlertCheckInterval: number | null;
 
+  // VIP 组使用通知配置
+  vipGroupUsageEnabled: boolean;
+  vipGroupUsageCooldown: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +56,9 @@ export interface UpdateNotificationSettingsInput {
   costAlertWebhook?: string | null;
   costAlertThreshold?: string;
   costAlertCheckInterval?: number;
+
+  vipGroupUsageEnabled?: boolean;
+  vipGroupUsageCooldown?: number;
 }
 
 /**
@@ -201,6 +208,8 @@ function createFallbackSettings(): NotificationSettings {
     costAlertWebhook: null,
     costAlertThreshold: "0.80",
     costAlertCheckInterval: 60,
+    vipGroupUsageEnabled: false,
+    vipGroupUsageCooldown: 300,
     createdAt: now,
     updatedAt: now,
   };
@@ -234,6 +243,8 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
         costAlertEnabled: false,
         costAlertThreshold: "0.80",
         costAlertCheckInterval: 60,
+        vipGroupUsageEnabled: false,
+        vipGroupUsageCooldown: 300,
       })
       .onConflictDoNothing()
       .returning();
@@ -329,6 +340,14 @@ export async function updateNotificationSettings(
     }
     if (payload.costAlertCheckInterval !== undefined) {
       updates.costAlertCheckInterval = payload.costAlertCheckInterval;
+    }
+
+    // VIP 组使用通知配置
+    if (payload.vipGroupUsageEnabled !== undefined) {
+      updates.vipGroupUsageEnabled = payload.vipGroupUsageEnabled;
+    }
+    if (payload.vipGroupUsageCooldown !== undefined) {
+      updates.vipGroupUsageCooldown = payload.vipGroupUsageCooldown;
     }
 
     const [updated] = await db

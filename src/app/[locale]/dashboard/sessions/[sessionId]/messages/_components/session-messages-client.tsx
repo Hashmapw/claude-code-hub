@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { usePathname, useRouter } from "@/i18n/routing";
+import { useRouter } from "@/i18n/routing";
 import type { CurrencyCode } from "@/lib/utils/currency";
 import { RequestListSidebar } from "./request-list-sidebar";
 import { type SessionMessages, SessionMessagesDetailsTabs } from "./session-details-tabs";
@@ -60,7 +60,6 @@ export function SessionMessagesClient() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
   const sessionId = params.sessionId as string;
 
   // URL state
@@ -135,15 +134,13 @@ export function SessionMessagesClient() {
 
   const currencyCode = systemSettings?.currencyDisplay || "USD";
 
-  const handleSelectRequest = useCallback(
-    (seq: number) => {
-      const params = new URLSearchParams(window.location.search);
-      params.set("seq", seq.toString());
-      router.replace(`${pathname}?${params.toString()}`);
-      setIsMobileMenuOpen(false);
-    },
-    [router, pathname]
-  );
+  const handleSelectRequest = useCallback((seq: number) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("seq", seq.toString());
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", newUrl);
+    setIsMobileMenuOpen(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

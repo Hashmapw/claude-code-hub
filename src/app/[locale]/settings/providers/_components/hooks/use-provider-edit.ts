@@ -1,7 +1,7 @@
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { editProvider } from "@/actions/providers";
+import { useRouter } from "@/i18n/routing";
 import { PROVIDER_LIMITS } from "@/lib/constants/provider.constants";
 import { logger } from "@/lib/logger";
 import { clampWeight } from "@/lib/utils/validation";

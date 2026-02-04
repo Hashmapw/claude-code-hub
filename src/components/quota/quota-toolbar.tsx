@@ -1,7 +1,6 @@
 "use client";
 
 import { RefreshCw, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useRouter } from "@/i18n/routing";
 
 interface QuotaToolbarProps {
   onSearch?: (query: string) => void;

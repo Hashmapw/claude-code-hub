@@ -3,7 +3,6 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Expand, Filter, ListOrdered, Minimize2, Pause, Play, RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useRouter } from "@/i18n/routing";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useRouter } from "@/i18n/routing";
 import { getHiddenColumns, type LogsTableColumn } from "@/lib/column-visibility";
 import type { CurrencyCode } from "@/lib/utils/currency";
 import { formatCurrency } from "@/lib/utils/currency";

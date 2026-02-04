@@ -9,6 +9,7 @@ export {
   buildCircuitBreakerMessage,
   buildCostAlertMessage,
   buildDailyLeaderboardMessage,
+  buildVipGroupUsageMessage,
 } from "./templates";
 export type {
   CircuitBreakerAlertData,
@@ -20,6 +21,7 @@ export type {
   Section,
   SectionContent,
   StructuredMessage,
+  VipGroupUsageData,
   WebhookNotificationType,
   WebhookPayload,
   WebhookResult,

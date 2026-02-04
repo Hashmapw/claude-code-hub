@@ -50,6 +50,13 @@
     "webhook": "Webhook URL",
     "webhookPlaceholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
   },
+  "vipGroupUsage": {
+    "title": "VIP Group Usage Alert",
+    "description": "Send alert when a provider with VIP group tag is used",
+    "enable": "Enable VIP Group Usage Alert",
+    "cooldown": "Cooldown (seconds)",
+    "cooldownHint": "Same provider and session won't trigger alerts within cooldown period. Set to 0 to alert every time."
+  },
   "description": "Configure Webhook push notifications",
   "form": {
     "loadError": "Failed to load notification settings",
