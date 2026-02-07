@@ -3,10 +3,10 @@ import { getTranslations } from "next-intl/server";
 import { AutoSortPriorityDialog } from "@/app/[locale]/settings/providers/_components/auto-sort-priority-dialog";
 import { ProviderManagerLoader } from "@/app/[locale]/settings/providers/_components/provider-manager-loader";
 import { SchedulingRulesDialog } from "@/app/[locale]/settings/providers/_components/scheduling-rules-dialog";
+import { ClientRedirect } from "@/components/client-redirect";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/routing";
-import { ClientRedirect } from "@/components/client-redirect";
 import { getSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";

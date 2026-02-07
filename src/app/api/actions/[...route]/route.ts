@@ -1313,6 +1313,8 @@ const { route: updateNotificationSettingsRoute, handler: updateNotificationSetti
           .positive()
           .optional()
           .describe("成本预警检查间隔（分钟）"),
+
+        vipGroupUsageEnabled: z.boolean().optional().describe("是否启用 VIP 组使用通知"),
       }),
       summary: "更新通知设置",
       description: "更新通知开关与各类型通知配置（生产环境会触发重新调度定时任务）",
@@ -1350,6 +1352,7 @@ const WebhookNotificationTypeSchema = z.enum([
   "circuit_breaker",
   "daily_leaderboard",
   "cost_alert",
+  "vip_group_usage",
 ]);
 
 const WebhookTargetSchema = z.object({
