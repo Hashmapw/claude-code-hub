@@ -75,6 +75,95 @@ export const PRESETS: Record<string, PresetConfig> = {
   },
 };
 
+const SESSION_MARKER = "account__session_";
+const SESSION_ROTATE_PRESETS = new Set(["cc_base", "cc_sonnet", "public_cc_base"]);
+const PROMPT_CACHE_KEY_ROTATE_PRESETS = new Set(["cx_base"]);
+
+type PresetMetadata = {
+  user_id?: unknown;
+};
+
+function createSessionUuid(): string {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  // Fallback for runtimes without Web Crypto randomUUID
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (placeholder) => {
+    const randomNibble = Math.floor(Math.random() * 16);
+    const nibble = placeholder === "x" ? randomNibble : (randomNibble & 0x3) | 0x8;
+    return nibble.toString(16);
+  });
+}
+
+function createRandomBytes(length: number): Uint8Array {
+  if (globalThis.crypto?.getRandomValues) {
+    return globalThis.crypto.getRandomValues(new Uint8Array(length));
+  }
+
+  const bytes = new Uint8Array(length);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Math.floor(Math.random() * 256);
+  }
+  return bytes;
+}
+
+function createRandomHex(length: number): string {
+  const bytesLength = Math.ceil(length / 2);
+  const randomBytes = createRandomBytes(bytesLength);
+  const randomHex = Array.from(randomBytes)
+    .map((byteValue) => byteValue.toString(16).padStart(2, "0"))
+    .join("");
+  return randomHex.slice(0, length);
+}
+
+function createUuidV7(): string {
+  const unixTimeMsHex = Date.now().toString(16).padStart(12, "0").slice(-12);
+  const randA = createRandomHex(3);
+  const variantNibbleOptions = ["8", "9", "a", "b"] as const;
+  const variantNibble =
+    variantNibbleOptions[Number.parseInt(createRandomHex(1), 16) % variantNibbleOptions.length];
+  const randBHead = createRandomHex(3);
+  const randBTail = createRandomHex(12);
+
+  return `${unixTimeMsHex.slice(0, 8)}-${unixTimeMsHex.slice(8, 12)}-7${randA}-${variantNibble}${randBHead}-${randBTail}`;
+}
+
+function rotateCcPresetSessionUserId(presetId: string, payload: Record<string, unknown>): void {
+  if (!SESSION_ROTATE_PRESETS.has(presetId)) {
+    return;
+  }
+
+  if (!payload.metadata || typeof payload.metadata !== "object") {
+    return;
+  }
+
+  const metadata = payload.metadata as PresetMetadata;
+  if (typeof metadata.user_id !== "string") {
+    return;
+  }
+
+  const markerIndex = metadata.user_id.indexOf(SESSION_MARKER);
+  if (markerIndex < 0) {
+    return;
+  }
+
+  const prefix = metadata.user_id.slice(0, markerIndex + SESSION_MARKER.length);
+  metadata.user_id = `${prefix}${createSessionUuid()}`;
+}
+
+function rotateCxPresetPromptCacheKey(presetId: string, payload: Record<string, unknown>): void {
+  if (!PROMPT_CACHE_KEY_ROTATE_PRESETS.has(presetId)) {
+    return;
+  }
+
+  if (typeof payload.prompt_cache_key !== "string") {
+    return;
+  }
+
+  payload.prompt_cache_key = createUuidV7();
+}
+
 /**
  * Mapping of provider types to available presets
  */
@@ -126,6 +215,9 @@ export function getPresetPayload(presetId: string, model?: string): Record<strin
   if (model) {
     payload.model = model;
   }
+
+  rotateCcPresetSessionUserId(presetId, payload);
+  rotateCxPresetPromptCacheKey(presetId, payload);
 
   return payload;
 }
