@@ -1313,6 +1313,7 @@ const { route: updateNotificationSettingsRoute, handler: updateNotificationSetti
           .positive()
           .optional()
           .describe("成本预警检查间隔（分钟）"),
+        vipGroupUsageEnabled: z.boolean().optional().describe("是否启用 VIP 组使用通知"),
       }),
       summary: "更新通知设置",
       description: "更新通知开关与各类型通知配置（生产环境会触发重新调度定时任务）",
@@ -1350,6 +1351,7 @@ const WebhookNotificationTypeSchema = z.enum([
   "circuit_breaker",
   "daily_leaderboard",
   "cost_alert",
+  "vip_group_usage",
 ]);
 
 const WebhookTargetSchema = z.object({
@@ -1560,8 +1562,8 @@ function getOpenAPIServers() {
   // 降级：添加常见的开发环境地址
   if (process.env.NODE_ENV !== "production") {
     servers.push({
-      url: "http://localhost:13500",
-      description: "本地开发环境 - 默认端口 13500",
+      url: "http://localhost:4000",
+      description: "本地开发环境 - 默认端口 4000",
     });
   }
 

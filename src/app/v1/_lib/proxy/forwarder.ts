@@ -804,6 +804,37 @@ export class ProxyForwarder {
             statusCode: response.status,
           });
 
+          const providerTags = currentProvider.groupTag
+            ? currentProvider.groupTag
+                .split(",")
+                .map((tag) => tag.trim().toLowerCase())
+                .filter(Boolean)
+            : [];
+          if (providerTags.includes("vip")) {
+            const vipUsagePayload = {
+              userId: session.authState?.user?.id || 0,
+              userName: session.authState?.user?.name || session.userName || "unknown",
+              providerId: currentProvider.id,
+              providerName: currentProvider.name,
+              providerGroupTag: currentProvider.groupTag || "vip",
+              model: session.getCurrentModel() || session.request.model || "unknown",
+              sessionId: session.sessionId || "unknown",
+              timestamp: new Date().toISOString(),
+            };
+
+            void import("@/lib/notification/notifier")
+              .then(({ sendVipGroupUsageAlert }) => sendVipGroupUsageAlert(vipUsagePayload))
+              .catch((notificationError) => {
+                logger.error("ProxyForwarder: Failed to send vip group usage alert", {
+                  providerId: currentProvider.id,
+                  error:
+                    notificationError instanceof Error
+                      ? notificationError.message
+                      : String(notificationError),
+                });
+              });
+          }
+
           return response; // ⭐ 成功：立即返回，结束所有循环
         } catch (error) {
           lastError = error as Error;
@@ -1924,6 +1955,7 @@ export class ProxyForwarder {
       // 移除了强制 /v1/responses 路径重写，解决 Issue #139
       // buildProxyUrl() 会检测 base_url 是否已包含完整路径，避免重复拼接
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = ProxyForwarder.enforceAnthropicMessagesBetaQuery(session, provider, proxyUrl);
 
       // Host header must match actual request target for undici TLS cert validation
       // When provider has multiple endpoints, provider.url and proxyUrl hosts may differ
@@ -2626,6 +2658,46 @@ export class ProxyForwarder {
     }
 
     return alternativeProvider;
+  }
+
+  private static enforceAnthropicMessagesBetaQuery(
+    session: ProxySession,
+    provider: NonNullable<typeof session.provider>,
+    proxyUrl: string
+  ): string {
+    const isAnthropicProvider =
+      provider.providerType === "claude" || provider.providerType === "claude-auth";
+    if (!isAnthropicProvider || session.requestUrl.pathname !== "/v1/messages") {
+      return proxyUrl;
+    }
+
+    try {
+      const parsed = new URL(proxyUrl);
+      const originalBeta = parsed.searchParams.get("beta");
+      if (originalBeta === "true") {
+        return proxyUrl;
+      }
+
+      parsed.searchParams.set("beta", "true");
+      const updated = parsed.toString();
+
+      logger.debug("ProxyForwarder: Enforced beta=true query for Anthropic Messages API", {
+        providerId: provider.id,
+        providerType: provider.providerType,
+        from: sanitizeUrl(proxyUrl),
+        to: sanitizeUrl(updated),
+      });
+
+      return updated;
+    } catch (error) {
+      logger.warn("ProxyForwarder: Failed to enforce beta=true query for Anthropic Messages API", {
+        providerId: provider.id,
+        providerType: provider.providerType,
+        proxyUrl: sanitizeUrl(proxyUrl),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return proxyUrl;
+    }
   }
 
   private static buildHeaders(

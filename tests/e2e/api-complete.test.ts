@@ -9,7 +9,7 @@
  * ✅ 全部通过的自动化测试脚本
  *
  * 🔑 认证方式：Cookie (auth-token)
- * ⚙️ 前提：开发服务器运行在 http://localhost:13500
+ * ⚙️ 前提：开发服务器运行在 http://localhost:4000
  * 🧹 清理：测试完成后自动清理数据
  */
 
@@ -17,7 +17,7 @@ import { afterAll, describe, expect, test } from "vitest";
 
 // ==================== 配置 ====================
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:4000/api/actions";
 const ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN_TOKEN;
 
 const testData = {

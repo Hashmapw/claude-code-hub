@@ -37,7 +37,7 @@ echo ""
 echo "启动 Next.js 开发服务器..."
 
 # 后台启动服务器
-PORT=13500 bun run dev > /tmp/nextjs-dev.log 2>&1 &
+PORT=4000 bun run dev > /tmp/nextjs-dev.log 2>&1 &
 SERVER_PID=$!
 
 echo "服务器 PID: $SERVER_PID"
@@ -48,7 +48,7 @@ TIMEOUT=60
 COUNTER=0
 
 while [ $COUNTER -lt $TIMEOUT ]; do
-  if curl -s http://localhost:13500/api/actions/health > /dev/null 2>&1; then
+  if curl -s http://localhost:4000/api/actions/health > /dev/null 2>&1; then
     echo "服务器已就绪"
     break
   fi
@@ -73,7 +73,7 @@ echo "运行 E2E 测试..."
 echo ""
 
 # 设置环境变量
-export API_BASE_URL="http://localhost:13500/api/actions"
+export API_BASE_URL="http://localhost:4000/api/actions"
 export AUTO_CLEANUP_TEST_DATA=true
 
 # 运行 E2E 测试

@@ -38,6 +38,11 @@
     "webhookTypeUnknown": "不明なプラットフォームです。WeComまたはFeishuのWebhook URLを使用してください",
     "webhookTypeWeCom": "WeCom"
   },
+  "vipGroupUsage": {
+    "title": "高コストグループ使用アラート",
+    "description": "VIPプロバイダーグループが呼び出された時にアラートを送信",
+    "enable": "高コストグループ使用アラートを有効にする"
+  },
   "dailyLeaderboard": {
     "description": "毎日定時でユーザー消費トップNランキングを送信",
     "enable": "日次ランキングを有効にする",

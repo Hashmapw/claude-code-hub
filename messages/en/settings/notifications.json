@@ -38,6 +38,11 @@
     "webhookTypeUnknown": "Unknown platform. Please use WeCom or Feishu webhook URL",
     "webhookTypeWeCom": "WeCom"
   },
+  "vipGroupUsage": {
+    "title": "High-Cost Group Usage Alert",
+    "description": "Send alert when a VIP provider group is called",
+    "enable": "Enable High-Cost Group Usage Alert"
+  },
   "dailyLeaderboard": {
     "description": "Send daily scheduled user consumption Top N leaderboard",
     "enable": "Enable Daily Leaderboard",

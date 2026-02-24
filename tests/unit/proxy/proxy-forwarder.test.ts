@@ -6,9 +6,11 @@ import { ProxySession } from "@/app/v1/_lib/proxy/session";
 function createSession({
   userAgent,
   headers,
+  requestUrl = new URL("https://example.com/v1/messages"),
 }: {
   userAgent: string | null;
   headers: Headers;
+  requestUrl?: URL;
 }): ProxySession {
   // 使用 ProxySession 的内部构造方法创建测试实例
   const session = Object.create(ProxySession.prototype);
@@ -16,7 +18,7 @@ function createSession({
   Object.assign(session, {
     startTime: Date.now(),
     method: "POST",
-    requestUrl: new URL("https://example.com/v1/messages"),
+    requestUrl,
     headers,
     originalHeaders: new Headers(headers), // 同步更新 originalHeaders
     headerLog: JSON.stringify(Object.fromEntries(headers.entries())),
@@ -54,6 +56,16 @@ function createCodexProvider(): Provider {
   return {
     providerType: "codex",
     url: "https://example.com/v1/responses",
+    key: "test-outbound-key",
+    preserveClientIp: false,
+  } as unknown as Provider;
+}
+
+function createClaudeProvider(providerType: "claude" | "claude-auth" = "claude"): Provider {
+  return {
+    id: 123,
+    providerType,
+    url: "https://api.anthropic.com",
     key: "test-outbound-key",
     preserveClientIp: false,
   } as unknown as Provider;
@@ -152,6 +164,80 @@ describe("ProxyForwarder - buildHeaders User-Agent resolution", () => {
 
     // 空字符串应该被保留（使用 ?? 而非 ||）
     expect(resultHeaders.get("user-agent")).toBe("");
+  });
+});
+
+describe("ProxyForwarder - enforceAnthropicMessagesBetaQuery", () => {
+  it("为 Anthropic /v1/messages 自动追加 beta=true", () => {
+    const session = createSession({
+      userAgent: "Original-UA/1.0",
+      headers: new Headers(),
+      requestUrl: new URL("https://example.com/v1/messages"),
+    });
+    const provider = createClaudeProvider("claude");
+
+    const { enforceAnthropicMessagesBetaQuery } = ProxyForwarder as unknown as {
+      enforceAnthropicMessagesBetaQuery: (
+        session: ProxySession,
+        provider: Provider,
+        proxyUrl: string
+      ) => string;
+    };
+
+    const result = enforceAnthropicMessagesBetaQuery(
+      session,
+      provider,
+      "https://api.anthropic.com/v1/messages"
+    );
+    const url = new URL(result);
+    expect(url.searchParams.get("beta")).toBe("true");
+  });
+
+  it("保留已有查询参数并强制 beta=true", () => {
+    const session = createSession({
+      userAgent: "Original-UA/1.0",
+      headers: new Headers(),
+      requestUrl: new URL("https://example.com/v1/messages?foo=bar"),
+    });
+    const provider = createClaudeProvider("claude-auth");
+
+    const { enforceAnthropicMessagesBetaQuery } = ProxyForwarder as unknown as {
+      enforceAnthropicMessagesBetaQuery: (
+        session: ProxySession,
+        provider: Provider,
+        proxyUrl: string
+      ) => string;
+    };
+
+    const result = enforceAnthropicMessagesBetaQuery(
+      session,
+      provider,
+      "https://api.anthropic.com/v1/messages?foo=bar&beta=false"
+    );
+    const url = new URL(result);
+    expect(url.searchParams.get("foo")).toBe("bar");
+    expect(url.searchParams.get("beta")).toBe("true");
+  });
+
+  it("不影响 Anthropic 非 /v1/messages 端点", () => {
+    const session = createSession({
+      userAgent: "Original-UA/1.0",
+      headers: new Headers(),
+      requestUrl: new URL("https://example.com/v1/messages/count_tokens"),
+    });
+    const provider = createClaudeProvider("claude");
+
+    const { enforceAnthropicMessagesBetaQuery } = ProxyForwarder as unknown as {
+      enforceAnthropicMessagesBetaQuery: (
+        session: ProxySession,
+        provider: Provider,
+        proxyUrl: string
+      ) => string;
+    };
+
+    const original = "https://api.anthropic.com/v1/messages/count_tokens";
+    const result = enforceAnthropicMessagesBetaQuery(session, provider, original);
+    expect(result).toBe(original);
   });
 });
 

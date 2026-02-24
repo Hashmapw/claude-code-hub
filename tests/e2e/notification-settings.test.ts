@@ -7,13 +7,13 @@
  * - 验证创建目标后自动退出 legacy 模式（useLegacyMode=false）
  *
  * 前提：
- * - 开发服务器运行在 http://localhost:13500
+ * - 开发服务器运行在 http://localhost:4000
  * - 已配置 ADMIN_TOKEN（或 TEST_ADMIN_TOKEN）
  */
 
 import { afterAll, describe, expect, test } from "vitest";
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:4000/api/actions";
 const ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN_TOKEN;
 
 async function callApi(module: string, action: string, body: Record<string, unknown> = {}) {

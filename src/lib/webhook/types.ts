@@ -78,13 +78,28 @@ export interface CostAlertData {
   period: string;
 }
 
+export interface VipGroupUsageData {
+  userId: number;
+  userName: string;
+  providerId: number;
+  providerName: string;
+  providerGroupTag: string;
+  model: string;
+  sessionId: string;
+  timestamp: string;
+}
+
 /**
  * Webhook 相关类型
  */
 
 export type ProviderType = "wechat" | "feishu" | "dingtalk" | "telegram" | "custom";
 
-export type WebhookNotificationType = "circuit_breaker" | "daily_leaderboard" | "cost_alert";
+export type WebhookNotificationType =
+  | "circuit_breaker"
+  | "daily_leaderboard"
+  | "cost_alert"
+  | "vip_group_usage";
 
 export interface WebhookTargetConfig {
   id?: number;

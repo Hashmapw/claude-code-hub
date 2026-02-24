@@ -75,7 +75,12 @@ function validateProviderConfig(params: {
 }
 
 const ProviderTypeSchema = z.enum(["wechat", "feishu", "dingtalk", "telegram", "custom"]);
-const NotificationTypeSchema = z.enum(["circuit_breaker", "daily_leaderboard", "cost_alert"]);
+const NotificationTypeSchema = z.enum([
+  "circuit_breaker",
+  "daily_leaderboard",
+  "cost_alert",
+  "vip_group_usage",
+]);
 
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 
@@ -241,6 +246,8 @@ function toJobType(type: NotificationType): NotificationJobType {
       return "daily-leaderboard";
     case "cost_alert":
       return "cost-alert";
+    case "vip_group_usage":
+      return "vip-group-usage";
   }
 }
 
@@ -273,6 +280,17 @@ function buildTestData(type: NotificationType): unknown {
         quotaLimit: 100,
         threshold: 0.8,
         period: "本月",
+      };
+    case "vip_group_usage":
+      return {
+        userId: 0,
+        userName: "测试用户",
+        providerId: 0,
+        providerName: "测试VIP供应商",
+        providerGroupTag: "vip",
+        model: "claude-sonnet-4-20250514",
+        sessionId: "test-session-id",
+        timestamp: new Date().toISOString(),
       };
   }
 }

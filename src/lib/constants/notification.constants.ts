@@ -5,6 +5,7 @@ export const NOTIFICATION_JOB_TYPES = [
   "circuit-breaker",
   "cost-alert",
   "daily-leaderboard",
+  "vip-group-usage",
 ] as const;
 
 export type NotificationJobType = (typeof NOTIFICATION_JOB_TYPES)[number];

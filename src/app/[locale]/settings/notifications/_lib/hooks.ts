@@ -35,6 +35,7 @@ export interface NotificationSettingsState {
   costAlertWebhook: string;
   costAlertThreshold: number;
   costAlertCheckInterval: number;
+  vipGroupUsageEnabled: boolean;
 }
 
 export interface WebhookTestResult {
@@ -94,6 +95,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   "circuit_breaker",
   "daily_leaderboard",
   "cost_alert",
+  "vip_group_usage",
 ];
 
 function toClientSettings(raw: any): NotificationSettingsState {
@@ -109,6 +111,7 @@ function toClientSettings(raw: any): NotificationSettingsState {
     costAlertWebhook: raw?.costAlertWebhook || "",
     costAlertThreshold: parseFloat(raw?.costAlertThreshold || "0.80"),
     costAlertCheckInterval: Number(raw?.costAlertCheckInterval || 60),
+    vipGroupUsageEnabled: Boolean(raw?.vipGroupUsageEnabled),
   };
 }
 
@@ -121,6 +124,7 @@ export function useNotificationsPageData() {
     circuit_breaker: [],
     daily_leaderboard: [],
     cost_alert: [],
+    vip_group_usage: [],
   }));
 
   const [isLoading, setIsLoading] = useState(true);
@@ -214,6 +218,9 @@ export function useNotificationsPageData() {
       }
       if (patch.costAlertCheckInterval !== undefined) {
         payload.costAlertCheckInterval = patch.costAlertCheckInterval;
+      }
+      if (patch.vipGroupUsageEnabled !== undefined) {
+        payload.vipGroupUsageEnabled = patch.vipGroupUsageEnabled;
       }
 
       const result = await updateNotificationSettingsAction(payload);

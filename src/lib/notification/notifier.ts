@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getRedisClient } from "@/lib/redis/client";
-import type { CircuitBreakerAlertData } from "@/lib/webhook";
+import type { CircuitBreakerAlertData, VipGroupUsageData } from "@/lib/webhook";
 import { generateCostAlerts } from "./tasks/cost-alert";
 import { generateDailyLeaderboard } from "./tasks/daily-leaderboard";
 
@@ -243,6 +243,76 @@ export async function sendCostAlerts(): Promise<void> {
   } catch (error) {
     logger.error({
       action: "send_cost_alerts_error",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * 发送 VIP 组使用提醒（请求级触发）
+ */
+export async function sendVipGroupUsageAlert(data: VipGroupUsageData): Promise<void> {
+  try {
+    const { getNotificationSettings } = await import("@/repository/notifications");
+    const settings = await getNotificationSettings();
+
+    if (!settings.enabled || !settings.vipGroupUsageEnabled) {
+      logger.info({
+        action: "vip_group_usage_alert_disabled",
+        userId: data.userId,
+        reason: !settings.enabled ? "notifications_disabled" : "vip_group_usage_disabled",
+      });
+      return;
+    }
+
+    // 防止 5 分钟内重复提醒同一供应商
+    const redisClient = getRedisClient();
+    const dedupKey = `vip-group-usage-alert:${data.providerId}`;
+    if (redisClient) {
+      const cached = await redisClient.get(dedupKey);
+      if (cached) {
+        logger.info({
+          action: "vip_group_usage_alert_suppressed",
+          providerId: data.providerId,
+          reason: "duplicate_within_5min",
+        });
+        return;
+      }
+    }
+
+    const { addNotificationJobForTarget } = await import("./notification-queue");
+    const { getEnabledBindingsByType } = await import("@/repository/notification-bindings");
+    const bindings = await getEnabledBindingsByType("vip_group_usage");
+
+    if (bindings.length === 0) {
+      logger.info({
+        action: "vip_group_usage_alert_skipped",
+        userId: data.userId,
+        reason: "no_bindings",
+      });
+      return;
+    }
+
+    for (const binding of bindings) {
+      await addNotificationJobForTarget("vip-group-usage", binding.targetId, binding.id, data);
+    }
+
+    if (redisClient) {
+      await redisClient.set(dedupKey, "1", "EX", 300);
+    }
+
+    logger.info({
+      action: "vip_group_usage_alert_sent",
+      userId: data.userId,
+      userName: data.userName,
+      providerId: data.providerId,
+      providerName: data.providerName,
+      providerGroupTag: data.providerGroupTag,
+    });
+  } catch (error) {
+    logger.error({
+      action: "send_vip_group_usage_alert_error",
+      userId: data.userId,
       error: error instanceof Error ? error.message : String(error),
     });
   }
