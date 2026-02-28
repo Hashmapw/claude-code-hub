@@ -13,7 +13,7 @@
  * - Token 从环境变量读取（ADMIN_TOKEN）
  *
  * ⚙️ 前提条件：
- * - 开发服务器运行在 http://localhost:13500
+ * - 开发服务器运行在 http://localhost:4000
  * - PostgreSQL 和 Redis 已启动
  * - ADMIN_TOKEN 已配置在 .env 文件中
  *
@@ -28,7 +28,7 @@ import { loginAndGetAuthToken } from "./_helpers/auth";
 // ==================== 配置 ====================
 
 /** API 基础 URL */
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:4000/api/actions";
 
 /** 管理员认证 Key（从环境变量读取，用于登录换取会话 token）*/
 const ADMIN_KEY = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN_TOKEN;

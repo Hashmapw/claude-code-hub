@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Development
 bun install               # Install dependencies
-bun run dev               # Start dev server (port 13500)
+bun run dev               # Start dev server (port 4000)
 
 # Build & Production
 bun run build             # Build for production (copies VERSION to standalone)

@@ -6,6 +6,7 @@ import type {
   Section,
   SectionContent,
   StructuredMessage,
+  VipGroupUsageData,
   WebhookNotificationType,
 } from "../types";
 
@@ -20,6 +21,7 @@ export const WEBHOOK_NOTIFICATION_TYPES = [
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ] as const satisfies readonly WebhookNotificationType[];
 
 export const TEMPLATE_PLACEHOLDERS = {
@@ -74,6 +76,16 @@ export const TEMPLATE_PLACEHOLDERS = {
     { key: "{{cooldown_minutes}}", label: "冷却分钟", description: "cooldownMinutes" },
     { key: "{{top_n}}", label: "TopN", description: "topN" },
     { key: "{{generated_at}}", label: "生成时间", description: "ISO 8601 格式" },
+  ],
+  vip_group_usage: [
+    { key: "{{user_id}}", label: "用户ID", description: "VIP 用户数字 ID" },
+    { key: "{{user_name}}", label: "用户名", description: "VIP 用户名称" },
+    { key: "{{provider_id}}", label: "供应商ID", description: "供应商数字 ID" },
+    { key: "{{provider_name}}", label: "供应商名称", description: "供应商名称" },
+    { key: "{{provider_group_tag}}", label: "供应商分组", description: "供应商分组标识" },
+    { key: "{{key_group}}", label: "密钥分组", description: "VIP 密钥分组标识" },
+    { key: "{{model}}", label: "模型", description: "请求模型名称" },
+    { key: "{{session_id}}", label: "会话ID", description: "请求会话标识" },
   ],
 } as const satisfies Record<string, readonly TemplatePlaceholder[]>;
 
@@ -152,6 +164,18 @@ export function buildTemplateVariables(params: {
       ch?.settings?.cooldownMinutes !== undefined ? String(ch.settings.cooldownMinutes) : "";
     values["{{top_n}}"] = ch?.settings?.topN !== undefined ? String(ch.settings.topN) : "";
     values["{{generated_at}}"] = ch?.generatedAt ?? "";
+  }
+
+  if (notificationType === "vip_group_usage") {
+    const vip = data as Partial<VipGroupUsageData> | undefined;
+    values["{{user_id}}"] = vip?.userId !== undefined ? String(vip.userId) : "";
+    values["{{user_name}}"] = vip?.userName ?? "";
+    values["{{provider_id}}"] = vip?.providerId !== undefined ? String(vip.providerId) : "";
+    values["{{provider_name}}"] = vip?.providerName ?? "";
+    values["{{provider_group_tag}}"] = vip?.providerGroupTag ?? "";
+    values["{{key_group}}"] = vip?.providerGroupTag ?? "";
+    values["{{model}}"] = vip?.model ?? "";
+    values["{{session_id}}"] = vip?.sessionId ?? "";
   }
 
   return values;

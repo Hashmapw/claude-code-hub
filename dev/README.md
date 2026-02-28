@@ -11,7 +11,7 @@
 
 - 启动 DB/Redis（暴露到本机端口，供本机 bun dev 访问）：
   - `make db`
-- 启动 DB/Redis 后运行本机开发服务器（Next dev，端口 13500）：
+- 启动 DB/Redis 后运行本机开发服务器（Next dev，端口 4000）：
   - `make dev`
 - 本地构建并启动 Docker app（默认端口 23000）：
   - `make app`

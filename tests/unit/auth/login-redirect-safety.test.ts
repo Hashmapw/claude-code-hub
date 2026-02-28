@@ -33,6 +33,14 @@ describe("sanitizeRedirectPath", () => {
   it("rejects protocol-like path payload", () => {
     expect(sanitizeRedirectPath("/https://evil.example/path")).toBe("/dashboard");
   });
+
+  it("collapses duplicated leading /proxy/PORT prefix in redirect path", () => {
+    expect(
+      sanitizeRedirectPath(
+        "/proxy/4000/ws-a/proxy/4000/zh-CN/dashboard?from=%2Fproxy%2F4000%2Fws-a%2Fproxy%2F4000%2Fzh-CN"
+      )
+    ).toBe("/ws-a/proxy/4000/zh-CN/dashboard?from=%2Fproxy%2F4000%2Fws-a%2Fproxy%2F4000%2Fzh-CN");
+  });
 });
 
 describe("resolveLoginRedirectTarget", () => {

@@ -32,6 +32,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'daily_leaderboard',
   'cost_alert',
   'cache_hit_rate_alert',
+  'vip_group_usage',
 ]);
 
 // Users table
@@ -788,6 +789,9 @@ export const notificationSettings = pgTable('notification_settings', {
   cacheHitRateAlertDropAbs: numeric('cache_hit_rate_alert_drop_abs', { precision: 5, scale: 4 }).default('0.1'),
   cacheHitRateAlertCooldownMinutes: integer('cache_hit_rate_alert_cooldown_minutes').default(30),
   cacheHitRateAlertTopN: integer('cache_hit_rate_alert_top_n').default(10),
+
+  // VIP 分组调用告警（请求级触发）
+  vipGroupUsageEnabled: boolean('vip_group_usage_enabled').notNull().default(false),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

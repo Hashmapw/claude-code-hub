@@ -1369,6 +1369,7 @@ const { route: updateNotificationSettingsRoute, handler: updateNotificationSetti
           .max(1440)
           .optional()
           .describe("成本预警检查间隔（分钟）"),
+        vipGroupUsageEnabled: z.boolean().optional().describe("是否启用 VIP 分组调用提醒"),
 
         cacheHitRateAlertEnabled: z.boolean().optional().describe("是否启用缓存命中率异常告警"),
         cacheHitRateAlertWebhook: z
@@ -1470,6 +1471,7 @@ const WebhookNotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 const WebhookTargetSchema = z.object({
@@ -1680,8 +1682,8 @@ function getOpenAPIServers() {
   // 降级：添加常见的开发环境地址
   if (process.env.NODE_ENV !== "production") {
     servers.push({
-      url: "http://localhost:13500",
-      description: "本地开发环境 - 默认端口 13500",
+      url: "http://localhost:4000",
+      description: "本地开发环境 - 默认端口 4000",
     });
   }
 

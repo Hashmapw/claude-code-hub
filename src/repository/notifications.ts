@@ -33,6 +33,9 @@ export interface NotificationSettings {
   costAlertThreshold: string | null; // numeric 类型作为 string
   costAlertCheckInterval: number | null;
 
+  // VIP 分组调用告警（请求级触发）
+  vipGroupUsageEnabled: boolean;
+
   // 缓存命中率异常告警配置（provider × model）
   cacheHitRateAlertEnabled: boolean;
   cacheHitRateAlertWebhook: string | null;
@@ -70,6 +73,7 @@ export interface UpdateNotificationSettingsInput {
   costAlertWebhook?: string | null;
   costAlertThreshold?: string;
   costAlertCheckInterval?: number;
+  vipGroupUsageEnabled?: boolean;
 
   cacheHitRateAlertEnabled?: boolean;
   cacheHitRateAlertWebhook?: string | null;
@@ -240,6 +244,7 @@ function createFallbackSettings(): NotificationSettings {
     costAlertWebhook: null,
     costAlertThreshold: "0.80",
     costAlertCheckInterval: 60,
+    vipGroupUsageEnabled: false,
 
     cacheHitRateAlertEnabled: false,
     cacheHitRateAlertWebhook: null,
@@ -290,6 +295,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
         costAlertEnabled: false,
         costAlertThreshold: "0.80",
         costAlertCheckInterval: 60,
+        vipGroupUsageEnabled: false,
         cacheHitRateAlertEnabled: false,
         cacheHitRateAlertWindowMode: "auto",
         cacheHitRateAlertCheckInterval: 5,
@@ -404,6 +410,9 @@ export async function updateNotificationSettings(
     }
     if (payload.costAlertCheckInterval !== undefined) {
       updates.costAlertCheckInterval = payload.costAlertCheckInterval;
+    }
+    if (payload.vipGroupUsageEnabled !== undefined) {
+      updates.vipGroupUsageEnabled = payload.vipGroupUsageEnabled;
     }
 
     // 缓存命中率异常告警配置
