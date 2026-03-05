@@ -1,28 +1,23 @@
-name: ${COMPOSE_PROJECT_NAME:-claude-code-hub}
-
 services:
   postgres:
     image: postgres:18
+    container_name: claude-code-hub-db-3gct
     restart: unless-stopped
-    # 不对外暴露数据库端口，仅允许容器内部网络访问
-    # 如需调试，可取消注释下行（仅绑定本机）：
-    # ports:
-    #   - "127.0.0.1:35432:5432"
+    ports:
+      - "127.0.0.1:35432:5432"
     env_file:
       - ./.env
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-claude_code_hub}
-      # 使用自定义数据目录
       PGDATA: /data/pgdata
-      # 设置时区为上海
       TZ: Asia/Shanghai
       PGTZ: Asia/Shanghai
     volumes:
-      # 持久化数据库数据到本地 ./data/postgres 目录
-      # 挂载到 /data 而不是 /var/lib/postgresql/data 避免权限冲突
       - ./data/postgres:/data
+    networks:
+      - claude-code-hub-net-3gct
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-claude_code_hub}"]
       interval: 5s
@@ -32,12 +27,13 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: claude-code-hub-redis-3gct
     restart: unless-stopped
     volumes:
-      # 持久化 Redis 数据到本地 ./data/redis 目录
-      # 使用 AOF 持久化模式,确保数据不丢失
       - ./data/redis:/data
     command: redis-server --appendonly yes
+    networks:
+      - claude-code-hub-net-3gct
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -47,6 +43,9 @@ services:
 
   app:
     image: ghcr.io/ding113/claude-code-hub:latest
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    container_name: claude-code-hub-app-3gct
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,26 +55,37 @@ services:
       - ./.env
     environment:
       NODE_ENV: production
-      # 容器内使用 Dockerfile 默认端口 3000，对外通过 APP_PORT 暴露（默认 23000）
-      DSN: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-claude_code_hub}
-      REDIS_URL: redis://redis:6379
+      PORT: ${APP_PORT:-3000}
+      DSN: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@claude-code-hub-db-3gct:5432/${DB_NAME:-claude_code_hub}
+      REDIS_URL: redis://claude-code-hub-redis-3gct:6379
       AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
       ENABLE_RATE_LIMIT: ${ENABLE_RATE_LIMIT:-true}
       SESSION_TTL: ${SESSION_TTL:-300}
-      # 设置时区为上海
       TZ: Asia/Shanghai
+      http_proxy: "http://host.docker.internal:7890"
+      https_proxy: "http://host.docker.internal:7890"
+      all_proxy: "socks5h://host.docker.internal:7890"
+      HTTP_PROXY: "http://host.docker.internal:7890"
+      HTTPS_PROXY: "http://host.docker.internal:7890"
+      ALL_PROXY: "socks5h://host.docker.internal:7890"
+
+      no_proxy: "localhost,127.0.0.1,::1,claude-code-hub-db-3gct,claude-code-hub-redis-3gct"
+      NO_PROXY: "localhost,127.0.0.1,::1,claude-code-hub-db-3gct,claude-code-hub-redis-3gct"
     ports:
-      - "${APP_PORT:-23000}:3000"
+      - "127.0.0.1:${APP_PORT:-3000}:${APP_PORT:-3000}"
     restart: unless-stopped
+    networks:
+      - claude-code-hub-net-3gct
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://' + (process.env.HOSTNAME || '127.0.0.1') + ':3000/api/actions/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
+      test: ["CMD-SHELL", "curl -f http://localhost:${APP_PORT:-3000}/api/actions/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
+networks:
+  claude-code-hub-net-3gct:
+    driver: bridge
+    name: claude-code-hub-net-3gct
+volumes:
+    caddy_data:
+    caddy_config:

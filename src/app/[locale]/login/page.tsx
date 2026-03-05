@@ -143,7 +143,7 @@ function LoginPageContent() {
   useEffect(() => {
     let active = true;
 
-    void fetch("/api/system-settings")
+    void fetch("/api/public/site-info")
       .then((response) => {
         if (!response.ok) {
           return null;
@@ -406,27 +406,6 @@ function LoginPageContent() {
         </div>
       </div>
 
-      {/* Page Footer */}
-      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1">
-        <p
-          data-testid="login-site-title-footer"
-          className="text-center text-xs text-muted-foreground"
-        >
-          {siteTitle}
-        </p>
-
-        {versionInfo?.current ? (
-          <div
-            data-testid="login-footer-version"
-            className="flex items-center justify-center gap-2 text-xs text-muted-foreground"
-          >
-            <span className="font-mono">{formatVersionLabel(versionInfo.current)}</span>
-            {versionInfo.hasUpdate ? (
-              <span className="text-orange-600">{tCustoms("version.updateAvailable")}</span>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }

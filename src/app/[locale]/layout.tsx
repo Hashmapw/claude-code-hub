@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { Footer } from "@/components/customs/footer";
+import { FooterWrapper } from "@/components/customs/footer-wrapper";
 import { ProxyFetchInitializer } from "@/components/proxy-fetch-initializer";
 import { Toaster } from "@/components/ui/sonner";
 import { type Locale, locales } from "@/i18n/config";
@@ -84,7 +85,7 @@ export default async function RootLayout({
             <ProxyFetchInitializer />
             <div className="flex min-h-[var(--cch-viewport-height,100vh)] flex-col bg-background text-foreground">
               <div className="flex-1">{children}</div>
-              <Footer />
+              <FooterWrapper><Footer /></FooterWrapper>
             </div>
             <Toaster />
           </AppProviders>
