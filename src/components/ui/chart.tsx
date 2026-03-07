@@ -169,34 +169,34 @@ function ChartTooltipContent({
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
         {payload
-          .filter((item: { type?: string }) => item.type !== "none")
-          .map(
-            (
-              item: {
-                dataKey?: string | number;
-                name?: string;
-                payload?: { fill?: string };
-                color?: string;
-                value?: number | string;
-              },
-              index: number
-            ) => {
-              const key = `${nameKey || item.name || item.dataKey || "value"}`;
+          .filter((item) => item.type !== "none")
+          .map((item, index) => {
+              const itemDataKey =
+                typeof item.dataKey === "string" || typeof item.dataKey === "number"
+                  ? item.dataKey
+                  : undefined;
+              const key = `${nameKey || item.name || itemDataKey || "value"}`;
+              const reactKey = itemDataKey ?? `${item.name || "value"}-${index}`;
               const itemConfig = getPayloadConfigFromPayload(config, item, key);
               const indicatorColor = color || item.payload?.fill || item.color;
+              const formatterValue =
+                typeof item.value === "number" || typeof item.value === "string"
+                  ? item.value
+                  : undefined;
+              const formatterName = typeof item.name === "string" ? item.name : undefined;
 
               return (
                 <div
-                  key={item.dataKey}
+                  key={reactKey}
                   className={cn(
                     "[&>svg]:text-muted-foreground flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5",
                     indicator === "dot" && "items-center"
                   )}
                 >
-                  {formatter && item?.value !== undefined && item.name ? (
+                  {formatter && formatterValue !== undefined && formatterName ? (
                     formatter(
-                      item.value,
-                      item.name,
+                      formatterValue,
+                      formatterName,
                       item as Parameters<typeof formatter>[2],
                       index,
                       payload
@@ -249,8 +249,7 @@ function ChartTooltipContent({
                   )}
                 </div>
               );
-            }
-          )}
+            })}
       </div>
     </div>
   );

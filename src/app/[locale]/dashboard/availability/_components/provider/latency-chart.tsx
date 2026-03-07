@@ -150,20 +150,30 @@ export function LatencyChart({ providers, className }: LatencyChartProps) {
                 <div className="border-border/50 bg-background rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
                   <div className="font-medium mb-1">{formatTime(label as string)}</div>
                   <div className="space-y-1">
-                    {payload.map((item) => (
-                      <div key={item.dataKey} className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-muted-foreground">
-                          {chartConfig[item.dataKey as keyof typeof chartConfig]?.label ||
-                            item.dataKey}
-                          :
-                        </span>
-                        <span className="font-mono">{formatLatency(item.value as number)}</span>
-                      </div>
-                    ))}
+                    {payload.map((item, index) => {
+                      const dataKey =
+                        typeof item.dataKey === "string" || typeof item.dataKey === "number"
+                          ? item.dataKey
+                          : `series-${index}`;
+                      const configKey =
+                        typeof item.dataKey === "string"
+                          ? (item.dataKey as keyof typeof chartConfig)
+                          : undefined;
+                      const seriesLabel = configKey
+                        ? chartConfig[configKey]?.label || String(dataKey)
+                        : String(dataKey);
+
+                      return (
+                        <div key={dataKey} className="flex items-center gap-2">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-muted-foreground">{seriesLabel}:</span>
+                          <span className="font-mono">{formatLatency(item.value as number)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
