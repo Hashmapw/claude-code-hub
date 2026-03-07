@@ -39,6 +39,7 @@ export interface NotificationSettingsState {
   costAlertWebhook: string;
   costAlertThreshold: number;
   costAlertCheckInterval: number;
+  vipGroupUsageEnabled: boolean;
 
   cacheHitRateAlertEnabled: boolean;
   cacheHitRateAlertWindowMode: CacheHitRateAlertSettingsWindowMode;
@@ -111,6 +112,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ];
 
 const INT32_MAX = 2_147_483_647;
@@ -171,6 +173,7 @@ function toClientSettings(raw: any): NotificationSettingsState {
     costAlertWebhook: raw?.costAlertWebhook || "",
     costAlertThreshold: toBoundedFloat(raw?.costAlertThreshold, 0.8, 0.5, 1.0),
     costAlertCheckInterval: toBoundedInt(raw?.costAlertCheckInterval, 60, 10, 1440),
+    vipGroupUsageEnabled: Boolean(raw?.vipGroupUsageEnabled),
     cacheHitRateAlertEnabled: Boolean(raw?.cacheHitRateAlertEnabled),
     cacheHitRateAlertWindowMode,
     cacheHitRateAlertCheckInterval: toBoundedInt(raw?.cacheHitRateAlertCheckInterval, 5, 1, 1440),
@@ -215,6 +218,7 @@ export function useNotificationsPageData() {
     daily_leaderboard: [],
     cost_alert: [],
     cache_hit_rate_alert: [],
+    vip_group_usage: [],
   }));
 
   const [isLoading, setIsLoading] = useState(true);
@@ -317,6 +321,9 @@ export function useNotificationsPageData() {
         if (nextValue !== undefined) {
           payload.costAlertCheckInterval = nextValue;
         }
+      }
+      if (patch.vipGroupUsageEnabled !== undefined) {
+        payload.vipGroupUsageEnabled = patch.vipGroupUsageEnabled;
       }
 
       if (patch.cacheHitRateAlertEnabled !== undefined) {

@@ -78,6 +78,17 @@ export interface CostAlertData {
   period: string;
 }
 
+export interface VipGroupUsageData {
+  userId: number;
+  userName: string;
+  providerId: number;
+  providerName: string;
+  providerGroupTag: string;
+  model: string;
+  sessionId: string;
+  timestamp: string;
+}
+
 export interface CacheHitRateAlertSample {
   kind: "eligible" | "overall";
   requests: number;
@@ -162,7 +173,8 @@ export type WebhookNotificationType =
   | "circuit_breaker"
   | "daily_leaderboard"
   | "cost_alert"
-  | "cache_hit_rate_alert";
+  | "cache_hit_rate_alert"
+  | "vip_group_usage";
 
 export interface WebhookTargetConfig {
   id?: number;

@@ -75,7 +75,7 @@ export function VirtualizedLogsTable({
   serverTimeZone: _serverTimeZone,
 }: VirtualizedLogsTableProps) {
   const t = useTranslations("dashboard");
-  const getPricingSourceLabel = (source: string) => t(`logs.billingDetails.pricingSource.`);
+  const getPricingSourceLabel = (_source: string) => t(`logs.billingDetails.pricingSource.`);
   const tChain = useTranslations("provider-chain");
   const parentRef = useRef<HTMLDivElement>(null);
   const [showScrollToTop, setShowScrollToTop] = useState(false);

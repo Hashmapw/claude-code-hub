@@ -10,3 +10,4 @@ export {
   WEBHOOK_NOTIFICATION_TYPES,
 } from "./placeholders";
 export { buildTestMessage } from "./test-messages";
+export { buildVipGroupUsageMessage } from "./vip-group-usage";

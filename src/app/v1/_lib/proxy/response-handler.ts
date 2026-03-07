@@ -1274,7 +1274,7 @@ export class ProxyResponseHandler {
           const pushChunk = (text: string, bytes: number) => {
             if (!text) return;
 
-            const pushToTail = () => {
+            const _pushToTail = () => {
               tailChunks.push(text);
               tailChunkBytes.push(bytes);
               tailBufferedBytes += bytes;

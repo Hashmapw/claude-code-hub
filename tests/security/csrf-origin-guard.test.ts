@@ -141,8 +141,8 @@ describe("createCsrfOriginGuard", () => {
 
       const result = guard.check(
         createRequest({
-          origin: "http://192.168.1.100:13500",
-          host: "192.168.1.100:13500",
+          origin: "http://192.168.1.100:4000",
+          host: "192.168.1.100:4000",
         })
       );
 
@@ -160,7 +160,7 @@ describe("createCsrfOriginGuard", () => {
       const result = guard.check(
         createRequest({
           origin: "http://myapp.example.com",
-          host: "localhost:13500",
+          host: "localhost:4000",
           "x-forwarded-host": "myapp.example.com",
         })
       );
@@ -197,7 +197,7 @@ describe("createCsrfOriginGuard", () => {
       const result = guard.check(
         createRequest({
           origin: "http://myapp.example.com",
-          host: "localhost:13500",
+          host: "localhost:4000",
           "x-forwarded-host": "myapp.example.com",
         })
       );
@@ -215,7 +215,7 @@ describe("createCsrfOriginGuard", () => {
       const result = guard.check(
         createRequest({
           origin: "http://evil.example.com",
-          host: "myapp.example.com:13500",
+          host: "myapp.example.com:4000",
         })
       );
 
@@ -231,8 +231,8 @@ describe("createCsrfOriginGuard", () => {
 
       const result = guard.check(
         createRequest({
-          origin: "http://192.168.1.100:13500",
-          host: "192.168.1.100:13500",
+          origin: "http://192.168.1.100:4000",
+          host: "192.168.1.100:4000",
         })
       );
 

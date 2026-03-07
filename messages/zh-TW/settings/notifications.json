@@ -38,6 +38,11 @@
     "webhookTypeUnknown": "未知平台，請使用企業微信或飛書的 Webhook URL",
     "webhookTypeWeCom": "企業微信"
   },
+  "vipGroupUsage": {
+    "title": "高成本分組使用提醒",
+    "description": "當供應商分組為 VIP 且被調用時發送提醒訊息",
+    "enable": "啟用高成本分組使用提醒"
+  },
   "cacheHitRateAlert": {
     "absMin": "絕對下限（absMin）",
     "checkInterval": "檢查間隔（分鐘）",

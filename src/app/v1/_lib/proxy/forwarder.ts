@@ -1868,6 +1868,7 @@ export class ProxyForwarder {
           : GEMINI_PROTOCOL.CLI_ENDPOINT);
 
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = ProxyForwarder.enforceAnthropicMessagesBetaQuery(session, provider, proxyUrl);
 
       // 4. Headers 处理：默认透传 session.headers（含请求过滤器修改），但移除代理认证头并覆盖上游鉴权
       // 说明：之前 Gemini 分支使用 new Headers() 重建 headers，会导致 user-agent 丢失且过滤器不生效
@@ -2809,6 +2810,45 @@ export class ProxyForwarder {
     }
 
     return alternativeProvider;
+  }
+
+  private static enforceAnthropicMessagesBetaQuery(
+    session: ProxySession,
+    provider: NonNullable<typeof session.provider>,
+    proxyUrl: string
+  ): string {
+    const isAnthropicProvider =
+      provider.providerType === "claude" || provider.providerType === "claude-auth";
+    if (!isAnthropicProvider || session.requestUrl.pathname !== "/v1/messages") {
+      return proxyUrl;
+    }
+
+    try {
+      const parsed = new URL(proxyUrl);
+      if (parsed.searchParams.get("beta") === "true") {
+        return proxyUrl;
+      }
+
+      parsed.searchParams.set("beta", "true");
+      const updated = parsed.toString();
+
+      logger.debug("ProxyForwarder: Enforced beta=true query for Anthropic Messages API", {
+        providerId: provider.id,
+        providerType: provider.providerType,
+        from: sanitizeUrl(proxyUrl),
+        to: sanitizeUrl(updated),
+      });
+
+      return updated;
+    } catch (error) {
+      logger.warn("ProxyForwarder: Failed to enforce beta=true query for Anthropic Messages API", {
+        providerId: provider.id,
+        providerType: provider.providerType,
+        proxyUrl: sanitizeUrl(proxyUrl),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return proxyUrl;
+    }
   }
 
   private static buildHeaders(
