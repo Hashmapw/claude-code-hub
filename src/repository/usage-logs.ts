@@ -454,7 +454,13 @@ export async function findUsageLogsForKeySlim(
     filters.minRetryCount ?? "",
   ].join("\u0001");
 
-  conditions.push(...buildUsageLogConditions(filters));
+  conditions.push(...buildUsageLogConditions({ ...filters, model: undefined }));
+
+  if (filters.model) {
+    conditions.push(
+      sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) = ${filters.model}`
+    );
+  }
 
   const offset = (safePage - 1) * safePageSize;
   const results = await db
@@ -513,7 +519,9 @@ export async function findUsageLogsForKeySlim(
     }
 
     if (filters.model) {
-      ledgerConditions.push(eq(usageLedger.model, filters.model));
+      ledgerConditions.push(
+        sql`COALESCE(${usageLedger.originalModel}, ${usageLedger.model}) = ${filters.model}`
+      );
     }
 
     if (filters.endpoint) {
@@ -644,12 +652,12 @@ export async function getDistinctModelsForKey(keyString: string): Promise<string
   if (cached !== undefined) return cached;
 
   const result = await db.execute(
-    sql`select distinct ${messageRequest.model} as model
+    sql`select distinct COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) as model
         from ${messageRequest}
         where ${messageRequest.key} = ${keyString}
           and ${messageRequest.deletedAt} is null
           and (${EXCLUDE_WARMUP_CONDITION})
-          and ${messageRequest.model} is not null
+          and COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) is not null
         order by model asc`
   );
 

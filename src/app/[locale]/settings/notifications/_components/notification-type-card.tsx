@@ -67,6 +67,13 @@ function getTypeConfig(type: NotificationType): TypeConfig {
         borderColor: "border-blue-500/20 hover:border-blue-500/30",
         IconComponent: Database,
       };
+    case "vip_group_usage":
+      return {
+        iconColor: "text-yellow-400",
+        iconBgColor: "bg-yellow-500/10",
+        borderColor: "border-border/50 hover:border-border",
+        IconComponent: AlertTriangle,
+      };
   }
 }
 
@@ -186,7 +193,8 @@ export function NotificationTypeCard({
     | "circuitBreakerEnabled"
     | "dailyLeaderboardEnabled"
     | "costAlertEnabled"
-    | "cacheHitRateAlertEnabled";
+    | "cacheHitRateAlertEnabled"
+    | "vipGroupUsageEnabled";
 
   type TypeMeta = {
     title: string;
@@ -229,6 +237,14 @@ export function NotificationTypeCard({
           enabled: settings.cacheHitRateAlertEnabled,
           enabledKey: "cacheHitRateAlertEnabled" as const,
           enableLabel: t("notifications.cacheHitRateAlert.enable"),
+        };
+      case "vip_group_usage":
+        return {
+          title: t("notifications.vipGroupUsage.title"),
+          description: t("notifications.vipGroupUsage.description"),
+          enabled: settings.vipGroupUsageEnabled,
+          enabledKey: "vipGroupUsageEnabled" as const,
+          enableLabel: t("notifications.vipGroupUsage.enable"),
         };
     }
   }, [settings, t, type]);

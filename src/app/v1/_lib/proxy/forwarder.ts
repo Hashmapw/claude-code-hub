@@ -1014,6 +1014,38 @@ export class ProxyForwarder {
             statusCode: response.status,
           });
 
+          const groupTags = currentProvider.groupTag
+            ?.split(",")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter(Boolean);
+          if (groupTags?.includes("vip")) {
+            const alertUser = session.messageContext?.user ?? session.authState?.user ?? null;
+            const userId = alertUser?.id;
+            const userName = alertUser?.name;
+            if (typeof userId === "number" && userName) {
+              void import("@/lib/notification/notifier")
+                .then(({ sendVipGroupUsageAlert }) =>
+                  sendVipGroupUsageAlert({
+                    userId,
+                    userName,
+                    providerId: currentProvider.id,
+                    providerName: currentProvider.name,
+                    providerGroupTag: currentProvider.groupTag || "vip",
+                    model: session.request.model || "",
+                    sessionId: session.sessionId || "",
+                    timestamp: new Date().toISOString(),
+                  })
+                )
+                .catch((error) => {
+                  logger.error("ProxyForwarder: Failed to enqueue vip group usage alert", {
+                    providerId: currentProvider.id,
+                    sessionId: session.sessionId,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                });
+            }
+          }
+
           return response; // ⭐ 成功：立即返回，结束所有循环
         } catch (error) {
           lastError = error as Error;
@@ -1900,6 +1932,7 @@ export class ProxyForwarder {
           : GEMINI_PROTOCOL.CLI_ENDPOINT);
 
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = ProxyForwarder.enforceAnthropicMessagesBetaQuery(session, provider, proxyUrl);
 
       // 4. Headers 处理：默认透传 session.headers（含请求过滤器修改），但移除代理认证头并覆盖上游鉴权
       // 说明：之前 Gemini 分支使用 new Headers() 重建 headers，会导致 user-agent 丢失且过滤器不生效
@@ -2138,6 +2171,7 @@ export class ProxyForwarder {
       // 移除了强制 /v1/responses 路径重写，解决 Issue #139
       // buildProxyUrl() 会检测 base_url 是否已包含完整路径，避免重复拼接
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = ProxyForwarder.enforceAnthropicMessagesBetaQuery(session, provider, proxyUrl);
 
       // Host header must match actual request target for undici TLS cert validation
       // When provider has multiple endpoints, provider.url and proxyUrl hosts may differ
@@ -3550,6 +3584,45 @@ export class ProxyForwarder {
         }
       },
     });
+  }
+
+  private static enforceAnthropicMessagesBetaQuery(
+    session: ProxySession,
+    provider: NonNullable<typeof session.provider>,
+    proxyUrl: string
+  ): string {
+    const isAnthropicProvider =
+      provider.providerType === "claude" || provider.providerType === "claude-auth";
+    if (!isAnthropicProvider || session.requestUrl.pathname !== "/v1/messages") {
+      return proxyUrl;
+    }
+
+    try {
+      const parsed = new URL(proxyUrl);
+      if (parsed.searchParams.get("beta") === "true") {
+        return proxyUrl;
+      }
+
+      parsed.searchParams.set("beta", "true");
+      const updated = parsed.toString();
+
+      logger.debug("ProxyForwarder: Enforced beta=true query for Anthropic Messages API", {
+        providerId: provider.id,
+        providerType: provider.providerType,
+        from: sanitizeUrl(proxyUrl),
+        to: sanitizeUrl(updated),
+      });
+
+      return updated;
+    } catch (error) {
+      logger.warn("ProxyForwarder: Failed to enforce beta=true query for Anthropic Messages API", {
+        providerId: provider.id,
+        providerType: provider.providerType,
+        proxyUrl: sanitizeUrl(proxyUrl),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return proxyUrl;
+    }
   }
 
   private static buildHeaders(

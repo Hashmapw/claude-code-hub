@@ -178,6 +178,13 @@ export interface MyUsageLogsResult {
 // Infinity means "all time" - no date filter applied to the query
 const ALL_TIME_MAX_AGE_DAYS = Infinity;
 
+function getOriginalModelDisplayName(
+  originalModel: string | null | undefined,
+  redirectedModel: string | null | undefined
+): string | null {
+  return originalModel ?? redirectedModel ?? null;
+}
+
 export async function getMyUsageMetadata(): Promise<ActionResult<MyUsageMetadata>> {
   try {
     const session = await getSession({ allowReadOnlyAccess: true });
@@ -372,7 +379,6 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     if (!session) return { ok: false, error: "Unauthorized" };
 
     const settings = await getSystemSettings();
-    const billingModelSource = settings.billingModelSource;
     const currencyCode = settings.currencyDisplay;
 
     // 修复: 使用 Key 的 dailyResetTime 和 dailyResetMode 来计算时间范围
@@ -385,8 +391,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
     const breakdown = await db
       .select({
-        model: usageLedger.model,
-        originalModel: usageLedger.originalModel,
+        model: sql<string | null>`COALESCE(${usageLedger.originalModel}, ${usageLedger.model})`,
         calls: sql<number>`count(*)::int`,
         costUsd: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
         inputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}), 0)::double precision`,
@@ -401,7 +406,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
           lt(usageLedger.createdAt, timeRange.endTime)
         )
       )
-      .groupBy(usageLedger.model, usageLedger.originalModel);
+      .groupBy(sql`COALESCE(${usageLedger.originalModel}, ${usageLedger.model})`);
 
     let totalCalls = 0;
     let totalInputTokens = 0;
@@ -409,7 +414,6 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     let totalCostUsd = 0;
 
     const modelBreakdown = breakdown.map((row) => {
-      const billingModel = billingModelSource === "original" ? row.originalModel : row.model;
       const rawCostUsd = Number(row.costUsd ?? 0);
       const costUsd = Number.isFinite(rawCostUsd) ? rawCostUsd : 0;
 
@@ -420,7 +424,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
       return {
         model: row.model,
-        billingModel,
+        billingModel: row.model,
         calls: row.calls,
         costUsd,
         inputTokens: row.inputTokens,
@@ -435,7 +439,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
       costUsd: totalCostUsd,
       modelBreakdown,
       currencyCode,
-      billingModelSource,
+      billingModelSource: "original",
     };
 
     return { ok: true, data: stats };
@@ -493,20 +497,14 @@ export async function getMyUsageLogs(
     });
 
     const logs: MyUsageLogEntry[] = result.logs.map((log) => {
-      const modelRedirect =
-        log.originalModel && log.model && log.originalModel !== log.model
-          ? `${log.originalModel} → ${log.model}`
-          : null;
-
-      const billingModel =
-        (settings.billingModelSource === "original" ? log.originalModel : log.model) ?? null;
+      const displayModel = getOriginalModelDisplayName(log.originalModel, log.model);
 
       return {
         id: log.id,
         createdAt: log.createdAt,
-        model: log.model,
-        billingModel,
-        modelRedirect,
+        model: displayModel,
+        billingModel: displayModel,
+        modelRedirect: null,
         inputTokens: log.inputTokens ?? 0,
         outputTokens: log.outputTokens ?? 0,
         cost: log.costUsd ? Number(log.costUsd) : 0,
@@ -529,7 +527,7 @@ export async function getMyUsageLogs(
         page,
         pageSize,
         currencyCode: settings.currencyDisplay,
-        billingModelSource: settings.billingModelSource,
+        billingModelSource: "original",
       },
     };
   } catch (error) {
@@ -627,7 +625,7 @@ export async function getMyStatsSummary(
     // Key 维度是 User 维度的子集：用一条聚合 SQL 扫描 userId 范围即可同时算出两套 breakdown。
     const modelBreakdown = await db
       .select({
-        model: messageRequest.model,
+        model: sql<string | null>`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`,
         // User breakdown（跨所有 Key）
         userRequests: sql<number>`count(*)::int`,
         userCost: sql<string>`COALESCE(sum(${messageRequest.costUsd}), 0)`,
@@ -657,7 +655,7 @@ export async function getMyStatsSummary(
           endDate ? lt(messageRequest.createdAt, endDate) : undefined
         )
       )
-      .groupBy(messageRequest.model)
+      .groupBy(sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`)
       .orderBy(sql`sum(${messageRequest.costUsd}) DESC`);
 
     const keyOnlyBreakdown = modelBreakdown.filter((row) => (row.keyRequests ?? 0) > 0);

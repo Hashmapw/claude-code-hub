@@ -3,11 +3,13 @@ import { buildCacheHitRateAlertMessage } from "@/lib/webhook/templates/cache-hit
 import { buildCircuitBreakerMessage } from "@/lib/webhook/templates/circuit-breaker";
 import { buildCostAlertMessage } from "@/lib/webhook/templates/cost-alert";
 import { buildDailyLeaderboardMessage } from "@/lib/webhook/templates/daily-leaderboard";
+import { buildVipGroupUsageMessage } from "@/lib/webhook/templates/vip-group-usage";
 import type {
   CacheHitRateAlertData,
   CircuitBreakerAlertData,
   CostAlertData,
   DailyLeaderboardData,
+  VipGroupUsageData,
 } from "@/lib/webhook/types";
 
 describe("Message Templates", () => {
@@ -346,6 +348,30 @@ describe("Message Templates", () => {
       const sectionsStr = JSON.stringify(message.sections);
       expect(sectionsStr).toContain("未检测到异常");
       expect(sectionsStr).not.toContain("异常列表");
+    });
+  });
+
+  describe("buildVipGroupUsageMessage", () => {
+    it("should create structured message for vip group usage alert", () => {
+      const data: VipGroupUsageData = {
+        userId: 7,
+        userName: "测试用户",
+        providerId: 11,
+        providerName: "VIP线路",
+        providerGroupTag: "vip,p0",
+        model: "claude-sonnet-4-20250514",
+        sessionId: "sess_abc123",
+        timestamp: "2025-01-02T12:00:00Z",
+      };
+
+      const message = buildVipGroupUsageMessage(data, "UTC");
+
+      expect(message.header.level).toBe("warning");
+      expect(message.header.title).toContain("高成本分组使用提醒");
+      const sectionsStr = JSON.stringify(message.sections);
+      expect(sectionsStr).toContain("测试用户");
+      expect(sectionsStr).toContain("VIP线路");
+      expect(sectionsStr).toContain("sess_abc123");
     });
   });
 });

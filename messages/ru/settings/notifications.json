@@ -38,6 +38,11 @@
     "webhookTypeUnknown": "Неизвестная платформа. Используйте URL вебхука WeCom или Feishu",
     "webhookTypeWeCom": "WeCom"
   },
+  "vipGroupUsage": {
+    "title": "Оповещение об использовании дорогой группы",
+    "description": "Отправлять уведомление при вызове VIP-группы провайдера",
+    "enable": "Включить оповещение об использовании дорогой группы"
+  },
   "cacheHitRateAlert": {
     "absMin": "Абсолютный минимум (absMin)",
     "checkInterval": "Интервал проверки (мин)",

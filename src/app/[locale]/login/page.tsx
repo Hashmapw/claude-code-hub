@@ -26,11 +26,6 @@ export default function LoginPage() {
 type LoginStatus = "idle" | "submitting" | "success" | "error";
 type LoginType = "admin" | "dashboard_user" | "readonly_user";
 
-interface LoginVersionInfo {
-  current: string;
-  hasUpdate: boolean;
-}
-
 const DEFAULT_SITE_TITLE = "Claude Code Hub";
 
 function parseLoginType(value: unknown): LoginType | null {
@@ -43,12 +38,6 @@ function parseLoginType(value: unknown): LoginType | null {
 
 function getLoginTypeFallbackPath(loginType: LoginType): string {
   return loginType === "readonly_user" ? "/my-usage" : "/dashboard";
-}
-
-function formatVersionLabel(version: string): string {
-  const trimmed = version.trim();
-  if (!trimmed) return "";
-  return /^v/i.test(trimmed) ? `v${trimmed.slice(1)}` : `v${trimmed}`;
 }
 
 const floatAnimation = {
@@ -89,7 +78,6 @@ const stagger = {
 
 function LoginPageContent() {
   const t = useTranslations("auth");
-  const tCustoms = useTranslations("customs");
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "";
@@ -100,7 +88,6 @@ function LoginPageContent() {
   const [error, setError] = useState("");
   const [showHttpWarning, setShowHttpWarning] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [versionInfo, setVersionInfo] = useState<LoginVersionInfo | null>(null);
   const [siteTitle, setSiteTitle] = useState(DEFAULT_SITE_TITLE);
 
   useEffect(() => {
@@ -121,29 +108,7 @@ function LoginPageContent() {
   useEffect(() => {
     let active = true;
 
-    void fetch("/api/version")
-      .then((response) => response.json() as Promise<{ current?: unknown; hasUpdate?: unknown }>)
-      .then((data) => {
-        if (!active || typeof data.current !== "string") {
-          return;
-        }
-
-        setVersionInfo({
-          current: data.current,
-          hasUpdate: Boolean(data.hasUpdate),
-        });
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    void fetch("/api/system-settings")
+    void fetch("/api/public/site-info")
       .then((response) => {
         if (!response.ok) {
           return null;
@@ -404,28 +369,6 @@ function LoginPageContent() {
             </motion.div>
           </div>
         </div>
-      </div>
-
-      {/* Page Footer */}
-      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-1">
-        <p
-          data-testid="login-site-title-footer"
-          className="text-center text-xs text-muted-foreground"
-        >
-          {siteTitle}
-        </p>
-
-        {versionInfo?.current ? (
-          <div
-            data-testid="login-footer-version"
-            className="flex items-center justify-center gap-2 text-xs text-muted-foreground"
-          >
-            <span className="font-mono">{formatVersionLabel(versionInfo.current)}</span>
-            {versionInfo.hasUpdate ? (
-              <span className="text-orange-600">{tCustoms("version.updateAvailable")}</span>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     </div>
   );

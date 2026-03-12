@@ -18,6 +18,7 @@ const NotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 const BindingInputSchema: z.ZodType<BindingInput> = z.object({

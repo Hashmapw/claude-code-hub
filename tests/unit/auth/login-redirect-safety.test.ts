@@ -33,6 +33,12 @@ describe("sanitizeRedirectPath", () => {
   it("rejects protocol-like path payload", () => {
     expect(sanitizeRedirectPath("/https://evil.example/path")).toBe("/dashboard");
   });
+
+  it("collapses polluted leading proxy prefix in login redirect path", () => {
+    expect(sanitizeRedirectPath("/proxy/3000/ws-a/proxy/3000/zh-CN/dashboard")).toBe(
+      "/ws-a/proxy/3000/zh-CN/dashboard"
+    );
+  });
 });
 
 describe("resolveLoginRedirectTarget", () => {

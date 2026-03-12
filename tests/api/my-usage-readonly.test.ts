@@ -386,21 +386,14 @@ describe("my-usage API：只读 Key 自助查询", () => {
     expect(data.outputTokens).toBe(280);
     expect(data.costUsd).toBeCloseTo(0.02, 10);
 
-    // breakdown：至少包含两个模型
+    // breakdown：严格版展示原始模型
     const breakdownByModel = new Map(data.modelBreakdown.map((row) => [row.model, row]));
-    expect(breakdownByModel.get("gpt-4.1")?.calls).toBe(1);
-    expect(breakdownByModel.get("gpt-4.1-mini")?.calls).toBe(1);
-
-    // billingModelSource 不假设固定值，但要求 billingModel 字段与配置一致
-    const originalModelByModel = new Map<string, string>([
-      ["gpt-4.1", "gpt-4.1-original"],
-      ["gpt-4.1-mini", "gpt-4.1-mini-original"],
-    ]);
+    expect(breakdownByModel.get("gpt-4.1-original")?.calls).toBe(1);
+    expect(breakdownByModel.get("gpt-4.1-mini-original")?.calls).toBe(1);
+    expect(data.billingModelSource).toBe("original");
     for (const row of data.modelBreakdown) {
       if (!row.model) continue;
-      const expectedBillingModel =
-        data.billingModelSource === "original" ? originalModelByModel.get(row.model) : row.model;
-      expect(row.billingModel).toBe(expectedBillingModel);
+      expect(row.billingModel).toBe(row.model);
     }
 
     // 同时验证 usage logs：不应返回 B 的日志（不泄漏）
@@ -420,6 +413,34 @@ describe("my-usage API：只读 Key 自助查询", () => {
     // warmup 行是否展示不做强约束（日志口径可见），但绝不能泄漏 B
     expect(logIds).not.toContain(b1);
 
+    const logModels = ((logs.json as any).data.logs as Array<{
+      id: number;
+      model: string | null;
+      billingModel: string | null;
+      modelRedirect: string | null;
+    }>).map((log) => ({
+      id: log.id,
+      model: log.model,
+      billingModel: log.billingModel,
+      modelRedirect: log.modelRedirect,
+    }));
+    expect(logModels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: a1,
+          model: "gpt-4.1-original",
+          billingModel: "gpt-4.1-original",
+          modelRedirect: null,
+        }),
+        expect.objectContaining({
+          id: a2,
+          model: "gpt-4.1-mini-original",
+          billingModel: "gpt-4.1-mini-original",
+          modelRedirect: null,
+        }),
+      ])
+    );
+
     // 筛选项接口：模型与端点列表应可用
     const models = await callActionsRoute({
       method: "POST",
@@ -429,7 +450,9 @@ describe("my-usage API：只读 Key 自助查询", () => {
     });
     expect(models.response.status).toBe(200);
     expect((models.json as any).ok).toBe(true);
-    expect((models.json as any).data).toEqual(expect.arrayContaining(["gpt-4.1", "gpt-4.1-mini"]));
+    expect((models.json as any).data).toEqual(
+      expect.arrayContaining(["gpt-4.1-original", "gpt-4.1-mini-original"])
+    );
 
     const endpoints = await callActionsRoute({
       method: "POST",
@@ -497,6 +520,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: userA.id,
       key: keyA.key,
       model: "claude-3-opus",
+      originalModel: "claude-3-opus-origin",
       endpoint: "/v1/messages",
       costUsd: "0.1000",
       inputTokens: 500,
@@ -507,6 +531,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: userA.id,
       key: keyA.key,
       model: "claude-3-sonnet",
+      originalModel: "claude-3-sonnet-origin",
       endpoint: "/v1/messages",
       costUsd: "0.0500",
       inputTokens: 300,
@@ -519,6 +544,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: userA.id,
       key: keyA.key,
       model: "claude-3-opus",
+      originalModel: "claude-3-opus-origin",
       endpoint: "/v1/messages",
       costUsd: "0.9999",
       inputTokens: 9999,
@@ -532,6 +558,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: userA.id,
       key: keyA2.key,
       model: "claude-3-opus",
+      originalModel: "claude-3-opus-origin",
       endpoint: "/v1/messages",
       costUsd: "0.0800",
       inputTokens: 400,
@@ -544,6 +571,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: userB.id,
       key: keyB.key,
       model: "gpt-4",
+      originalModel: "gpt-4-origin",
       endpoint: "/v1/chat/completions",
       costUsd: "0.5000",
       inputTokens: 2000,
@@ -596,23 +624,23 @@ describe("my-usage API：只读 Key 自助查询", () => {
 
     // 验证 keyModelBreakdown（仅当前 key A 的数据）
     const keyBreakdownMap = new Map(data.keyModelBreakdown.map((r) => [r.model, r]));
-    expect(keyBreakdownMap.get("claude-3-opus")?.requests).toBe(1);
-    expect(keyBreakdownMap.get("claude-3-opus")?.cost).toBeCloseTo(0.1, 4);
-    expect(keyBreakdownMap.get("claude-3-sonnet")?.requests).toBe(1);
-    expect(keyBreakdownMap.get("claude-3-sonnet")?.cost).toBeCloseTo(0.05, 4);
+    expect(keyBreakdownMap.get("claude-3-opus-origin")?.requests).toBe(1);
+    expect(keyBreakdownMap.get("claude-3-opus-origin")?.cost).toBeCloseTo(0.1, 4);
+    expect(keyBreakdownMap.get("claude-3-sonnet-origin")?.requests).toBe(1);
+    expect(keyBreakdownMap.get("claude-3-sonnet-origin")?.cost).toBeCloseTo(0.05, 4);
     // warmup 不应出现（blockedBy = 'warmup'）
     // 其他用户的模型不应出现
-    expect(keyBreakdownMap.has("gpt-4")).toBe(false);
+    expect(keyBreakdownMap.has("gpt-4-origin")).toBe(false);
 
     // 验证 userModelBreakdown（用户 A 的所有 key，包括 keyA2）
     const userBreakdownMap = new Map(data.userModelBreakdown.map((r) => [r.model, r]));
     // claude-3-opus: a1 (0.1) + a2_1 (0.08) = 0.18, requests = 2
-    expect(userBreakdownMap.get("claude-3-opus")?.requests).toBe(2);
-    expect(userBreakdownMap.get("claude-3-opus")?.cost).toBeCloseTo(0.18, 4);
+    expect(userBreakdownMap.get("claude-3-opus-origin")?.requests).toBe(2);
+    expect(userBreakdownMap.get("claude-3-opus-origin")?.cost).toBeCloseTo(0.18, 4);
     // claude-3-sonnet: a2 only
-    expect(userBreakdownMap.get("claude-3-sonnet")?.requests).toBe(1);
+    expect(userBreakdownMap.get("claude-3-sonnet-origin")?.requests).toBe(1);
     // 其他用户的模型不应出现
-    expect(userBreakdownMap.has("gpt-4")).toBe(false);
+    expect(userBreakdownMap.has("gpt-4-origin")).toBe(false);
 
     // 验证 currencyCode 存在
     expect(data.currencyCode).toBeDefined();
@@ -641,6 +669,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: user.id,
       key: key.key,
       model: "old-model",
+      originalModel: "old-model-origin",
       endpoint: "/v1/messages",
       costUsd: "0.0100",
       inputTokens: 100,
@@ -653,6 +682,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
       userId: user.id,
       key: key.key,
       model: "new-model",
+      originalModel: "new-model-origin",
       endpoint: "/v1/messages",
       costUsd: "0.0200",
       inputTokens: 200,
@@ -676,7 +706,7 @@ describe("my-usage API：只读 Key 自助查询", () => {
     const todayData = (todayOnly.json as any).data;
     expect(todayData.totalRequests).toBe(1);
     expect(todayData.keyModelBreakdown.length).toBe(1);
-    expect(todayData.keyModelBreakdown[0].model).toBe("new-model");
+    expect(todayData.keyModelBreakdown[0].model).toBe("new-model-origin");
 
     // 查询昨天到今天
     const bothDays = await callActionsRoute({

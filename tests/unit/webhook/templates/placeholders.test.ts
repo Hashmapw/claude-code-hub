@@ -22,6 +22,15 @@ describe("Webhook Template Placeholders", () => {
     expect(keys).toContain("{{usage_percent}}");
   });
 
+  it("getTemplatePlaceholders should include vip_group_usage placeholders", () => {
+    const placeholders = getTemplatePlaceholders("vip_group_usage");
+    const keys = placeholders.map((p) => p.key);
+    expect(keys).toContain("{{timestamp}}");
+    expect(keys).toContain("{{user_id}}");
+    expect(keys).toContain("{{provider_name}}");
+    expect(keys).toContain("{{key_group}}");
+  });
+
   it("buildTemplateVariables should build common and circuit_breaker variables", () => {
     const message: StructuredMessage = {
       header: { title: "标题", level: "error" },
@@ -183,5 +192,37 @@ describe("Webhook Template Placeholders", () => {
     });
 
     expect(vars["{{usage_percent}}"]).toBe("");
+  });
+
+  it("buildTemplateVariables should build vip_group_usage variables", () => {
+    const message: StructuredMessage = {
+      header: { title: "高成本分组使用提醒", level: "warning" },
+      sections: [],
+      timestamp: new Date("2025-01-02T12:00:00Z"),
+    };
+
+    const vars = buildTemplateVariables({
+      message,
+      notificationType: "vip_group_usage",
+      data: {
+        userId: 1,
+        userName: "张三",
+        providerId: 2,
+        providerName: "VIP供应商",
+        providerGroupTag: "vip",
+        model: "gpt-4",
+        sessionId: "session-1",
+        timestamp: "2025-01-02T12:00:00Z",
+      },
+    });
+
+    expect(vars["{{user_id}}"]).toBe("1");
+    expect(vars["{{user_name}}"]).toBe("张三");
+    expect(vars["{{provider_id}}"]).toBe("2");
+    expect(vars["{{provider_name}}"]).toBe("VIP供应商");
+    expect(vars["{{provider_group_tag}}"]).toBe("vip");
+    expect(vars["{{key_group}}"]).toBe("vip");
+    expect(vars["{{model}}"]).toBe("gpt-4");
+    expect(vars["{{session_id}}"]).toBe("session-1");
   });
 });

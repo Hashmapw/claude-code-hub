@@ -38,6 +38,11 @@
     "webhookTypeUnknown": "不明なプラットフォームです。WeComまたはFeishuのWebhook URLを使用してください",
     "webhookTypeWeCom": "WeCom"
   },
+  "vipGroupUsage": {
+    "title": "高コストグループ利用アラート",
+    "description": "VIP プロバイダーグループが利用された時に通知します",
+    "enable": "高コストグループ利用アラートを有効にする"
+  },
   "cacheHitRateAlert": {
     "absMin": "絶対下限（absMin）",
     "checkInterval": "チェック間隔（分）",
