@@ -130,6 +130,13 @@
     "interval": "检查间隔（分钟）",
     "test": "测试连接"
   },
+  "vipGroupUsage": {
+    "title": "高成本分组使用提醒",
+    "description": "当调用的供应商分组包含 VIP 时发送提醒信息",
+    "enable": "启用高成本分组使用提醒",
+    "cooldownSeconds": "提醒阈值（秒）",
+    "cooldownHelp": "同一个供应商与同一个 Session ID 在该时间窗口内只提醒一次。默认 300 秒。"
+  },
   "cacheHitRateAlert": {
     "title": "缓存命中率异常告警",
     "description": "当缓存命中率（provider × model）异常下降时发送告警",

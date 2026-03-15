@@ -1369,6 +1369,13 @@ const { route: updateNotificationSettingsRoute, handler: updateNotificationSetti
           .max(1440)
           .optional()
           .describe("成本预警检查间隔（分钟）"),
+        vipGroupUsageCooldownSeconds: z
+          .number()
+          .int()
+          .min(1)
+          .max(86400)
+          .optional()
+          .describe("VIP 分组调用提醒的去重阈值（秒）"),
 
         cacheHitRateAlertEnabled: z.boolean().optional().describe("是否启用缓存命中率异常告警"),
         cacheHitRateAlertWebhook: z
@@ -1470,6 +1477,7 @@ const WebhookNotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 const WebhookTargetSchema = z.object({

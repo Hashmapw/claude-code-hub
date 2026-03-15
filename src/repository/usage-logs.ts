@@ -139,7 +139,13 @@ export async function findUsageLogsBatch(
     conditions.push(eq(messageRequest.providerId, providerId));
   }
 
-  conditions.push(...buildUsageLogConditions(filters));
+  conditions.push(...buildUsageLogConditions({ ...filters, model: undefined }));
+
+  if (filters.model) {
+    conditions.push(
+      sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) = ${filters.model}`
+    );
+  }
 
   // Cursor-based pagination: WHERE (created_at, id) < (cursor_created_at, cursor_id)
   // Using row value comparison for efficient keyset pagination
@@ -288,7 +294,9 @@ export async function findUsageLogsBatch(
   }
 
   if (filters.model) {
-    ledgerConditions.push(eq(usageLedger.model, filters.model));
+    ledgerConditions.push(
+      sql`COALESCE(${usageLedger.originalModel}, ${usageLedger.model}) = ${filters.model}`
+    );
   }
 
   if (filters.endpoint) {
@@ -555,7 +563,9 @@ export async function findUsageLogsForKeySlim(
     }
 
     if (filters.model) {
-      ledgerConditions.push(eq(usageLedger.model, filters.model));
+      ledgerConditions.push(
+        sql`COALESCE(${usageLedger.originalModel}, ${usageLedger.model}) = ${filters.model}`
+      );
     }
 
     if (filters.endpoint) {
@@ -688,12 +698,12 @@ export async function getDistinctModelsForKey(keyString: string): Promise<string
   if (cached !== undefined) return cached;
 
   const result = await db.execute(
-    sql`select distinct ${messageRequest.model} as model
+    sql`select distinct COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) as model
         from ${messageRequest}
         where ${messageRequest.key} = ${keyString}
           and ${messageRequest.deletedAt} is null
           and (${EXCLUDE_WARMUP_CONDITION})
-          and ${messageRequest.model} is not null
+          and COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) is not null
         order by model asc`
   );
 
@@ -906,10 +916,17 @@ export async function findUsageLogsWithDetails(filters: UsageLogFilters): Promis
  */
 export async function getUsedModels(): Promise<string[]> {
   const results = await db
-    .selectDistinct({ model: messageRequest.model })
+    .selectDistinct({
+      model: sql<string | null>`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`,
+    })
     .from(messageRequest)
-    .where(and(isNull(messageRequest.deletedAt), sql`${messageRequest.model} IS NOT NULL`))
-    .orderBy(messageRequest.model);
+    .where(
+      and(
+        isNull(messageRequest.deletedAt),
+        sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) IS NOT NULL`
+      )
+    )
+    .orderBy(sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`);
 
   return results.map((r) => r.model).filter((m): m is string => m !== null);
 }
@@ -1045,7 +1062,9 @@ export async function findUsageLogsStats(
   }
 
   if (filters.model) {
-    conditions.push(eq(usageLedger.model, filters.model));
+    conditions.push(
+      sql`COALESCE(${usageLedger.originalModel}, ${usageLedger.model}) = ${filters.model}`
+    );
   }
 
   if (filters.endpoint) {

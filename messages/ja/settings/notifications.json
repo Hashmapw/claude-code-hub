@@ -38,6 +38,13 @@
     "webhookTypeUnknown": "不明なプラットフォームです。WeComまたはFeishuのWebhook URLを使用してください",
     "webhookTypeWeCom": "WeCom"
   },
+  "vipGroupUsage": {
+    "title": "高コストグループ利用アラート",
+    "description": "呼び出されたプロバイダーグループに VIP が含まれる場合に通知します",
+    "enable": "高コストグループ利用アラートを有効にする",
+    "cooldownSeconds": "通知しきい値（秒）",
+    "cooldownHelp": "同じプロバイダーと同じ Session ID には、この時間内で 1 回だけ通知します。既定値は 300 秒です。"
+  },
   "cacheHitRateAlert": {
     "absMin": "絶対下限（absMin）",
     "checkInterval": "チェック間隔（分）",

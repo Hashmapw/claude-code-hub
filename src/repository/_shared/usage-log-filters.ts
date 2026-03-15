@@ -40,7 +40,9 @@ export function buildUsageLogConditions(filters: UsageLogFilterParams): SQL[] {
   }
 
   if (filters.model) {
-    conditions.push(eq(messageRequest.model, filters.model));
+    conditions.push(
+      sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model}) = ${filters.model}`
+    );
   }
 
   if (filters.endpoint) {

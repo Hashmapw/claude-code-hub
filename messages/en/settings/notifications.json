@@ -38,6 +38,13 @@
     "webhookTypeUnknown": "Unknown platform. Please use WeCom or Feishu webhook URL",
     "webhookTypeWeCom": "WeCom"
   },
+  "vipGroupUsage": {
+    "title": "High-Cost Group Usage Alert",
+    "description": "Send alert when the called provider group includes VIP",
+    "enable": "Enable High-Cost Group Usage Alert",
+    "cooldownSeconds": "Alert Threshold (seconds)",
+    "cooldownHelp": "Only one alert is sent for the same provider and the same session ID within this time window. Default is 300 seconds."
+  },
   "cacheHitRateAlert": {
     "absMin": "Absolute Minimum (absMin)",
     "checkInterval": "Check Interval (minutes)",
