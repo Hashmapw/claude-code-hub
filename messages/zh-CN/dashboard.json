@@ -1947,6 +1947,14 @@
           "descriptionEnabled": "启用后，此密钥在登录时将进入独立的个人用量页面。但不可修改自己密钥的供应商分组。",
           "descriptionDisabled": "关闭后，用户将无法进入个人独立用量页面 UI，而是进入受限的 Web UI。"
         },
+        "softBlock": {
+          "label": "软临时限制密钥使用",
+          "descriptionEnabled": "开启后，所有使用此密钥的请求都会被立即拦截，并返回下方配置的提示词。",
+          "descriptionDisabled": "关闭后，此密钥可正常继续发起请求。",
+          "messageLabel": "限制提示词",
+          "messagePlaceholder": "输入该密钥被临时限制时返回给用户的消息",
+          "messageDescription": "开启软临时限制后，会将这里的消息直接返回给客户端，最多 500 个字符。"
+        },
         "providerGroup": {
           "label": "供应商分组",
           "placeholder": "默认：default",

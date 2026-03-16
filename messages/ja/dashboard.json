@@ -1924,6 +1924,14 @@
           "descriptionEnabled": "有効にすると、このキーはログイン時に独立した個人使用量ページにアクセスします。ただし、自分のキーのプロバイダーグループは変更できません。",
           "descriptionDisabled": "無効にすると、ユーザーは個人使用量ページUIにアクセスできません。代わりに制限されたWeb UIを使用します。"
         },
+        "softBlock": {
+          "label": "キー使用を一時的に制限",
+          "descriptionEnabled": "有効にすると、このキーを使うすべてのリクエストが即座に遮断され、下のカスタムメッセージが返されます。",
+          "descriptionDisabled": "無効にすると、このキーは通常どおりリクエストを送信できます。",
+          "messageLabel": "制限メッセージ",
+          "messagePlaceholder": "このキーが一時制限されたときに返すメッセージを入力してください",
+          "messageDescription": "一時制限が有効な間、このメッセージがそのままクライアントへ返されます。最大 500 文字。"
+        },
         "providerGroup": {
           "label": "プロバイダーグループ",
           "placeholder": "既定: default",

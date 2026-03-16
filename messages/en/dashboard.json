@@ -1988,6 +1988,14 @@
           "descriptionEnabled": "When enabled, this key will access an independent personal usage page upon login. However, it cannot modify its own key's provider group.",
           "descriptionDisabled": "When disabled, the user cannot access the personal usage page UI. Instead, they will use the restricted Web UI."
         },
+        "softBlock": {
+          "label": "Temporarily block key usage",
+          "descriptionEnabled": "When enabled, all requests using this key will be intercepted immediately and return the custom message below.",
+          "descriptionDisabled": "When disabled, this key can continue sending requests normally.",
+          "messageLabel": "Block message",
+          "messagePlaceholder": "Enter the message returned to the user when requests are blocked",
+          "messageDescription": "Shown directly to the client when this key is temporarily blocked. Maximum 500 characters."
+        },
         "providerGroup": {
           "label": "Provider Group",
           "placeholder": "Default: default",

@@ -29,6 +29,7 @@ vi.mock("@/repository/key", () => ({
 }));
 
 const findUserByIdMock = vi.fn();
+const setKeySoftBlockConfigMock = vi.fn(async () => ({ ok: true }));
 vi.mock("@/repository/user", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/repository/user")>();
   return {
@@ -36,6 +37,9 @@ vi.mock("@/repository/user", async (importOriginal) => {
     findUserById: findUserByIdMock,
   };
 });
+vi.mock("@/lib/key-soft-block-store", () => ({
+  setKeySoftBlockConfig: setKeySoftBlockConfigMock,
+}));
 
 describe("editKey: expiresAt 清除/不更新语义", () => {
   beforeEach(() => {
@@ -91,6 +95,7 @@ describe("editKey: expiresAt 清除/不更新语义", () => {
     });
 
     updateKeyMock.mockResolvedValue({ id: 1 });
+    setKeySoftBlockConfigMock.mockResolvedValue({ ok: true });
   });
 
   test("不携带 expiresAt 字段时不应更新 expires_at", async () => {
@@ -103,6 +108,7 @@ describe("editKey: expiresAt 清除/不更新语义", () => {
 
     const updatePayload = updateKeyMock.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(Object.hasOwn(updatePayload, "expires_at")).toBe(false);
+    expect(setKeySoftBlockConfigMock).not.toHaveBeenCalled();
   });
 
   test("携带 expiresAt=undefined 时应清除 expires_at（写入 null）", async () => {
@@ -157,5 +163,55 @@ describe("editKey: expiresAt 清除/不更新语义", () => {
     if (!res.ok) {
       expect(res.errorCode).toBe("INVALID_FORMAT");
     }
+  });
+
+  test("应保存软临时限制开关和提示词", async () => {
+    const { editKey } = await import("@/actions/keys");
+
+    const res = await editKey(1, {
+      name: "k2",
+      softBlockEnabled: true,
+      softBlockMessage: "Temporarily blocked by admin",
+    });
+
+    expect(res.ok).toBe(true);
+    expect(updateKeyMock).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        name: "k2",
+      })
+    );
+    expect(setKeySoftBlockConfigMock).toHaveBeenCalledWith(1, {
+      enabled: true,
+      message: "Temporarily blocked by admin",
+    });
+  });
+
+  test("未显式携带软临时限制字段时不应覆盖 Redis 配置", async () => {
+    const { editKey } = await import("@/actions/keys");
+
+    const res = await editKey(1, {
+      name: "k2",
+      limitDailyUsd: 12,
+      dailyResetMode: "fixed",
+      dailyResetTime: "00:00",
+    });
+
+    expect(res.ok).toBe(true);
+    expect(updateKeyMock).toHaveBeenCalledTimes(1);
+    expect(setKeySoftBlockConfigMock).not.toHaveBeenCalled();
+  });
+
+  test("开启软临时限制但未填写提示词时应返回失败", async () => {
+    const { editKey } = await import("@/actions/keys");
+
+    const res = await editKey(1, {
+      name: "k2",
+      softBlockEnabled: true,
+      softBlockMessage: "",
+    });
+
+    expect(res.ok).toBe(false);
+    expect(updateKeyMock).not.toHaveBeenCalled();
   });
 });

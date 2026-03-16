@@ -199,6 +199,7 @@ export async function validateKey(
       dailyResetTime: "00:00",
       limitWeeklyUsd: null,
       limitMonthlyUsd: null,
+      limitTotalUsd: null,
       limitConcurrentSessions: 0,
       cacheTtlPreference: null,
       createdAt: now,

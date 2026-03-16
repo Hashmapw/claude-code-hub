@@ -3,6 +3,7 @@ import { LoginAbusePolicy } from "@/lib/security/login-abuse-policy";
 import { validateApiKeyAndGetUser } from "@/repository/key";
 import { markUserExpired } from "@/repository/user";
 import { GEMINI_PROTOCOL } from "../gemini/protocol";
+import { handleKeySoftBlock } from "./key-soft-block";
 import { ProxyResponses } from "./responses";
 import type { AuthState, ProxySession } from "./session";
 
@@ -69,6 +70,7 @@ export class ProxyAuthenticator {
     const geminiApiKeyQuery = session.requestUrl.searchParams.get("key") ?? undefined;
 
     const authState = await ProxyAuthenticator.validate({
+      session,
       authHeader,
       apiKeyHeader,
       geminiApiKeyHeader,
@@ -89,6 +91,7 @@ export class ProxyAuthenticator {
   }
 
   private static async validate(headers: {
+    session: ProxySession;
     authHeader?: string;
     apiKeyHeader?: string;
     geminiApiKeyHeader?: string;
@@ -213,6 +216,24 @@ export class ProxyAuthenticator {
           `用户账户已于 ${user.expiresAt.toISOString().split("T")[0]} 过期。请续费订阅。`,
           "user_expired"
         ),
+      };
+    }
+
+    headers.session.setAuthState({
+      user: authResult.user,
+      key: authResult.key,
+      apiKey,
+      success: true,
+    });
+
+    const softBlockResponse = await handleKeySoftBlock(headers.session);
+    if (softBlockResponse) {
+      return {
+        user: null,
+        key: null,
+        apiKey,
+        success: false,
+        errorResponse: softBlockResponse,
       };
     }
 

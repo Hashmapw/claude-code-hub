@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
+import type { InfiniteData } from "@tanstack/react-query";
 import { editKey } from "@/actions/keys";
 import { getAvailableProviderGroups } from "@/actions/providers";
 import { DatePickerField } from "@/components/form/date-picker-field";
@@ -18,11 +19,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { useZodForm } from "@/lib/hooks/use-zod-form";
 import { getErrorMessage } from "@/lib/utils/error-messages";
 import { KeyFormSchema } from "@/lib/validation/schemas";
-import type { KeyDialogUserContext } from "@/types/user";
+import type { KeyDialogUserContext, UserDisplay } from "@/types/user";
 
 interface EditKeyFormProps {
   keyData?: {
@@ -30,8 +32,10 @@ interface EditKeyFormProps {
     name: string;
     expiresAt: string;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     providerGroup?: string | null;
-    cacheTtlPreference?: "inherit" | "5m" | "1h";
+    cacheTtlPreference?: "inherit" | "5m" | "1h" | null;
     limit5hUsd?: number | null;
     limitDailyUsd?: number | null;
     dailyResetMode?: "fixed" | "rolling";
@@ -46,6 +50,64 @@ interface EditKeyFormProps {
   onSuccess?: () => void;
 }
 
+function patchUsersCache(
+  cached: InfiniteData<{ users: UserDisplay[]; nextCursor: string | null; hasMore: boolean }> | undefined,
+  keyId: number,
+  values: {
+    softBlockEnabled: boolean;
+    softBlockMessage: string | null;
+    name: string;
+    canLoginWebUi: boolean;
+    providerGroup?: string | null;
+    limit5hUsd?: number | null;
+    limitDailyUsd?: number | null;
+    dailyResetMode?: "fixed" | "rolling";
+    dailyResetTime?: string;
+    limitWeeklyUsd?: number | null;
+    limitMonthlyUsd?: number | null;
+    limitTotalUsd?: number | null;
+    limitConcurrentSessions?: number;
+    expiresAt?: string;
+  }
+) {
+  if (!cached?.pages?.length) {
+    return cached;
+  }
+
+  return {
+    ...cached,
+    pages: cached.pages.map((page) => ({
+      ...page,
+      users: page.users.map((user) => ({
+        ...user,
+        keys: user.keys.map((key) => {
+          if (key.id !== keyId) {
+            return key;
+          }
+
+          return {
+            ...key,
+            name: values.name,
+            canLoginWebUi: values.canLoginWebUi,
+            softBlockEnabled: values.softBlockEnabled,
+            softBlockMessage: values.softBlockMessage,
+            providerGroup: values.providerGroup ?? key.providerGroup,
+            limit5hUsd: values.limit5hUsd ?? null,
+            limitDailyUsd: values.limitDailyUsd ?? null,
+            dailyResetMode: values.dailyResetMode ?? "fixed",
+            dailyResetTime: values.dailyResetTime ?? "00:00",
+            limitWeeklyUsd: values.limitWeeklyUsd ?? null,
+            limitMonthlyUsd: values.limitMonthlyUsd ?? null,
+            limitTotalUsd: values.limitTotalUsd ?? null,
+            limitConcurrentSessions: values.limitConcurrentSessions ?? 0,
+            expiresAt: values.expiresAt ?? key.expiresAt,
+          };
+        }),
+      })),
+    })),
+  };
+}
+
 export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditKeyFormProps) {
   const [isPending, startTransition] = useTransition();
   const [providerGroupSuggestions, setProviderGroupSuggestions] = useState<string[]>([]);
@@ -56,6 +118,7 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
   const tBalancePage = useTranslations(
     "dashboard.userManagement.keyEditSection.fields.balanceQueryPage"
   );
+  const tSoftBlock = useTranslations("dashboard.userManagement.keyEditSection.fields.softBlock");
   const tUI = useTranslations("ui.tagInput");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
@@ -88,6 +151,8 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
       name: keyData?.name || "",
       expiresAt: formatExpiresAt(keyData?.expiresAt || ""),
       canLoginWebUi: keyData?.canLoginWebUi ?? true,
+      softBlockEnabled: keyData?.softBlockEnabled ?? false,
+      softBlockMessage: keyData?.softBlockMessage ?? "",
       providerGroup: keyData?.providerGroup || PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: keyData?.cacheTtlPreference ?? "inherit",
       limit5hUsd: keyData?.limit5hUsd ?? null,
@@ -111,6 +176,8 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             // 重要：清除到期时间时用空字符串表达，避免 undefined 在 Server Action 序列化时被丢弃
             expiresAt: data.expiresAt ?? "",
             canLoginWebUi: data.canLoginWebUi,
+            softBlockEnabled: data.softBlockEnabled,
+            softBlockMessage: data.softBlockMessage || null,
             cacheTtlPreference: data.cacheTtlPreference,
             limit5hUsd: data.limit5hUsd,
             limitDailyUsd: data.limitDailyUsd,
@@ -130,8 +197,39 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             return;
           }
           toast.success(t("success"));
-          queryClient.invalidateQueries({ queryKey: ["userKeyGroups"] });
-          queryClient.invalidateQueries({ queryKey: ["userTags"] });
+          queryClient.setQueriesData(
+            { queryKey: ["users"] },
+            (
+              cached:
+                | InfiniteData<{
+                    users: UserDisplay[];
+                    nextCursor: string | null;
+                    hasMore: boolean;
+                  }>
+                | undefined
+            ) =>
+              patchUsersCache(cached, keyData.id, {
+                softBlockEnabled: data.softBlockEnabled,
+                softBlockMessage: data.softBlockMessage || null,
+                name: data.name,
+                canLoginWebUi: data.canLoginWebUi,
+                providerGroup: isAdmin ? data.providerGroup || PROVIDER_GROUP.DEFAULT : undefined,
+                limit5hUsd: data.limit5hUsd,
+                limitDailyUsd: data.limitDailyUsd,
+                dailyResetMode: data.dailyResetMode,
+                dailyResetTime: data.dailyResetTime,
+                limitWeeklyUsd: data.limitWeeklyUsd,
+                limitMonthlyUsd: data.limitMonthlyUsd,
+                limitTotalUsd: data.limitTotalUsd,
+                limitConcurrentSessions: data.limitConcurrentSessions,
+                expiresAt: data.expiresAt ?? "",
+              })
+          );
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["users"] }),
+            queryClient.invalidateQueries({ queryKey: ["userKeyGroups"] }),
+            queryClient.invalidateQueries({ queryKey: ["userTags"] }),
+          ]);
           onSuccess?.();
           router.refresh();
         } catch (err) {
@@ -212,6 +310,50 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
           checked={!form.values.canLoginWebUi}
           onCheckedChange={(checked) => form.setValue("canLoginWebUi", !checked)}
         />
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-dashed border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label htmlFor="soft-block-enabled" className="text-sm font-medium">
+              {tSoftBlock("label")}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {form.values.softBlockEnabled
+                ? tSoftBlock("descriptionEnabled")
+                : tSoftBlock("descriptionDisabled")}
+            </p>
+          </div>
+          <Switch
+            id="soft-block-enabled"
+            checked={Boolean(form.values.softBlockEnabled)}
+            onCheckedChange={(checked) => form.setValue("softBlockEnabled", checked)}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="soft-block-message" className="text-sm font-medium">
+            {tSoftBlock("messageLabel")}
+          </Label>
+          <Textarea
+            id="soft-block-message"
+            value={String(form.values.softBlockMessage || "")}
+            onChange={(e) => form.setValue("softBlockMessage", e.target.value)}
+            placeholder={tSoftBlock("messagePlaceholder")}
+            disabled={!form.values.softBlockEnabled}
+            maxLength={500}
+            aria-invalid={Boolean(form.errors.softBlockMessage)}
+            aria-describedby="soft-block-message-description soft-block-message-error"
+          />
+          <p id="soft-block-message-description" className="text-xs text-muted-foreground">
+            {tSoftBlock("messageDescription")}
+          </p>
+          {form.errors.softBlockMessage && (
+            <p id="soft-block-message-error" className="text-xs text-destructive" role="alert">
+              {form.errors.softBlockMessage}
+            </p>
+          )}
+        </div>
       </div>
 
       <TagInputField

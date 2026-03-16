@@ -1932,6 +1932,14 @@
           "descriptionEnabled": "啟用後，此金鑰在登入時將進入獨立的個人用量頁面。但不可修改自己金鑰的供應商分組。",
           "descriptionDisabled": "關閉後，使用者將無法進入個人獨立用量頁面 UI，而是進入受限的 Web UI。"
         },
+        "softBlock": {
+          "label": "軟性暫時限制金鑰使用",
+          "descriptionEnabled": "開啟後，所有使用此金鑰的請求都會被立即攔截，並回傳下方設定的提示詞。",
+          "descriptionDisabled": "關閉後，此金鑰可正常繼續發送請求。",
+          "messageLabel": "限制提示詞",
+          "messagePlaceholder": "輸入此金鑰被暫時限制時回傳給使用者的訊息",
+          "messageDescription": "開啟軟性暫時限制後，會將這裡的訊息直接回傳給客戶端。最多 500 個字元。"
+        },
         "providerGroup": {
           "label": "供應商分組",
           "placeholder": "預設：default",

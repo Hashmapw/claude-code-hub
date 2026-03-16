@@ -60,6 +60,7 @@ function render(node: ReactNode) {
 
   return {
     container,
+    queryClient,
     unmount: () => {
       act(() => root.unmount());
       container.remove();
@@ -84,7 +85,7 @@ describe("EditKeyForm: 清除 expiresAt 后应携带 expiresAt 字段提交（�
   test("点击 Clear Date 后提交应调用 editKey 并携带 expiresAt 字段", async () => {
     const messages = loadMessages();
 
-    const { unmount } = render(
+    const { queryClient, unmount } = render(
       <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
         <Dialog open onOpenChange={() => {}}>
           <EditKeyForm
@@ -110,6 +111,8 @@ describe("EditKeyForm: 清除 expiresAt 后应携带 expiresAt 字段提交（�
         </Dialog>
       </NextIntlClientProvider>
     );
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const setQueriesDataSpy = vi.spyOn(queryClient, "setQueriesData");
 
     await act(async () => {
       clickButtonByText("2026-01-04");
@@ -132,6 +135,79 @@ describe("EditKeyForm: 清除 expiresAt 后应携带 expiresAt 字段提交（�
     const [, payload] = call;
 
     expect("expiresAt" in payload).toBe(true);
+    expect(setQueriesDataSpy).toHaveBeenCalledWith({ queryKey: ["users"] }, expect.any(Function));
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ["users"] });
+
+    unmount();
+  });
+
+  test("软临时限制字段回填后，提交应调用 editKey 并携带对应字段", async () => {
+    const messages = loadMessages();
+
+    const { queryClient, unmount } = render(
+      <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
+        <Dialog open onOpenChange={() => {}}>
+          <EditKeyForm
+            keyData={{
+              id: 1,
+              name: "k",
+              expiresAt: "2026-01-04T23:59:59.999Z",
+              softBlockEnabled: true,
+              softBlockMessage: "Blocked from UI test",
+            }}
+            user={{
+              id: 10,
+              name: "u",
+              description: "",
+              role: "user",
+              rpm: null,
+              dailyQuota: null,
+              providerGroup: "default",
+              tags: [],
+              dailyResetMode: "fixed",
+              dailyResetTime: "00:00",
+              isEnabled: true,
+              expiresAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }}
+            isAdmin
+          />
+        </Dialog>
+      </NextIntlClientProvider>
+    );
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const setQueriesDataSpy = vi.spyOn(queryClient, "setQueriesData");
+
+    const softBlockSwitch = document.body.querySelector(
+      'button[role="switch"][id="soft-block-enabled"]'
+    ) as HTMLButtonElement | null;
+    expect(softBlockSwitch).toBeTruthy();
+    expect(softBlockSwitch?.getAttribute("aria-checked")).toBe("true");
+
+    const textarea = document.body.querySelector(
+      "#soft-block-message"
+    ) as HTMLTextAreaElement | null;
+    expect(textarea).toBeTruthy();
+    expect(textarea?.value).toBe("Blocked from UI test");
+    expect(textarea?.disabled).toBe(false);
+
+    const submit = document.body.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    expect(submit).toBeTruthy();
+
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(keysActionMocks.editKey).toHaveBeenCalledTimes(1);
+    const call = keysActionMocks.editKey.mock.calls[0] as unknown as [number, any];
+    const [, payload] = call;
+
+    expect(payload.softBlockEnabled).toBe(true);
+    expect(payload.softBlockMessage).toBe("Blocked from UI test");
+    expect(setQueriesDataSpy).toHaveBeenCalledWith({ queryKey: ["users"] }, expect.any(Function));
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ["users"] });
 
     unmount();
   });
