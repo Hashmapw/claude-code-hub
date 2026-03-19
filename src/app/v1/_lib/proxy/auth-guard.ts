@@ -3,6 +3,7 @@ import { LoginAbusePolicy } from "@/lib/security/login-abuse-policy";
 import { validateApiKeyAndGetUser } from "@/repository/key";
 import { markUserExpired } from "@/repository/user";
 import { GEMINI_PROTOCOL } from "../gemini/protocol";
+import { handleKeySoftBlock } from "./key-soft-block";
 import { ProxyResponses } from "./responses";
 import type { AuthState, ProxySession } from "./session";
 
@@ -69,6 +70,7 @@ export class ProxyAuthenticator {
     const geminiApiKeyQuery = session.requestUrl.searchParams.get("key") ?? undefined;
 
     const authState = await ProxyAuthenticator.validate({
+      session,
       authHeader,
       apiKeyHeader,
       geminiApiKeyHeader,
@@ -89,6 +91,7 @@ export class ProxyAuthenticator {
   }
 
   private static async validate(headers: {
+    session: ProxySession;
     authHeader?: string;
     apiKeyHeader?: string;
     geminiApiKeyHeader?: string;
@@ -216,13 +219,32 @@ export class ProxyAuthenticator {
       };
     }
 
+    const successState: AuthState = {
+      user: authResult.user,
+      key: authResult.key,
+      apiKey,
+      success: true,
+    };
+
+    headers.session.setAuthState(successState);
+    const softBlockResponse = await handleKeySoftBlock(headers.session);
+    if (softBlockResponse) {
+      return {
+        user: null,
+        key: null,
+        apiKey,
+        success: false,
+        errorResponse: softBlockResponse,
+      };
+    }
+
     logger.debug("[ProxyAuthenticator] Authentication successful", {
       userId: authResult.user.id,
       userName: authResult.user.name,
       keyName: authResult.key.name,
     });
 
-    return { user: authResult.user, key: authResult.key, apiKey, success: true };
+    return successState;
   }
 
   private static extractKeyFromAuthorization(authHeader?: string): string | null {

@@ -33,6 +33,18 @@ describe("sanitizeRedirectPath", () => {
   it("rejects protocol-like path payload", () => {
     expect(sanitizeRedirectPath("/https://evil.example/path")).toBe("/dashboard");
   });
+
+  it("collapses duplicated leading proxy prefix before workspace path", () => {
+    expect(
+      sanitizeRedirectPath("/proxy/3000/ws-a/project-b/user-c/vscode/d/proxy/3000/zh-CN/dashboard")
+    ).toBe("/ws-a/project-b/user-c/vscode/d/proxy/3000/zh-CN/dashboard");
+  });
+
+  it("keeps workspace-prefixed path when it is already canonical", () => {
+    expect(sanitizeRedirectPath("/ws-a/project-b/user-c/vscode/d/proxy/3000/zh-CN/dashboard")).toBe(
+      "/ws-a/project-b/user-c/vscode/d/proxy/3000/zh-CN/dashboard"
+    );
+  });
 });
 
 describe("resolveLoginRedirectTarget", () => {

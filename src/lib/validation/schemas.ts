@@ -347,9 +347,9 @@ export const UpdateUserSchema = z.object({
 });
 
 /**
- * 密钥表单数据验证schema
+ * 密钥表单数据验证schema（可组合基础版）
  */
-export const KeyFormSchema = z.object({
+export const KeyFormSchemaBase = z.object({
   name: z.string().min(1, "密钥名称不能为空").max(64, "密钥名称不能超过64个字符"),
   expiresAt: z
     .string()
@@ -358,6 +358,14 @@ export const KeyFormSchema = z.object({
     .transform((val) => (val === "" ? undefined : val)),
   // Web UI 登录权限控制
   canLoginWebUi: z.boolean().optional().default(true),
+  softBlockEnabled: z.boolean().optional().default(false),
+  softBlockMessage: z
+    .string()
+    .trim()
+    .max(500, "限制提示词不能超过500个字符")
+    .nullable()
+    .optional()
+    .default(""),
   // 金额限流配置
   limit5hUsd: z.coerce
     .number()
@@ -409,6 +417,16 @@ export const KeyFormSchema = z.object({
     .optional()
     .default(""),
   cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
+});
+
+export const KeyFormSchema = KeyFormSchemaBase.superRefine((data, ctx) => {
+  if (data.softBlockEnabled && !data.softBlockMessage) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["softBlockMessage"],
+      message: "开启软临时限制时必须填写提示词",
+    });
+  }
 });
 
 /**

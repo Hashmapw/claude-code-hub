@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { ActiveSessionsSkeleton } from "./_components/active-sessions-skeleton";
 import {
   UsageLogsActiveSessionsSection,
@@ -21,7 +22,7 @@ export default async function UsageLogsPage({
 
   const session = await getSession();
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return redirectWithWorkspaceBase("/login", locale);
   }
 
   const isAdmin = session.user.role === "admin";

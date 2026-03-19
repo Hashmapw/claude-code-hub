@@ -608,6 +608,8 @@ export function UserKeyTableRow({
                 name: editingKey.name,
                 expiresAt: editingKey.expiresAt,
                 canLoginWebUi: editingKey.canLoginWebUi,
+                softBlockEnabled: editingKey.softBlockEnabled ?? false,
+                softBlockMessage: editingKey.softBlockMessage ?? null,
                 providerGroup: editingKey.providerGroup ?? null,
                 limit5hUsd: editingKey.limit5hUsd,
                 limitDailyUsd: editingKey.limitDailyUsd,

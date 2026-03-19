@@ -4,6 +4,7 @@ import { fetchClientVersionStats } from "@/actions/client-versions";
 import { fetchSystemSettings } from "@/actions/system-config";
 import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { SettingsPageHeader } from "../_components/settings-page-header";
 import { SettingsSection } from "../_components/ui/settings-ui";
 import { ClientVersionStatsTable } from "./_components/client-version-stats-table";
@@ -25,7 +26,7 @@ export default async function ClientVersionsPage({
   const session = await getSession();
 
   if (!session || session.user.role !== "admin") {
-    return redirect({ href: "/login", locale });
+    return redirectWithWorkspaceBase("/login", locale);
   }
 
   return (
