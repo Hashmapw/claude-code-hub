@@ -1211,6 +1211,38 @@ export class ProxyForwarder {
             });
           }
 
+          const groupTags = currentProvider.groupTag
+            ?.split(",")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter(Boolean);
+          if (groupTags?.includes("vip")) {
+            const alertUser = session.messageContext?.user ?? session.authState?.user ?? null;
+            const userId = alertUser?.id;
+            const userName = alertUser?.name;
+            if (typeof userId === "number" && userName) {
+              void import("@/lib/notification/notifier")
+                .then(({ sendVipGroupUsageAlert }) =>
+                  sendVipGroupUsageAlert({
+                    userId,
+                    userName,
+                    providerId: currentProvider.id,
+                    providerName: currentProvider.name,
+                    providerGroupTag: currentProvider.groupTag || "vip",
+                    model: session.getOriginalModel() || session.request.model || "",
+                    sessionId: session.sessionId || "",
+                    timestamp: new Date().toISOString(),
+                  })
+                )
+                .catch((error) => {
+                  logger.error("ProxyForwarder: Failed to enqueue vip group usage alert", {
+                    providerId: currentProvider.id,
+                    sessionId: session.sessionId,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                });
+            }
+          }
+
           // 记录到决策链
           session.addProviderToChain(currentProvider, {
             ...endpointAudit,

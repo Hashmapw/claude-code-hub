@@ -349,67 +349,84 @@ export const UpdateUserSchema = z.object({
 /**
  * 密钥表单数据验证schema
  */
-export const KeyFormSchema = z.object({
-  name: z.string().min(1, "密钥名称不能为空").max(64, "密钥名称不能超过64个字符"),
-  expiresAt: z
-    .string()
-    .optional()
-    .default("")
-    .transform((val) => (val === "" ? undefined : val)),
-  // Web UI 登录权限控制
-  canLoginWebUi: z.boolean().optional().default(true),
-  // 金额限流配置
-  limit5hUsd: z.coerce
-    .number()
-    .min(0, "5小时消费上限不能为负数")
-    .max(10000, "5小时消费上限不能超过10000美元")
-    .nullable()
-    .optional(),
-  limitDailyUsd: z.coerce
-    .number()
-    .min(0, "每日消费上限不能为负数")
-    .max(10000, "每日消费上限不能超过10000美元")
-    .nullable()
-    .optional(),
-  dailyResetMode: z.enum(["fixed", "rolling"]).optional().default("fixed"),
-  dailyResetTime: z
-    .string()
-    .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "重置时间格式必须为 HH:mm")
-    .optional()
-    .default("00:00"),
-  limitWeeklyUsd: z.coerce
-    .number()
-    .min(0, "周消费上限不能为负数")
-    .max(50000, "周消费上限不能超过50000美元")
-    .nullable()
-    .optional(),
-  limitMonthlyUsd: z.coerce
-    .number()
-    .min(0, "月消费上限不能为负数")
-    .max(200000, "月消费上限不能超过200000美元")
-    .nullable()
-    .optional(),
-  limitTotalUsd: z.coerce
-    .number()
-    .min(0, "总消费上限不能为负数")
-    .max(10000000, "总消费上限不能超过10000000美元")
-    .nullable()
-    .optional(),
-  limitConcurrentSessions: z.coerce
-    .number()
-    .int("并发Session上限必须是整数")
-    .min(0, "并发Session上限不能为负数")
-    .max(1000, "并发Session上限不能超过1000")
-    .optional()
-    .default(0),
-  providerGroup: z
-    .string()
-    .max(200, "供应商分组不能超过200个字符")
-    .nullable()
-    .optional()
-    .default(""),
-  cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
-});
+export const KeyFormSchema = z
+  .object({
+    name: z.string().min(1, "密钥名称不能为空").max(64, "密钥名称不能超过64个字符"),
+    expiresAt: z
+      .string()
+      .optional()
+      .default("")
+      .transform((val) => (val === "" ? undefined : val)),
+    // Web UI 登录权限控制
+    canLoginWebUi: z.boolean().optional().default(true),
+    softBlockEnabled: z.boolean().optional().default(false),
+    softBlockMessage: z
+      .string()
+      .trim()
+      .max(500, "限制提示词不能超过500个字符")
+      .nullable()
+      .optional(),
+    // 金额限流配置
+    limit5hUsd: z.coerce
+      .number()
+      .min(0, "5小时消费上限不能为负数")
+      .max(10000, "5小时消费上限不能超过10000美元")
+      .nullable()
+      .optional(),
+    limitDailyUsd: z.coerce
+      .number()
+      .min(0, "每日消费上限不能为负数")
+      .max(10000, "每日消费上限不能超过10000美元")
+      .nullable()
+      .optional(),
+    dailyResetMode: z.enum(["fixed", "rolling"]).optional().default("fixed"),
+    dailyResetTime: z
+      .string()
+      .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "重置时间格式必须为 HH:mm")
+      .optional()
+      .default("00:00"),
+    limitWeeklyUsd: z.coerce
+      .number()
+      .min(0, "周消费上限不能为负数")
+      .max(50000, "周消费上限不能超过50000美元")
+      .nullable()
+      .optional(),
+    limitMonthlyUsd: z.coerce
+      .number()
+      .min(0, "月消费上限不能为负数")
+      .max(200000, "月消费上限不能超过200000美元")
+      .nullable()
+      .optional(),
+    limitTotalUsd: z.coerce
+      .number()
+      .min(0, "总消费上限不能为负数")
+      .max(10000000, "总消费上限不能超过10000000美元")
+      .nullable()
+      .optional(),
+    limitConcurrentSessions: z.coerce
+      .number()
+      .int("并发Session上限必须是整数")
+      .min(0, "并发Session上限不能为负数")
+      .max(1000, "并发Session上限不能超过1000")
+      .optional()
+      .default(0),
+    providerGroup: z
+      .string()
+      .max(200, "供应商分组不能超过200个字符")
+      .nullable()
+      .optional()
+      .default(""),
+    cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.softBlockEnabled && !data.softBlockMessage) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["softBlockMessage"],
+        message: "开启软临时限制时必须填写提示词",
+      });
+    }
+  });
 
 /**
  * 服务商创建数据验证schema

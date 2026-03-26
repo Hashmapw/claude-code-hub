@@ -52,7 +52,7 @@ export interface EditUserDialogProps {
   onSuccess?: () => void;
 }
 
-const EditUserSchema = UpdateUserSchema.extend({
+const EditUserSchema = UpdateUserSchema.safeExtend({
   name: z.string().min(1).max(64),
   providerGroup: z.string().max(200).nullable().optional(),
   allowedClients: z.array(z.string().max(64)).max(50).optional().default([]),

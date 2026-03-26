@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { request as undiciRequest } from "undici";
+import { getKeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
 import { createProxyAgentForProvider } from "@/lib/proxy-agent";
 import { isProviderActiveNow } from "@/lib/utils/provider-schedule";
@@ -14,6 +15,7 @@ import type {
 import type { Provider } from "@/types/provider";
 import { extractApiKeyFromHeaders } from "../proxy/auth-guard";
 import type { ClientFormat } from "../proxy/format-mapper";
+import { buildKeySoftBlockResponse, resolveKeySoftBlockMessage } from "../proxy/key-soft-block";
 import { checkProviderGroupMatch } from "../proxy/provider-selector";
 
 type ResponseFormat = "openai" | "anthropic" | "gemini" | "codex";
@@ -52,7 +54,7 @@ function extractApiKey(c: Context): string | null {
  */
 async function authenticateRequest(c: Context): Promise<{
   user: { id: number; providerGroup: string | null; isEnabled: boolean; expiresAt?: Date | null };
-  key: { providerGroup: string | null; name: string };
+  key: { id: number; providerGroup: string | null; name: string };
 }> {
   const apiKey = extractApiKey(c);
   if (!apiKey) {
@@ -72,6 +74,11 @@ async function authenticateRequest(c: Context): Promise<{
 
   if (user.expiresAt && user.expiresAt.getTime() <= Date.now()) {
     throw c.json({ error: { message: "用户账户已过期", type: "user_expired" } }, 401);
+  }
+
+  const softBlockConfig = await getKeySoftBlockConfig(key.id);
+  if (softBlockConfig.enabled) {
+    throw buildKeySoftBlockResponse(resolveKeySoftBlockMessage(softBlockConfig.message));
   }
 
   return { user, key };

@@ -2009,6 +2009,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Temporarily block key usage",
+          "descriptionEnabled": "When enabled, all requests using this key will be intercepted immediately and return the custom message below.",
+          "descriptionDisabled": "When disabled, this key can continue sending requests normally.",
+          "messageLabel": "Block message",
+          "messagePlaceholder": "Enter the message returned to the user when requests are blocked",
+          "messageDescription": "Shown directly to the client when this key is temporarily blocked. Maximum 500 characters."
         }
       },
       "limitRules": {

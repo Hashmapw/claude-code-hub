@@ -33,6 +33,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'daily_leaderboard',
   'cost_alert',
   'cache_hit_rate_alert',
+  'vip_group_usage',
 ]);
 
 // Users table

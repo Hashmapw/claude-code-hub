@@ -38,7 +38,7 @@ export interface CreateUserDialogProps {
   onSuccess?: () => void;
 }
 
-const CreateUserSchema = UpdateUserSchema.extend({
+const CreateUserSchema = UpdateUserSchema.safeExtend({
   name: z.string().min(1).max(64),
   providerGroup: z.string().max(200).nullable().optional(),
   allowedClients: z.array(z.string().max(64)).max(50).optional().default([]),
@@ -47,19 +47,30 @@ const CreateUserSchema = UpdateUserSchema.extend({
   dailyQuota: z.number().nullable().optional(),
 });
 
-const CreateKeySchema = KeyFormSchema.extend({
-  id: z.number(),
-  isEnabled: z.boolean().optional(),
-  // 覆盖 expiresAt 以支持 Date 类型（KeyEditSection 返回 Date 对象）
-  expiresAt: z
-    .union([z.date(), z.string(), z.null(), z.undefined()])
-    .optional()
-    .transform((val) => {
-      if (val === null || val === undefined || val === "") return undefined;
-      if (val instanceof Date) return val.toISOString();
-      return val;
-    }),
-});
+const CreateKeySchema = z
+  .object({
+    ...KeyFormSchema.shape,
+    id: z.number(),
+    isEnabled: z.boolean().optional(),
+    // 覆盖 expiresAt 以支持 Date 类型（KeyEditSection 返回 Date 对象）
+    expiresAt: z
+      .union([z.date(), z.string(), z.null(), z.undefined()])
+      .optional()
+      .transform((val) => {
+        if (val === null || val === undefined || val === "") return undefined;
+        if (val instanceof Date) return val.toISOString();
+        return val;
+      }),
+  })
+  .superRefine((data, ctx) => {
+    if (data.softBlockEnabled && !data.softBlockMessage) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["softBlockMessage"],
+        message: "开启软临时限制时必须填写提示词",
+      });
+    }
+  });
 
 const CreateFormSchema = z.object({
   user: CreateUserSchema,
@@ -99,6 +110,8 @@ function buildDefaultValues(): CreateFormValues {
       isEnabled: true,
       expiresAt: undefined,
       canLoginWebUi: false,
+      softBlockEnabled: false,
+      softBlockMessage: null,
       providerGroup: PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: "inherit" as const,
       limit5hUsd: null,

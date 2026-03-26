@@ -8,6 +8,7 @@ import { db } from "@/drizzle/db";
 import { keys as keysTable, users as usersTable } from "@/drizzle/schema";
 import { getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
+import { getKeySoftBlockConfigs, setKeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
 import { resolveKeyConcurrentSessionLimit } from "@/lib/rate-limit/concurrent-session-limit";
 import { resolveKeyCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
@@ -32,6 +33,11 @@ import {
 import type { Key } from "@/types/key";
 import type { ActionResult } from "./types";
 import { type BatchUpdateResult, syncUserProviderGroupFromKeys } from "./users";
+
+type KeyWithSoftBlock = Key & {
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
+};
 
 type TranslationFunction = (key: string, values?: Record<string, string>) => string;
 
@@ -71,6 +77,8 @@ export interface BatchUpdateKeysParams {
     limitWeeklyUsd?: number | null;
     limitMonthlyUsd?: number | null;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     isEnabled?: boolean;
   };
 }
@@ -93,6 +101,8 @@ export async function addKey(data: {
   expiresAt?: string;
   isEnabled?: boolean;
   canLoginWebUi?: boolean;
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
   limit5hUsd?: number | null;
   limitDailyUsd?: number | null;
   dailyResetMode?: "fixed" | "rolling";
@@ -166,6 +176,8 @@ export async function addKey(data: {
       name: data.name,
       expiresAt: data.expiresAt,
       canLoginWebUi: data.canLoginWebUi,
+      softBlockEnabled: data.softBlockEnabled,
+      softBlockMessage: data.softBlockMessage,
       limit5hUsd: data.limit5hUsd,
       limitDailyUsd: data.limitDailyUsd,
       dailyResetMode: data.dailyResetMode,
@@ -293,7 +305,7 @@ export async function addKey(data: {
         ? null
         : parseDateInputAsTimezone(validatedData.expiresAt, timezone);
 
-    await createKey({
+    const createdKey = await createKey({
       user_id: data.userId,
       name: validatedData.name,
       key: generatedKey,
@@ -311,6 +323,14 @@ export async function addKey(data: {
       provider_group: validatedData.providerGroup,
       cache_ttl_preference: validatedData.cacheTtlPreference,
     });
+
+    const softBlockResult = await setKeySoftBlockConfig(createdKey.id, {
+      enabled: validatedData.softBlockEnabled === true,
+      message: validatedData.softBlockMessage ?? null,
+    });
+    if (!softBlockResult.ok) {
+      return { ok: false, error: softBlockResult.error };
+    }
 
     // 自动同步用户分组（用户分组 = Key 分组并集）
     if (session.user.role === "admin") {
@@ -335,6 +355,8 @@ export async function editKey(
     name: string;
     expiresAt?: string;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     isEnabled?: boolean;
     limit5hUsd?: number | null;
     limitDailyUsd?: number | null;
@@ -397,6 +419,8 @@ export async function editKey(
     // 仅当调用方显式携带 expiresAt 字段时才更新/清除该字段：
     // - 避免像“仅修改限额”这类局部更新把 expiresAt 意外清空
     const hasExpiresAtField = Object.hasOwn(data, "expiresAt");
+    const hasSoftBlockConfigField =
+      Object.hasOwn(data, "softBlockEnabled") || Object.hasOwn(data, "softBlockMessage");
 
     const validatedData = KeyFormSchema.parse(data);
 
@@ -555,6 +579,16 @@ export async function editKey(
       cache_ttl_preference: validatedData.cacheTtlPreference,
     });
 
+    if (hasSoftBlockConfigField) {
+      const softBlockResult = await setKeySoftBlockConfig(keyId, {
+        enabled: validatedData.softBlockEnabled === true,
+        message: validatedData.softBlockMessage ?? null,
+      });
+      if (!softBlockResult.ok) {
+        return { ok: false, error: softBlockResult.error };
+      }
+    }
+
     // 自动同步用户分组（用户分组 = Key 分组并集）
     if (providerGroupChanged) {
       await syncUserProviderGroupFromKeys(key.userId);
@@ -638,7 +672,7 @@ export async function removeKey(keyId: number): Promise<ActionResult> {
 }
 
 // 获取用户的密钥列表
-export async function getKeys(userId: number): Promise<ActionResult<Key[]>> {
+export async function getKeys(userId: number): Promise<ActionResult<KeyWithSoftBlock[]>> {
   try {
     const session = await getSession();
     if (!session) {
@@ -651,7 +685,18 @@ export async function getKeys(userId: number): Promise<ActionResult<Key[]>> {
     }
 
     const keys = await findKeyList(userId);
-    return { ok: true, data: keys };
+    const configMap = await getKeySoftBlockConfigs(keys.map((key) => key.id));
+    return {
+      ok: true,
+      data: keys.map((key) => {
+        const config = configMap.get(key.id);
+        return {
+          ...key,
+          softBlockEnabled: config?.enabled ?? false,
+          softBlockMessage: config?.message ?? null,
+        };
+      }),
+    };
   } catch (error) {
     logger.error("获取密钥列表失败:", error);
     return { ok: false, error: "获取密钥列表失败" };

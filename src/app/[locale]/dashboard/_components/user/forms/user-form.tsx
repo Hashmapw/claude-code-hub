@@ -21,7 +21,8 @@ import { CreateUserSchema } from "@/lib/validation/schemas";
 import { AccessRestrictionsSection } from "./access-restrictions-section";
 
 // 前端表单使用的 schema（接受字符串日期）
-const UserFormSchema = CreateUserSchema.extend({
+const UserFormSchema = z.object({
+  ...CreateUserSchema.shape,
   expiresAt: z.string().optional(),
 });
 

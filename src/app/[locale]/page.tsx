@@ -1,7 +1,6 @@
-import { redirect } from "@/i18n/routing";
+import { RootLocaleRedirect } from "@/components/root-locale-redirect";
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
-  // Await params to ensure locale is available in the async context
-  const { locale } = await params;
-  return redirect({ href: "/dashboard", locale });
+  await params;
+  return <RootLocaleRedirect to="dashboard" />;
 }

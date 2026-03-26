@@ -160,5 +160,12 @@
     "testFailedRetry": "测试失败，请重试",
     "testError": "测试连接失败",
     "testNoResult": "测试成功但未返回结果"
+  },
+  "vipGroupUsage": {
+    "title": "VIP 分组使用提醒",
+    "description": "当请求命中的 provider.groupTag 包含 vip 时，发送请求级提醒。",
+    "enable": "启用 VIP 分组使用提醒",
+    "cooldownSeconds": "冷却时间（秒）",
+    "cooldownHelp": "按 providerId + sessionId 去重；在冷却窗口内同一组合只提醒一次。默认 300 秒。"
   }
 }

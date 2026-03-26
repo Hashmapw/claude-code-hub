@@ -3,6 +3,7 @@ import { LoginAbusePolicy } from "@/lib/security/login-abuse-policy";
 import { validateApiKeyAndGetUser } from "@/repository/key";
 import { markUserExpired } from "@/repository/user";
 import { GEMINI_PROTOCOL } from "../gemini/protocol";
+import { handleKeySoftBlock } from "./key-soft-block";
 import { ProxyResponses } from "./responses";
 import type { AuthState, ProxySession } from "./session";
 
@@ -69,6 +70,7 @@ export class ProxyAuthenticator {
     const geminiApiKeyQuery = session.requestUrl.searchParams.get("key") ?? undefined;
 
     const authState = await ProxyAuthenticator.validate({
+      session,
       authHeader,
       apiKeyHeader,
       geminiApiKeyHeader,
@@ -77,6 +79,10 @@ export class ProxyAuthenticator {
     session.setAuthState(authState);
 
     if (authState.success) {
+      const softBlockResponse = await handleKeySoftBlock(session);
+      if (softBlockResponse) {
+        return softBlockResponse;
+      }
       proxyAuthPolicy.recordSuccess(clientIp);
       return null;
     }
@@ -89,6 +95,7 @@ export class ProxyAuthenticator {
   }
 
   private static async validate(headers: {
+    session: ProxySession;
     authHeader?: string;
     apiKeyHeader?: string;
     geminiApiKeyHeader?: string;
