@@ -160,5 +160,12 @@
     "placeholders": "プレースホルダー",
     "title": "テンプレート（JSON）"
   },
-  "title": "プッシュ通知"
+  "title": "プッシュ通知",
+  "vipGroupUsage": {
+    "title": "VIP グループ使用通知",
+    "description": "request が groupTag に vip を含む provider に命中した時、リクエスト単位の通知を送信します。",
+    "enable": "VIP グループ使用通知を有効化",
+    "cooldownSeconds": "クールダウン（秒）",
+    "cooldownHelp": "providerId + sessionId で重複排除します。デフォルトは 300 秒です。"
+  }
 }

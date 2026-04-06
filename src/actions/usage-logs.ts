@@ -11,6 +11,7 @@ import { readLiveChainBatch } from "@/lib/redis/live-chain-store";
 import { RedisKVStore } from "@/lib/redis/redis-kv-store";
 import { getRetryCount } from "@/lib/utils/provider-chain-formatter";
 import { isProviderFinalized } from "@/lib/utils/provider-display";
+import { getSystemSettings } from "@/repository/system-config";
 import {
   findUsageLogSessionIdSuggestions,
   findUsageLogsBatch,
@@ -26,6 +27,7 @@ import {
   type UsageLogsBatchResult,
   type UsageLogsResult,
 } from "@/repository/usage-logs";
+import type { BillingModelSource } from "@/types/system-config";
 import type { ActionResult } from "./types";
 
 /**
@@ -34,6 +36,7 @@ import type { ActionResult } from "./types";
  */
 const FILTER_OPTIONS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 let filterOptionsCache: {
+  billingModelSource: BillingModelSource;
   models: string[];
   statusCodes: number[];
   endpoints: string[];
@@ -306,7 +309,11 @@ export async function getUsageLogs(
     const finalFilters: UsageLogFilters =
       session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
 
-    const result = await findUsageLogsWithDetails(finalFilters);
+    const settings = await getSystemSettings();
+    const result = await findUsageLogsWithDetails({
+      ...finalFilters,
+      billingModelSource: settings.billingModelSource,
+    });
 
     return { ok: true, data: result };
   } catch (error) {
@@ -328,7 +335,11 @@ export async function exportUsageLogs(
       return { ok: false, error: "未登录" };
     }
 
-    const finalFilters = resolveUsageLogFiltersForSession(session, filters);
+    const settings = await getSystemSettings();
+    const finalFilters = {
+      ...resolveUsageLogFiltersForSession(session, filters),
+      billingModelSource: settings.billingModelSource,
+    };
     const csv = await buildUsageLogsExportCsv(finalFilters);
 
     return { ok: true, data: csv };
@@ -349,7 +360,11 @@ export async function startUsageLogsExport(
     }
 
     const jobId = crypto.randomUUID();
-    const finalFilters = resolveUsageLogFiltersForSession(session, filters);
+    const settings = await getSystemSettings();
+    const finalFilters = {
+      ...resolveUsageLogFiltersForSession(session, filters),
+      billingModelSource: settings.billingModelSource,
+    };
 
     const stored = await usageLogsExportStatusStore.set(jobId, {
       jobId,
@@ -465,7 +480,8 @@ export async function getModelList(): Promise<ActionResult<string[]>> {
       return { ok: false, error: "未登录" };
     }
 
-    const models = await getUsedModels();
+    const settings = await getSystemSettings();
+    const models = await getUsedModels(settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("获取模型列表失败:", error);
@@ -536,7 +552,13 @@ export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
     const now = Date.now();
 
     // 检查缓存是否有效
-    if (filterOptionsCache && filterOptionsCache.expiresAt > now) {
+    const settings = await getSystemSettings();
+
+    if (
+      filterOptionsCache &&
+      filterOptionsCache.expiresAt > now &&
+      filterOptionsCache.billingModelSource === settings.billingModelSource
+    ) {
       logger.debug("筛选器选项命中缓存");
       return {
         ok: true,
@@ -551,13 +573,14 @@ export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
     // 缓存过期或不存在，重新查询
     logger.debug("筛选器选项缓存未命中，执行 DISTINCT 查询");
     const [models, statusCodes, endpoints] = await Promise.all([
-      getUsedModels(),
+      getUsedModels(settings.billingModelSource),
       getUsedStatusCodes(),
       getUsedEndpoints(),
     ]);
 
     // 更新缓存
     filterOptionsCache = {
+      billingModelSource: settings.billingModelSource,
       models,
       statusCodes,
       endpoints,
@@ -641,7 +664,11 @@ export async function getUsageLogsStats(
     const finalFilters: Omit<UsageLogFilters, "page" | "pageSize"> =
       session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
 
-    const stats = await findUsageLogsStats(finalFilters);
+    const settings = await getSystemSettings();
+    const stats = await findUsageLogsStats({
+      ...finalFilters,
+      billingModelSource: settings.billingModelSource,
+    });
 
     return { ok: true, data: stats };
   } catch (error) {
@@ -672,7 +699,11 @@ export async function getUsageLogsBatch(
     const finalFilters: UsageLogBatchFilters =
       session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
 
-    const result = await findUsageLogsBatch(finalFilters);
+    const settings = await getSystemSettings();
+    const result = await findUsageLogsBatch({
+      ...finalFilters,
+      billingModelSource: settings.billingModelSource,
+    });
 
     // Merge Redis live chain data for unfinalised rows
     const unfinalisedRows = result.logs.filter(

@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { useZodForm } from "@/lib/hooks/use-zod-form";
-import { KeyFormSchema, UpdateUserSchema } from "@/lib/validation/schemas";
+import { KeyFormSchemaBase, UpdateUserSchema } from "@/lib/validation/schemas";
 import { KeyEditSection } from "./forms/key-edit-section";
 import { UserEditSection } from "./forms/user-edit-section";
 import { useKeyTranslations } from "./hooks/use-key-translations";
@@ -47,7 +47,7 @@ const CreateUserSchema = UpdateUserSchema.extend({
   dailyQuota: z.number().nullable().optional(),
 });
 
-const CreateKeySchema = KeyFormSchema.extend({
+const CreateKeySchema = KeyFormSchemaBase.extend({
   id: z.number(),
   isEnabled: z.boolean().optional(),
   // 覆盖 expiresAt 以支持 Date 类型（KeyEditSection 返回 Date 对象）
@@ -59,6 +59,14 @@ const CreateKeySchema = KeyFormSchema.extend({
       if (val instanceof Date) return val.toISOString();
       return val;
     }),
+}).superRefine((data, ctx) => {
+  if (data.softBlockEnabled && !data.softBlockMessage) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["softBlockMessage"],
+      message: "开启软临时限制时必须填写提示词",
+    });
+  }
 });
 
 const CreateFormSchema = z.object({
@@ -99,6 +107,8 @@ function buildDefaultValues(): CreateFormValues {
       isEnabled: true,
       expiresAt: undefined,
       canLoginWebUi: false,
+      softBlockEnabled: false,
+      softBlockMessage: null,
       providerGroup: PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: "inherit" as const,
       limit5hUsd: null,
@@ -176,6 +186,8 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
             // 重要：清除到期时间时用空字符串表达，避免 undefined 在 Server Action 序列化时被丢弃
             expiresAt: data.key.expiresAt ?? "",
             canLoginWebUi: data.key.canLoginWebUi,
+            softBlockEnabled: data.key.softBlockEnabled,
+            softBlockMessage: data.key.softBlockMessage ?? null,
             providerGroup: normalizeProviderGroup(data.key.providerGroup),
             cacheTtlPreference: data.key.cacheTtlPreference,
             limit5hUsd: data.key.limit5hUsd,
@@ -391,6 +403,8 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
               expiresAt: currentKeyDraft.expiresAt ? new Date(currentKeyDraft.expiresAt) : null,
               isEnabled: currentKeyDraft.isEnabled ?? true,
               canLoginWebUi: currentKeyDraft.canLoginWebUi ?? false,
+              softBlockEnabled: currentKeyDraft.softBlockEnabled ?? false,
+              softBlockMessage: currentKeyDraft.softBlockMessage ?? null,
               providerGroup: normalizeProviderGroup(currentKeyDraft.providerGroup),
               cacheTtlPreference: currentKeyDraft.cacheTtlPreference ?? "inherit",
               limit5hUsd: currentKeyDraft.limit5hUsd ?? null,

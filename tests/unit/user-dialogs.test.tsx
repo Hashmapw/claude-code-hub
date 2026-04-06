@@ -132,7 +132,12 @@ vi.mock("@/app/[locale]/dashboard/_components/user/forms/user-edit-section", () 
 
 vi.mock("@/app/[locale]/dashboard/_components/user/forms/key-edit-section", () => ({
   KeyEditSection: ({ keyData, onChange, translations: _translations }: any) => (
-    <div data-testid="key-edit-section" data-key-id={keyData?.id}>
+    <div
+      data-testid="key-edit-section"
+      data-key-id={keyData?.id}
+      data-soft-block-enabled={String(keyData?.softBlockEnabled ?? false)}
+      data-soft-block-message={keyData?.softBlockMessage ?? ""}
+    >
       <input
         data-testid="key-name-input"
         value={keyData?.name || ""}
@@ -167,7 +172,12 @@ vi.mock("@/app/[locale]/dashboard/_components/user/forms/add-key-form", () => ({
 
 vi.mock("@/app/[locale]/dashboard/_components/user/forms/edit-key-form", () => ({
   EditKeyForm: ({ keyData, onSuccess }: any) => (
-    <div data-testid="edit-key-form" data-key-id={keyData?.id}>
+    <div
+      data-testid="edit-key-form"
+      data-key-id={keyData?.id}
+      data-soft-block-enabled={String(keyData?.softBlockEnabled ?? false)}
+      data-soft-block-message={keyData?.softBlockMessage ?? ""}
+    >
       <button data-testid="edit-key-submit" onClick={() => onSuccess()}>
         Save Key
       </button>
@@ -546,6 +556,28 @@ describe("EditKeyDialog", () => {
     unmount();
   });
 
+  test("passes soft block keyData to EditKeyForm", () => {
+    const onOpenChange = vi.fn();
+
+    const { container, unmount } = renderWithProviders(
+      <EditKeyDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        keyData={{
+          ...mockKeyData,
+          softBlockEnabled: true,
+          softBlockMessage: "Loaded from redis",
+        }}
+      />
+    );
+
+    const editKeyForm = container.querySelector('[data-testid="edit-key-form"]');
+    expect(editKeyForm?.getAttribute("data-soft-block-enabled")).toBe("true");
+    expect(editKeyForm?.getAttribute("data-soft-block-message")).toBe("Loaded from redis");
+
+    unmount();
+  });
+
   test("calls onOpenChange when dialog is closed", () => {
     const onOpenChange = vi.fn();
     const onSuccess = vi.fn();
@@ -668,6 +700,20 @@ describe("CreateUserDialog", () => {
     );
     expect(container.querySelector('[data-testid="user-edit-section"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="key-edit-section"]')).not.toBeNull();
+
+    unmount();
+  });
+
+  test("passes default soft block state to key edit section", () => {
+    const onOpenChange = vi.fn();
+
+    const { container, unmount } = renderWithProviders(
+      <CreateUserDialog open={true} onOpenChange={onOpenChange} />
+    );
+
+    const keyEditSection = container.querySelector('[data-testid="key-edit-section"]');
+    expect(keyEditSection?.getAttribute("data-soft-block-enabled")).toBe("false");
+    expect(keyEditSection?.getAttribute("data-soft-block-message")).toBe("");
 
     unmount();
   });

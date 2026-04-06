@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { getSystemSettings } from "@/repository/system-config";
 import { ActiveSessionsSkeleton } from "./_components/active-sessions-skeleton";
 import {
@@ -22,7 +22,7 @@ export default async function UsageLogsPage({
 
   const session = await getSession();
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return redirectWithWorkspaceBase("/login", locale);
   }
 
   const isAdmin = session.user.role === "admin";
@@ -30,11 +30,10 @@ export default async function UsageLogsPage({
 
   return (
     <div className="space-y-4">
-      {!systemSettings.enableHighConcurrencyMode && (
-        <Suspense fallback={<ActiveSessionsSkeleton />}>
-          <UsageLogsActiveSessionsSection currencyCode={systemSettings.currencyDisplay} />
-        </Suspense>
-      )}
+      {/* Active Sessions - Horizontal scrolling cards */}
+      <Suspense fallback={<ActiveSessionsSkeleton />}>
+        <UsageLogsActiveSessionsSection currencyCode={systemSettings.currencyDisplay} />
+      </Suspense>
 
       {/* Stats + Filters + Logs Table */}
       <Suspense fallback={<UsageLogsSkeleton />}>
@@ -42,7 +41,6 @@ export default async function UsageLogsPage({
           isAdmin={isAdmin}
           userId={session.user.id}
           searchParams={searchParams}
-          systemSettings={systemSettings}
         />
       </Suspense>
     </div>

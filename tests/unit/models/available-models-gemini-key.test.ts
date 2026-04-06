@@ -19,14 +19,22 @@ vi.mock("undici", () => {
   };
 });
 
+const validateApiKeyAndGetUserMock = vi.fn(async () => ({
+  user: { id: 1, providerGroup: null, isEnabled: true, expiresAt: null },
+  key: { id: 7, providerGroup: null, name: "test-key" },
+}));
+
 vi.mock("@/repository/key", () => {
   return {
-    validateApiKeyAndGetUser: vi.fn(async () => ({
-      user: { id: 1, providerGroup: null, isEnabled: true, expiresAt: null },
-      key: { providerGroup: null, name: "test-key" },
-    })),
+    validateApiKeyAndGetUser: validateApiKeyAndGetUserMock,
   };
 });
+
+const getKeySoftBlockConfigMock = vi.fn(async () => ({ enabled: false, message: null }));
+
+vi.mock("@/lib/key-soft-block-store", () => ({
+  getKeySoftBlockConfig: getKeySoftBlockConfigMock,
+}));
 
 vi.mock("@/lib/proxy-agent", () => {
   return {
@@ -95,5 +103,39 @@ describe("handleAvailableModels - Gemini key 传参", () => {
     const [url, options] = undiciRequestMock.mock.calls[0] ?? [];
     expect(String(url)).not.toContain("key=");
     expect(options?.headers?.["x-goog-api-key"]).toBe("upstream-api-key");
+  });
+
+  test("应支持 Gemini query key 认证并在 soft block 时拦截 /v1/models", async () => {
+    getKeySoftBlockConfigMock.mockResolvedValueOnce({
+      enabled: true,
+      message: "Temporarily blocked",
+    });
+
+    const { handleAvailableModels } = await import("@/app/v1/_lib/models/available-models");
+
+    const c = {
+      req: {
+        path: "/v1/models",
+        header: () => undefined,
+        query: (name: string) => (name === "key" ? "gemini-query-key" : undefined),
+      },
+      json: (body: unknown, status?: number) => {
+        return new Response(JSON.stringify(body), {
+          status: status ?? 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    } as any;
+
+    const response = await handleAvailableModels(c);
+
+    expect(validateApiKeyAndGetUserMock).toHaveBeenCalledWith("gemini-query-key");
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        type: "user_disabled",
+        message: "Temporarily blocked",
+      },
+    });
   });
 });

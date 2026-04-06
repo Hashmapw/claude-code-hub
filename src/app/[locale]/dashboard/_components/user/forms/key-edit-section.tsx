@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,8 @@ export interface KeyEditSectionProps {
     canLoginWebUi?: boolean;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     // 所有限额字段
     limit5hUsd?: number | null;
     limitDailyUsd?: number | null;
@@ -82,6 +85,14 @@ export interface KeyEditSectionProps {
         noGroupHint?: string;
       };
       cacheTtl: { label: string; options: Record<string, string> };
+      softBlock: {
+        label: string;
+        descriptionEnabled: string;
+        descriptionDisabled: string;
+        messageLabel: string;
+        messagePlaceholder: string;
+        messageDescription: string;
+      };
       enableStatus?: {
         label: string;
         description: string;
@@ -558,6 +569,44 @@ export function KeyEditSection({
                 ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="rounded-lg border border-dashed border-border bg-background px-4 py-3 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Label htmlFor={`key-${keyData.id}-soft-block`} className="text-sm font-medium">
+                {translations.fields.softBlock.label}
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                {keyData.softBlockEnabled
+                  ? translations.fields.softBlock.descriptionEnabled
+                  : translations.fields.softBlock.descriptionDisabled}
+              </p>
+            </div>
+            <Switch
+              id={`key-${keyData.id}-soft-block`}
+              checked={keyData.softBlockEnabled ?? false}
+              onCheckedChange={(checked) => onChange("softBlockEnabled", checked)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`key-${keyData.id}-soft-block-message`}>
+              {translations.fields.softBlock.messageLabel}
+            </Label>
+            <Textarea
+              id={`key-${keyData.id}-soft-block-message`}
+              value={keyData.softBlockMessage ?? ""}
+              onChange={(event) => onChange("softBlockMessage", event.target.value)}
+              placeholder={translations.fields.softBlock.messagePlaceholder}
+              maxLength={500}
+              rows={4}
+              disabled={!(keyData.softBlockEnabled ?? false)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {translations.fields.softBlock.messageDescription}
+            </p>
+          </div>
         </div>
       </section>
     </div>

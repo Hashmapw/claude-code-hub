@@ -118,6 +118,7 @@ Claude Code / Codex / Gemini 官方渠道价格低至原价的 38% / 6% / 9%，�
 - 💰 **价格表管理**：分页查询 + SQL 优化，支持搜索防抖、LiteLLM 同步，千级模型也能快速检索。
 - 🔁 **Session 管理**：5 分钟上下文缓存，记录决策链，避免频繁切换供应商并保留全链路审计。
 - 🔄 **OpenAI 兼容端点**：支持 `/v1/chat/completions`（OpenAI 兼容格式），工具调用与 reasoning 字段透传，严格同格式路由，无跨格式转换。
+- 🧱 **SII / Notebook 代理适配**：支持深层 `proxy/3000` 工作空间前缀、登录 branding、base-path 感知请求，以及 Redis 驱动的 Key 临时限制。
 
 ## ⚡️ 快速开始 Quick Start
 
@@ -224,6 +225,7 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 - **API 文档（Scalar UI）**：`http://localhost:23000/api/actions/scalar`
 - **API 文档（Swagger UI）**：`http://localhost:23000/api/actions/docs`
 - **API 认证指南**：[docs/api-authentication-guide.md](docs/api-authentication-guide.md)
+- **SII / 登录 Branding / Key Soft Block 说明**：[docs/sii-support-0.6.7.md](docs/sii-support-0.6.7.md)
 
 > 💡 **提示**：
 > - 如需修改端口，请编辑 `docker-compose.yml` 中的 `ports` 配置。

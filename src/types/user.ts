@@ -120,6 +120,8 @@ export interface UserKeyDisplay {
   createdAtFormatted: string; // 格式化后的具体时间
   // Web UI 登录权限控制
   canLoginWebUi: boolean; // 是否允许使用该 Key 登录 Web UI
+  softBlockEnabled?: boolean; // 是否软临时限制该 Key
+  softBlockMessage?: string | null; // 软临时限制时返回给客户端的提示词
   // 限额配置
   limit5hUsd: number | null; // 5小时消费上限（美元）
   limitDailyUsd: number | null; // 每日消费上限

@@ -98,7 +98,6 @@ type StreamingHedgeAttempt = {
   session: ProxySession;
   baseUrl: string;
   endpointAudit: { endpointId: number | null; endpointUrl: string };
-  modelRedirect?: ProviderChainItem["modelRedirect"];
   responseController: AbortController | null;
   clearResponseTimeout: (() => void) | null;
   firstByteTimeoutMs: number;
@@ -355,7 +354,7 @@ async function persistSpecialSettings(session: ProxySession): Promise<void> {
     return;
   }
 
-  if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+  if (session.sessionId) {
     await SessionManager.storeSessionSpecialSettings(
       session.sessionId,
       specialSettings,
@@ -1204,13 +1203,43 @@ export class ProxyForwarder {
             // ⭐ 统一更新两个数据源（确保监控数据一致）
             // session:provider (真实绑定) 已在 updateSessionBindingSmart 中更新
             // session:info (监控信息) 在此更新
-            if (session.shouldTrackSessionObservability()) {
-              void SessionManager.updateSessionProvider(session.sessionId, {
-                providerId: currentProvider.id,
-                providerName: currentProvider.name,
-              }).catch((error) => {
-                logger.error("ProxyForwarder: Failed to update session provider info", { error });
-              });
+            void SessionManager.updateSessionProvider(session.sessionId, {
+              providerId: currentProvider.id,
+              providerName: currentProvider.name,
+            }).catch((error) => {
+              logger.error("ProxyForwarder: Failed to update session provider info", { error });
+            });
+          }
+
+          const groupTags = currentProvider.groupTag
+            ?.split(",")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter(Boolean);
+          if (groupTags?.includes("vip")) {
+            const alertUser = session.messageContext?.user ?? session.authState?.user ?? null;
+            const userId = alertUser?.id;
+            const userName = alertUser?.name;
+            if (typeof userId === "number" && userName) {
+              void import("@/lib/notification/notifier")
+                .then(({ sendVipGroupUsageAlert }) =>
+                  sendVipGroupUsageAlert({
+                    userId,
+                    userName,
+                    providerId: currentProvider.id,
+                    providerName: currentProvider.name,
+                    providerGroupTag: currentProvider.groupTag || "vip",
+                    model: session.getOriginalModel() || session.request.model || "",
+                    sessionId: session.sessionId || "",
+                    timestamp: new Date().toISOString(),
+                  })
+                )
+                .catch((error) => {
+                  logger.error("ProxyForwarder: Failed to enqueue vip group usage alert", {
+                    providerId: currentProvider.id,
+                    sessionId: session.sessionId,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                });
             }
           }
 
@@ -1880,7 +1909,7 @@ export class ProxyForwarder {
 
           // Persist special settings immediately (same pattern as Anthropic overrides)
           const specialSettings = session.getSpecialSettings();
-          if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+          if (session.sessionId) {
             await SessionManager.storeSessionSpecialSettings(
               session.sessionId,
               specialSettings,
@@ -1990,7 +2019,7 @@ export class ProxyForwarder {
         }
       }
 
-      if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+      if (session.sessionId) {
         void SessionManager.storeSessionUpstreamRequestMeta(
           session.sessionId,
           { url: proxyUrl, method: session.method },
@@ -2027,7 +2056,7 @@ export class ProxyForwarder {
             session.addSpecialSetting(audit);
             const specialSettings = session.getSpecialSettings();
 
-            if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+            if (session.sessionId) {
               // 这里用 await：避免后续响应侧写入（ResponseFixer 等）先完成后，被本次旧快照覆写
               await SessionManager.storeSessionSpecialSettings(
                 session.sessionId,
@@ -2095,7 +2124,7 @@ export class ProxyForwarder {
             session.addSpecialSetting(anthropicAudit);
             const specialSettings = session.getSpecialSettings();
 
-            if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+            if (session.sessionId) {
               await SessionManager.storeSessionSpecialSettings(
                 session.sessionId,
                 specialSettings,
@@ -2137,7 +2166,7 @@ export class ProxyForwarder {
 
       processedHeaders = ProxyForwarder.buildHeaders(session, provider);
 
-      if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+      if (session.sessionId) {
         void SessionManager.storeSessionRequestHeaders(
           session.sessionId,
           processedHeaders,
@@ -2230,7 +2259,7 @@ export class ProxyForwarder {
         usedBaseUrl: effectiveBaseUrl,
       });
 
-      if (session.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+      if (session.sessionId) {
         void SessionManager.storeSessionUpstreamRequestMeta(
           session.sessionId,
           { url: proxyUrl, method: session.method },
@@ -2995,19 +3024,6 @@ export class ProxyForwarder {
       resolveResult?.({ error });
     };
 
-    const getAttemptModelRedirect = (attempt: StreamingHedgeAttempt) => {
-      if (attempt.modelRedirect !== undefined) {
-        return attempt.modelRedirect;
-      }
-
-      const redirect = attempt.session.getCurrentModelRedirect(attempt.provider.id);
-      if (redirect) {
-        attempt.modelRedirect = structuredClone(redirect);
-      }
-
-      return attempt.modelRedirect;
-    };
-
     const abortAttempt = (attempt: StreamingHedgeAttempt, reason: string) => {
       if (attempt.settled) return;
       attempt.settled = true;
@@ -3021,7 +3037,6 @@ export class ProxyForwarder {
           ...attempt.endpointAudit,
           reason: "hedge_loser_cancelled",
           attemptNumber: attempt.sequence,
-          modelRedirect: getAttemptModelRedirect(attempt),
         });
       }
       try {
@@ -3243,7 +3258,6 @@ export class ProxyForwarder {
           attemptNumber: attempt.sequence,
           errorMessage: "Client aborted request",
           circuitState: getCircuitState(attempt.provider.id),
-          modelRedirect: getAttemptModelRedirect(attempt),
         });
         abortAllAttempts(undefined, "client_abort");
         await settleFailure(
@@ -3298,17 +3312,17 @@ export class ProxyForwarder {
             }
           );
 
-          session.addProviderToChain(attempt.provider, {
-            ...buildRetryFailedChainEntry(
+          session.addProviderToChain(
+            attempt.provider,
+            buildRetryFailedChainEntry(
               attempt.provider,
               attempt.endpointAudit,
               attempt.requestAttemptCount,
               error,
               errorMessage,
               reactiveRectifierResult.requestDetailsBeforeRectify
-            ),
-            modelRedirect: getAttemptModelRedirect(attempt),
-          });
+            )
+          );
 
           if (attempt.thresholdTimer) {
             clearTimeout(attempt.thresholdTimer);
@@ -3344,7 +3358,6 @@ export class ProxyForwarder {
         statusCode,
         errorMessage,
         circuitState: getCircuitState(attempt.provider.id),
-        modelRedirect: getAttemptModelRedirect(attempt),
       });
 
       if (errorCategory === ErrorCategory.NON_RETRYABLE_CLIENT_ERROR) {
@@ -3371,10 +3384,6 @@ export class ProxyForwarder {
       attempt.settled = true;
       attempts.delete(attempt);
 
-      for (const activeAttempt of attempts) {
-        getAttemptModelRedirect(activeAttempt);
-      }
-
       if (attempt.session !== session) {
         ProxyForwarder.syncWinningAttemptSession(session, attempt.session);
       }
@@ -3390,7 +3399,6 @@ export class ProxyForwarder {
         reason: isActualHedgeWin ? "hedge_winner" : "request_success",
         attemptNumber: attempt.sequence,
         statusCode: attempt.response.status,
-        modelRedirect: getAttemptModelRedirect(attempt),
       });
 
       abortAllAttempts(attempt, "hedge_loser");
@@ -3415,12 +3423,10 @@ export class ProxyForwarder {
             });
           }
 
-          if (session.shouldTrackSessionObservability()) {
-            await SessionManager.updateSessionProvider(session.sessionId!, {
-              providerId: attempt.provider.id,
-              providerName: attempt.provider.name,
-            });
-          }
+          await SessionManager.updateSessionProvider(session.sessionId!, {
+            providerId: attempt.provider.id,
+            providerName: attempt.provider.name,
+          });
         })().catch((bindingError) => {
           logger.error("ProxyForwarder: Failed to update session provider info for hedge winner", {
             error: bindingError,
@@ -3539,7 +3545,6 @@ export class ProxyForwarder {
                 reason: "client_abort",
                 attemptNumber: attempt.sequence,
                 errorMessage: "Client aborted request",
-                modelRedirect: getAttemptModelRedirect(attempt),
               });
             }
           }
@@ -3657,10 +3662,6 @@ export class ProxyForwarder {
       specialSettings: unknown[];
       originalModelName: string | null;
       originalUrlPathname: string | null;
-      currentModelRedirect: {
-        providerId: number;
-        redirect: NonNullable<ProviderChainItem["modelRedirect"]>;
-      } | null;
       providersSnapshot: Provider[] | null;
     };
     const shadowState = shadow as unknown as {
@@ -3671,10 +3672,6 @@ export class ProxyForwarder {
       specialSettings: unknown[];
       originalModelName: string | null;
       originalUrlPathname: string | null;
-      currentModelRedirect: {
-        providerId: number;
-        redirect: NonNullable<ProviderChainItem["modelRedirect"]>;
-      } | null;
       providersSnapshot: Provider[] | null;
     };
 
@@ -3690,12 +3687,6 @@ export class ProxyForwarder {
     shadowState.specialSettings = [...sourceState.specialSettings];
     shadowState.originalModelName = sourceState.originalModelName;
     shadowState.originalUrlPathname = sourceState.originalUrlPathname;
-    shadowState.currentModelRedirect = sourceState.currentModelRedirect
-      ? {
-          providerId: sourceState.currentModelRedirect.providerId,
-          redirect: structuredClone(sourceState.currentModelRedirect.redirect),
-        }
-      : null;
     shadowState.providersSnapshot = sourceState.providersSnapshot;
     shadow.setCacheTtlResolved(session.getCacheTtlResolved());
     shadow.setContext1mApplied(session.getContext1mApplied());
@@ -3723,20 +3714,12 @@ export class ProxyForwarder {
       specialSettings: unknown[];
       originalModelName: string | null;
       originalUrlPathname: string | null;
-      currentModelRedirect: {
-        providerId: number;
-        redirect: NonNullable<ProviderChainItem["modelRedirect"]>;
-      } | null;
     };
     const targetState = target as unknown as {
       providerChain: ProviderChainItem[];
       specialSettings: unknown[];
       originalModelName: string | null;
       originalUrlPathname: string | null;
-      currentModelRedirect: {
-        providerId: number;
-        redirect: NonNullable<ProviderChainItem["modelRedirect"]>;
-      } | null;
       clearResponseTimeout?: () => void;
       responseController?: AbortController;
     };
@@ -3767,12 +3750,6 @@ export class ProxyForwarder {
     targetState.specialSettings = merged;
     targetState.originalModelName = sourceState.originalModelName;
     targetState.originalUrlPathname = sourceState.originalUrlPathname;
-    targetState.currentModelRedirect = sourceState.currentModelRedirect
-      ? {
-          providerId: sourceState.currentModelRedirect.providerId,
-          redirect: structuredClone(sourceState.currentModelRedirect.redirect),
-        }
-      : null;
     targetState.clearResponseTimeout = sourceRuntime.clearResponseTimeout;
     targetState.responseController = sourceRuntime.responseController;
   }
@@ -4095,7 +4072,7 @@ export class ProxyForwarder {
       }
     }
 
-    if (session?.sessionId && session.shouldPersistSessionDebugArtifacts()) {
+    if (session?.sessionId) {
       void SessionManager.storeSessionResponseHeaders(
         session.sessionId,
         responseHeaders,
