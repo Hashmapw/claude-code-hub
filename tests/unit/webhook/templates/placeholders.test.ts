@@ -184,4 +184,35 @@ describe("Webhook Template Placeholders", () => {
 
     expect(vars["{{usage_percent}}"]).toBe("");
   });
+
+  it("buildTemplateVariables should populate vip_group_usage fields with provider group semantics", () => {
+    const message: StructuredMessage = {
+      header: { title: "VIP 使用提醒", level: "warning" },
+      sections: [],
+      timestamp: new Date("2025-01-02T12:00:00Z"),
+    };
+
+    const vars = buildTemplateVariables({
+      message,
+      notificationType: "vip_group_usage",
+      data: {
+        userId: 7,
+        userName: "Alice",
+        providerId: 11,
+        providerName: "VIP Provider",
+        providerGroupTag: "vip,high-cost",
+        model: "claude-sonnet-4",
+        sessionId: "sess-001",
+        timestamp: "2025-01-02T12:00:00Z",
+      },
+    });
+
+    expect(vars["{{user_id}}"]).toBe("7");
+    expect(vars["{{user_name}}"]).toBe("Alice");
+    expect(vars["{{provider_id}}"]).toBe("11");
+    expect(vars["{{provider_name}}"]).toBe("VIP Provider");
+    expect(vars["{{provider_group_tag}}"]).toBe("vip,high-cost");
+    expect(vars["{{model}}"]).toBe("claude-sonnet-4");
+    expect(vars["{{session_id}}"]).toBe("sess-001");
+  });
 });

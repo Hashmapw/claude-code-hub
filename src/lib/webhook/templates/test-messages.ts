@@ -4,6 +4,7 @@ import { buildCacheHitRateAlertMessage } from "./cache-hit-rate-alert";
 import { buildCircuitBreakerMessage } from "./circuit-breaker";
 import { buildCostAlertMessage } from "./cost-alert";
 import { buildDailyLeaderboardMessage } from "./daily-leaderboard";
+import { buildVipGroupUsageMessage } from "./vip-group-usage";
 
 /**
  * 根据通知类型构建测试消息
@@ -48,6 +49,20 @@ export function buildTestMessage(type: NotificationJobType, timezone?: string): 
         totalCost: 22.7,
       });
 
+    case "vip-group-usage":
+      return buildVipGroupUsageMessage(
+        {
+          userId: 0,
+          userName: "测试用户",
+          providerId: 0,
+          providerName: "测试VIP供应商",
+          providerGroupTag: "vip",
+          model: "claude-sonnet-4-20250514",
+          sessionId: "test-session-id",
+          timestamp: new Date().toISOString(),
+        },
+        timezone
+      );
     case "cache-hit-rate-alert":
       return buildCacheHitRateAlertMessage(
         {

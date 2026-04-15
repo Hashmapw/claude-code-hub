@@ -160,5 +160,12 @@
     "placeholders": "Placeholders",
     "title": "Template (JSON)"
   },
-  "title": "Push Notifications"
+  "title": "Push Notifications",
+  "vipGroupUsage": {
+    "title": "VIP Group Usage Alert",
+    "description": "Send request-level alerts when a request hits a provider whose groupTag contains vip.",
+    "enable": "Enable VIP group usage alert",
+    "cooldownSeconds": "Cooldown (seconds)",
+    "cooldownHelp": "Deduplicate by providerId + sessionId within the cooldown window. Default 300 seconds."
+  }
 }

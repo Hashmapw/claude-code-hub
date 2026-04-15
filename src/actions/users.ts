@@ -8,6 +8,7 @@ import { db } from "@/drizzle/db";
 import { messageRequest, usageLedger, users as usersTable } from "@/drizzle/schema";
 import { getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
+import { getKeySoftBlockConfigs, type KeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
 import { getUnauthorizedFields } from "@/lib/permissions/user-field-permissions";
 import { invalidateCachedUser } from "@/lib/security/api-key-auth-cache";
@@ -69,6 +70,23 @@ export interface GetUsersBatchParams {
 const USER_LIST_DEFAULT_LIMIT = 50;
 const USER_LIST_MAX_LIMIT = 200;
 const SEARCH_USERS_MAX_LIMIT = 5000;
+
+function attachSoftBlockConfigs(
+  users: UserDisplay[],
+  configMap: Map<number, KeySoftBlockConfig>
+): UserDisplay[] {
+  return users.map((user) => ({
+    ...user,
+    keys: user.keys.map((key) => {
+      const config = configMap.get(key.id);
+      return {
+        ...key,
+        softBlockEnabled: config?.enabled ?? false,
+        softBlockMessage: config?.message ?? null,
+      };
+    }),
+  }));
+}
 
 type UserActionSession = {
   user: { id: number };
@@ -478,7 +496,10 @@ export async function getUsers(params?: GetUsersBatchParams): Promise<UserDispla
       }
     });
 
-    return userDisplays;
+    const softBlockConfigMap = await getKeySoftBlockConfigs(
+      userDisplays.flatMap((user) => user.keys.map((key) => key.id))
+    );
+    return attachSoftBlockConfigs(userDisplays, softBlockConfigMap);
   } catch (error) {
     logger.error("Failed to fetch user data:", error);
     return [];
@@ -752,7 +773,17 @@ export async function getUsersBatch(
       }
     });
 
-    return { ok: true, data: { users: userDisplays, nextCursor, hasMore } };
+    const softBlockConfigMap = await getKeySoftBlockConfigs(
+      userDisplays.flatMap((user) => user.keys.map((key) => key.id))
+    );
+    return {
+      ok: true,
+      data: {
+        users: attachSoftBlockConfigs(userDisplays, softBlockConfigMap),
+        nextCursor,
+        hasMore,
+      },
+    };
   } catch (error) {
     logger.error("Failed to fetch user batch data:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch user batch data";
@@ -866,7 +897,17 @@ export async function getUsersBatchCore(
       };
     });
 
-    return { ok: true, data: { users: userDisplays, nextCursor, hasMore } };
+    const softBlockConfigMap = await getKeySoftBlockConfigs(
+      userDisplays.flatMap((user) => user.keys.map((key) => key.id))
+    );
+    return {
+      ok: true,
+      data: {
+        users: attachSoftBlockConfigs(userDisplays, softBlockConfigMap),
+        nextCursor,
+        hasMore,
+      },
+    };
   } catch (error) {
     logger.error("Failed to fetch user batch core data:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch user batch core data";

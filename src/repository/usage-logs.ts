@@ -9,6 +9,7 @@ import { extractAnthropicEffortFromSpecialSettings } from "@/lib/utils/anthropic
 import { buildUnifiedSpecialSettings } from "@/lib/utils/special-settings";
 import type { ProviderChainItem } from "@/types/message";
 import type { SpecialSetting } from "@/types/special-settings";
+import type { BillingModelSource } from "@/types/system-config";
 import { LEDGER_BILLING_CONDITION } from "./_shared/ledger-conditions";
 import { escapeLike } from "./_shared/like";
 import { EXCLUDE_WARMUP_CONDITION } from "./_shared/message-request-conditions";
@@ -16,6 +17,7 @@ import { buildUsageLogConditions, RETRY_COUNT_EXPR } from "./_shared/usage-log-f
 
 export interface UsageLogFilters {
   userId?: number;
+  billingModelSource?: BillingModelSource;
   keyId?: number;
   providerId?: number;
   /** Session ID（精确匹配；空字符串/空白视为不筛选） */
@@ -70,6 +72,18 @@ export interface UsageLogRow {
   specialSettings: SpecialSetting[] | null; // 特殊设置（审计/展示）
   _liveChain?: { chain: ProviderChainItem[]; phase: string; updatedAt: number } | null;
   anthropicEffort?: string | null;
+}
+
+function getBillingModelExpr(billingModelSource: BillingModelSource) {
+  return billingModelSource === "original"
+    ? sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`
+    : sql`${messageRequest.model}`;
+}
+
+function getLedgerBillingModelExpr(billingModelSource: BillingModelSource) {
+  return billingModelSource === "original"
+    ? sql`COALESCE(${usageLedger.originalModel}, ${usageLedger.model})`
+    : sql`${usageLedger.model}`;
 }
 
 export interface UsageLogSummary {
@@ -134,7 +148,14 @@ export interface UsageLogBatchFilters extends Omit<UsageLogFilters, "page" | "pa
 export async function findUsageLogsBatch(
   filters: UsageLogBatchFilters
 ): Promise<UsageLogsBatchResult> {
-  const { userId, keyId, providerId, cursor, limit = 50 } = filters;
+  const {
+    userId,
+    keyId,
+    providerId,
+    cursor,
+    limit = 50,
+    billingModelSource = "redirected",
+  } = filters;
 
   // Build query conditions
   const conditions = [isNull(messageRequest.deletedAt)];
@@ -151,7 +172,7 @@ export async function findUsageLogsBatch(
     conditions.push(eq(messageRequest.providerId, providerId));
   }
 
-  conditions.push(...buildUsageLogConditions(filters));
+  conditions.push(...buildUsageLogConditions(filters, billingModelSource));
 
   // Cursor-based pagination: WHERE (created_at, id) < (cursor_created_at, cursor_id)
   // Using row value comparison for efficient keyset pagination
@@ -299,7 +320,7 @@ export async function findUsageLogsBatch(
   }
 
   if (filters.model) {
-    ledgerConditions.push(eq(usageLedger.model, filters.model));
+    ledgerConditions.push(sql`${getLedgerBillingModelExpr(billingModelSource)} = ${filters.model}`);
   }
 
   if (filters.endpoint) {
@@ -406,6 +427,7 @@ export async function findUsageLogsBatch(
 
 interface UsageLogSlimFilters {
   keyString: string;
+  billingModelSource?: BillingModelSource;
   /** Session ID（精确匹配；空字符串/空白视为不筛选） */
   sessionId?: string;
   /** 开始时间戳（毫秒），用于 >= 比较 */
@@ -456,7 +478,7 @@ const usageLogSlimTotalCache = new TTLMap<string, number>({ ttlMs: 10_000, maxSi
 export async function findUsageLogsForKeySlim(
   filters: UsageLogSlimFilters & { page?: number; pageSize?: number }
 ): Promise<{ logs: UsageLogSlimRow[]; total: number }> {
-  const { keyString, page = 1, pageSize = 50 } = filters;
+  const { keyString, page = 1, pageSize = 50, billingModelSource = "redirected" } = filters;
   const safePage = page > 0 ? page : 1;
   const safePageSize = Math.min(100, Math.max(1, pageSize));
 
@@ -473,11 +495,12 @@ export async function findUsageLogsForKeySlim(
     filters.statusCode ?? "",
     filters.excludeStatusCode200 ? "1" : "0",
     filters.model ?? "",
+    billingModelSource,
     filters.endpoint ?? "",
     filters.minRetryCount ?? "",
   ].join("\u0001");
 
-  conditions.push(...buildUsageLogConditions(filters));
+  conditions.push(...buildUsageLogConditions(filters, billingModelSource));
 
   const offset = (safePage - 1) * safePageSize;
   const results = await db
@@ -532,7 +555,9 @@ export async function findUsageLogsForKeySlim(
       );
     }
     if (filters.model) {
-      ledgerConditions.push(eq(usageLedger.model, filters.model));
+      ledgerConditions.push(
+        sql`${getLedgerBillingModelExpr(billingModelSource)} = ${filters.model}`
+      );
     }
     if (filters.endpoint) {
       ledgerConditions.push(eq(usageLedger.endpoint, filters.endpoint));
@@ -858,17 +883,21 @@ export async function getTotalUsageForKey(keyString: string): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
-export async function getDistinctModelsForKey(keyString: string): Promise<string[]> {
-  const cached = distinctModelsByKeyCache.get(keyString);
+export async function getDistinctModelsForKey(
+  keyString: string,
+  billingModelSource: BillingModelSource = "redirected"
+): Promise<string[]> {
+  const cacheKey = `${billingModelSource}${keyString}`;
+  const cached = distinctModelsByKeyCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
   const result = await db.execute(
-    sql`select distinct ${messageRequest.model} as model
+    sql`select distinct ${getBillingModelExpr(billingModelSource)} as model
         from ${messageRequest}
         where ${messageRequest.key} = ${keyString}
           and ${messageRequest.deletedAt} is null
           and (${EXCLUDE_WARMUP_CONDITION})
-          and ${messageRequest.model} is not null
+          and ${getBillingModelExpr(billingModelSource)} is not null
         order by model asc`
   );
 
@@ -876,7 +905,7 @@ export async function getDistinctModelsForKey(keyString: string): Promise<string
     .map((row) => (row as { model?: string }).model)
     .filter((model): model is string => !!model && model.trim().length > 0);
 
-  distinctModelsByKeyCache.set(keyString, models);
+  distinctModelsByKeyCache.set(cacheKey, models);
   return models;
 }
 
@@ -907,7 +936,14 @@ export async function getDistinctEndpointsForKey(keyString: string): Promise<str
  */
 
 export async function findUsageLogsWithDetails(filters: UsageLogFilters): Promise<UsageLogsResult> {
-  const { userId, keyId, providerId, page = 1, pageSize = 50 } = filters;
+  const {
+    userId,
+    keyId,
+    providerId,
+    page = 1,
+    pageSize = 50,
+    billingModelSource = "redirected",
+  } = filters;
 
   const safePage = page > 0 ? page : 1;
   const safePageSize = Math.min(200, Math.max(1, pageSize));
@@ -926,7 +962,7 @@ export async function findUsageLogsWithDetails(filters: UsageLogFilters): Promis
     conditions.push(eq(messageRequest.providerId, providerId));
   }
 
-  conditions.push(...buildUsageLogConditions(filters));
+  conditions.push(...buildUsageLogConditions(filters, billingModelSource));
 
   const offset = (safePage - 1) * safePageSize;
 
@@ -1079,12 +1115,19 @@ export async function findUsageLogsWithDetails(filters: UsageLogFilters): Promis
 /**
  * 获取所有使用过的模型列表（用于筛选器）
  */
-export async function getUsedModels(): Promise<string[]> {
+export async function getUsedModels(
+  billingModelSource: BillingModelSource = "redirected"
+): Promise<string[]> {
   const results = await db
-    .selectDistinct({ model: messageRequest.model })
+    .selectDistinct({ model: getBillingModelExpr(billingModelSource) })
     .from(messageRequest)
-    .where(and(isNull(messageRequest.deletedAt), sql`${messageRequest.model} IS NOT NULL`))
-    .orderBy(messageRequest.model);
+    .where(
+      and(
+        isNull(messageRequest.deletedAt),
+        sql`${getBillingModelExpr(billingModelSource)} IS NOT NULL`
+      )
+    )
+    .orderBy(getBillingModelExpr(billingModelSource));
 
   return results.map((r) => r.model).filter((m): m is string => m !== null);
 }
@@ -1184,7 +1227,7 @@ export async function findUsageLogSessionIdSuggestions(
 export async function findUsageLogsStats(
   filters: Omit<UsageLogFilters, "page" | "pageSize">
 ): Promise<UsageLogSummary> {
-  const { userId, keyId, providerId } = filters;
+  const { userId, keyId, providerId, billingModelSource = "redirected" } = filters;
 
   // 在 ledger-only 模式下，message_request 为空 —— 依赖它的筛选条件必须短路处理。
   const ledgerOnly = await isLedgerOnlyMode();
@@ -1227,7 +1270,7 @@ export async function findUsageLogsStats(
   }
 
   if (filters.model) {
-    conditions.push(eq(usageLedger.model, filters.model));
+    conditions.push(sql`${getLedgerBillingModelExpr(billingModelSource)} = ${filters.model}`);
   }
 
   if (filters.endpoint) {

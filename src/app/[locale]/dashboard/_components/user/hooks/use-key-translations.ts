@@ -33,6 +33,14 @@ export interface KeyEditTranslations {
         "1h": string;
       };
     };
+    softBlock: {
+      label: string;
+      descriptionEnabled: string;
+      descriptionDisabled: string;
+      messageLabel: string;
+      messagePlaceholder: string;
+      messageDescription: string;
+    };
     enableStatus: {
       label: string;
       description: string;
@@ -101,6 +109,14 @@ export function useKeyTranslations(): KeyEditTranslations {
             "5m": t("keyEditSection.fields.cacheTtl.options.5m"),
             "1h": t("keyEditSection.fields.cacheTtl.options.1h"),
           },
+        },
+        softBlock: {
+          label: t("keyEditSection.fields.softBlock.label"),
+          descriptionEnabled: t("keyEditSection.fields.softBlock.descriptionEnabled"),
+          descriptionDisabled: t("keyEditSection.fields.softBlock.descriptionDisabled"),
+          messageLabel: t("keyEditSection.fields.softBlock.messageLabel"),
+          messagePlaceholder: t("keyEditSection.fields.softBlock.messagePlaceholder"),
+          messageDescription: t("keyEditSection.fields.softBlock.messageDescription"),
         },
         enableStatus: {
           label: t("keyEditSection.fields.enableStatus.label"),

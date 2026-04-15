@@ -1,18 +1,81 @@
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
-// Create next-intl plugin with i18n request configuration
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+const projectRoot = dirname(fileURLToPath(import.meta.url));
+
+function collapseDuplicatedLeadingProxyPrefix(path: string): string {
+  let current = path;
+  for (let i = 0; i < 8; i++) {
+    const firstProxyMatch = current.match(/^\/proxy\/(\d+)(?:\/|$)/);
+    const firstPort = firstProxyMatch?.[1];
+    if (!firstPort) {
+      return current;
+    }
+
+    const firstPrefix = `/proxy/${firstPort}`;
+    const rest = current.slice(firstPrefix.length);
+    if (!rest.startsWith("/")) {
+      return current;
+    }
+
+    if (/^\/ws-[^/]+(?:\/|$)/.test(rest)) {
+      current = rest;
+      continue;
+    }
+
+    const repeatedPattern = new RegExp(`/proxy/${firstPort}(?:/|$)`, "g");
+    const repeatedMatches = [...current.matchAll(repeatedPattern)];
+    if (repeatedMatches.length >= 2) {
+      current = rest;
+      continue;
+    }
+
+    return current;
+  }
+
+  return current;
+}
+
+function getAssetPrefix(): string | undefined {
+  const proxyUri = process.env.VSCODE_PROXY_URI || process.env.vscode_proxy_uri;
+  if (!proxyUri) {
+    return undefined;
+  }
+
+  try {
+    const port = process.env.PORT || "3000";
+    const resolved = proxyUri.replaceAll("{{port}}", port).replace(/\/+$/, "");
+    if (!resolved) {
+      return undefined;
+    }
+
+    let pathname = resolved;
+    try {
+      pathname = new URL(resolved).pathname;
+    } catch {
+      pathname = new URL(resolved, "http://localhost").pathname;
+    }
+
+    const normalizedPath = collapseDuplicatedLeadingProxyPrefix(pathname).replace(/\/+$/, "");
+    return normalizedPath || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  assetPrefix: getAssetPrefix(),
+  outputFileTracingRoot: projectRoot,
+  turbopack: {
+    root: projectRoot,
+  },
 
-  // 转译 ESM 模块（@lobehub/icons 需要）
   transpilePackages: ["@lobehub/icons"],
 
-  // 排除服务端专用包（避免打包到客户端）
-  // bull 和相关依赖只在服务端使用，包含 Node.js 原生模块
-  // postgres 和 drizzle-orm 包含 Node.js 原生模块（net, tls, crypto, stream, perf_hooks）
   serverExternalPackages: [
     "bull",
     "bullmq",
@@ -23,15 +86,10 @@ const nextConfig: NextConfig = {
     "drizzle-orm",
   ],
 
-  // 强制包含 undici 和 fetch-socks 到 standalone 输出
-  // Next.js 依赖追踪无法正确追踪动态导入和类型导入的传递依赖
-  // 参考: https://nextjs.org/docs/app/api-reference/config/next-config-js/output
   outputFileTracingIncludes: {
     "/**": ["./node_modules/undici/**/*", "./node_modules/fetch-socks/**/*"],
   },
 
-  // 文件上传大小限制（用于数据库备份导入）
-  // Next.js 15 通过 serverActions.bodySizeLimit 统一控制
   experimental: {
     serverActions: {
       bodySizeLimit: "500mb",
@@ -40,5 +98,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Wrap the Next.js config with next-intl plugin
 export default withNextIntl(nextConfig);

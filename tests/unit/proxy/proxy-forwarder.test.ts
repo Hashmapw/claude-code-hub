@@ -59,6 +59,15 @@ function createCodexProvider(): Provider {
   } as unknown as Provider;
 }
 
+function createClaudeProvider(providerType: "claude" | "claude-auth" = "claude"): Provider {
+  return {
+    providerType,
+    url: "https://api.anthropic.com",
+    key: "test-outbound-key",
+    preserveClientIp: false,
+  } as unknown as Provider;
+}
+
 function createGeminiProvider(providerType: "gemini" | "gemini-cli"): Provider {
   return {
     providerType,
@@ -362,5 +371,65 @@ describe("ProxyForwarder - buildGeminiHeaders headers passthrough", () => {
     expect(resultHeaders.get("connection")).toBeNull();
     expect(resultHeaders.get("transfer-encoding")).toBeNull();
     expect(resultHeaders.get("content-length")).toBeNull();
+  });
+});
+
+describe("ProxyForwarder - opencode Claude beta query", () => {
+  it("应该为 opencode 的 Claude /v1/messages 请求自动附加 beta=true", () => {
+    const session = createSession({
+      userAgent: "opencode/1.0.0",
+      headers: new Headers([["user-agent", "opencode/1.0.0"]]),
+    });
+    const provider = createClaudeProvider("claude");
+
+    const result = (ProxyForwarder as unknown as {
+      applyClientSpecificQueryParams: (
+        proxyUrl: string,
+        session: ProxySession,
+        provider: Provider
+      ) => string;
+    }).applyClientSpecificQueryParams("https://api.anthropic.com/v1/messages", session, provider);
+
+    expect(result).toBe("https://api.anthropic.com/v1/messages?beta=true");
+  });
+
+  it("不应该覆盖调用方已显式提供的 beta 参数", () => {
+    const session = createSession({
+      userAgent: "opencode/1.0.0",
+      headers: new Headers([["user-agent", "opencode/1.0.0"]]),
+    });
+    const provider = createClaudeProvider("claude");
+
+    const result = (ProxyForwarder as unknown as {
+      applyClientSpecificQueryParams: (
+        proxyUrl: string,
+        session: ProxySession,
+        provider: Provider
+      ) => string;
+    }).applyClientSpecificQueryParams(
+      "https://api.anthropic.com/v1/messages?beta=false",
+      session,
+      provider
+    );
+
+    expect(result).toBe("https://api.anthropic.com/v1/messages?beta=false");
+  });
+
+  it("不应该对非 opencode 或非 Claude Messages 请求附加 beta=true", () => {
+    const session = createSession({
+      userAgent: "claude-cli/1.0.0",
+      headers: new Headers([["user-agent", "claude-cli/1.0.0"]]),
+    });
+    const provider = createClaudeProvider("claude");
+
+    const result = (ProxyForwarder as unknown as {
+      applyClientSpecificQueryParams: (
+        proxyUrl: string,
+        session: ProxySession,
+        provider: Provider
+      ) => string;
+    }).applyClientSpecificQueryParams("https://api.anthropic.com/v1/messages", session, provider);
+
+    expect(result).toBe("https://api.anthropic.com/v1/messages");
   });
 });

@@ -160,5 +160,12 @@
     "placeholders": "Плейсхолдеры",
     "title": "Шаблон (JSON)"
   },
-  "title": "Push-уведомления"
+  "title": "Push-уведомления",
+  "vipGroupUsage": {
+    "title": "Уведомление об использовании VIP-группы",
+    "description": "Отправлять уведомление на уровне запроса, когда provider.groupTag содержит vip.",
+    "enable": "Включить уведомление об использовании VIP-группы",
+    "cooldownSeconds": "Cooldown (секунды)",
+    "cooldownHelp": "Дедупликация по providerId + sessionId. По умолчанию 300 секунд."
+  }
 }

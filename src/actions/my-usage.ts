@@ -564,6 +564,7 @@ export async function getMyUsageLogs(
     const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.trunc(parsedPage) : 1;
     const result = await findUsageLogsForKeySlim({
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
       sessionId: filters.sessionId,
       startTime,
       endTime,
@@ -610,6 +611,7 @@ export async function getMyUsageLogsBatch(
     const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 100) : 20;
     const result = await findUsageLogsForKeyBatch({
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
       sessionId: filters.sessionId,
       startTime,
       endTime,
@@ -643,7 +645,8 @@ export async function getMyAvailableModels(): Promise<ActionResult<string[]>> {
     const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) return { ok: false, error: "Unauthorized" };
 
-    const models = await getDistinctModelsForKey(session.key.key);
+    const settings = await getSystemSettings();
+    const models = await getDistinctModelsForKey(session.key.key, settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("[my-usage] getMyAvailableModels failed", error);
