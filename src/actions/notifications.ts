@@ -4,6 +4,10 @@ import { emitActionAudit } from "@/lib/audit/emit";
 import { getSession } from "@/lib/auth";
 import type { NotificationJobType } from "@/lib/constants/notification.constants";
 import { logger } from "@/lib/logger";
+import {
+  loadVipGroupUsageAlertConfig,
+  saveVipGroupUsageAlertConfig,
+} from "@/lib/redis/vip-group-usage-config";
 import { resolveSystemTimezone } from "@/lib/utils/timezone";
 import { WebhookNotifier } from "@/lib/webhook";
 import { buildTestMessage } from "@/lib/webhook/templates/test-messages";
@@ -15,38 +19,74 @@ import {
 } from "@/repository/notifications";
 import type { ActionResult } from "./types";
 
+export interface NotificationSettingsView extends NotificationSettings {
+  vipGroupUsageEnabled: boolean;
+  vipGroupUsageCooldownSeconds: number;
+}
+
+export interface UpdateNotificationSettingsActionInput extends UpdateNotificationSettingsInput {
+  vipGroupUsageEnabled?: boolean;
+  vipGroupUsageCooldownSeconds?: number;
+}
+
+async function buildNotificationSettingsView(
+  baseSettings?: NotificationSettings
+): Promise<NotificationSettingsView> {
+  const settings = baseSettings ?? (await getNotificationSettings());
+  const vipConfig = await loadVipGroupUsageAlertConfig();
+
+  return {
+    ...settings,
+    vipGroupUsageEnabled: vipConfig.enabled,
+    vipGroupUsageCooldownSeconds: vipConfig.cooldownSeconds,
+  };
+}
+
 /**
  * 获取通知设置
  */
-export async function getNotificationSettingsAction(): Promise<NotificationSettings> {
+export async function getNotificationSettingsAction(): Promise<NotificationSettingsView> {
   const session = await getSession();
   if (!session || session.user.role !== "admin") {
     throw new Error("无权限执行此操作");
   }
-  return getNotificationSettings();
+  return buildNotificationSettingsView();
 }
 
 /**
  * 更新通知设置并重新调度任务
  */
 export async function updateNotificationSettingsAction(
-  payload: UpdateNotificationSettingsInput
-): Promise<ActionResult<NotificationSettings>> {
+  payload: UpdateNotificationSettingsActionInput
+): Promise<ActionResult<NotificationSettingsView>> {
   try {
     const session = await getSession();
     if (!session || session.user.role !== "admin") {
       return { ok: false, error: "无权限执行此操作" };
     }
 
-    const before = await getNotificationSettings();
-    const updated = await updateNotificationSettings(payload);
+    const before = await buildNotificationSettingsView();
+    const { vipGroupUsageEnabled, vipGroupUsageCooldownSeconds, ...dbPayload } =
+      payload as UpdateNotificationSettingsActionInput;
+
+    const hasDbUpdates = Object.keys(dbPayload).length > 0;
+    const updated = hasDbUpdates
+      ? await updateNotificationSettings(dbPayload)
+      : await getNotificationSettings();
+
+    if (vipGroupUsageEnabled !== undefined || vipGroupUsageCooldownSeconds !== undefined) {
+      await saveVipGroupUsageAlertConfig({
+        enabled: vipGroupUsageEnabled,
+        cooldownSeconds: vipGroupUsageCooldownSeconds,
+      });
+    }
 
     // 重新调度通知任务（仅生产环境）
-    if (process.env.NODE_ENV === "production") {
+    if (hasDbUpdates && process.env.NODE_ENV === "production") {
       // 动态导入避免 Turbopack 编译 Bull 模块
       const { scheduleNotifications } = await import("@/lib/notification/notification-queue");
       await scheduleNotifications();
-    } else {
+    } else if (hasDbUpdates) {
       logger.warn({
         action: "schedule_notifications_skipped",
         reason: "development_mode",
@@ -59,10 +99,10 @@ export async function updateNotificationSettingsAction(
       action: "notification.update",
       targetType: "notification",
       before,
-      after: updated,
+      after: await buildNotificationSettingsView(updated),
       success: true,
     });
-    return { ok: true, data: updated };
+    return { ok: true, data: await buildNotificationSettingsView(updated) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "更新通知设置失败";
     emitActionAudit({

@@ -15,6 +15,10 @@ vi.mock("@/i18n/routing", () => ({
   redirect: redirectMock,
 }));
 
+vi.mock("@/lib/utils/workspace-aware-redirect", () => ({
+  redirectWithWorkspaceBase: redirectMock,
+}));
+
 function MockSessionMessagesClient() {
   return null;
 }
@@ -71,11 +75,11 @@ describe("SessionMessagesPage", () => {
     await SessionMessagesPage({
       params: Promise.resolve({ locale: "en", sessionId: "sess_x" }),
     });
-    expect(redirectMock).toHaveBeenCalledWith({ href: "/login", locale: "en" });
+    expect(redirectMock).toHaveBeenCalledWith("/login", "en");
 
     await SessionMessagesPage({
       params: Promise.resolve({ locale: "ja", sessionId: "sess_x" }),
     });
-    expect(redirectMock).toHaveBeenCalledWith({ href: "/dashboard", locale: "ja" });
+    expect(redirectMock).toHaveBeenCalledWith("/dashboard", "ja");
   });
 });

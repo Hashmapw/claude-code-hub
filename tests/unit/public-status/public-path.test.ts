@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { localeCookieName } from "@/i18n/config";
 
 const mockIntlMiddleware = vi.hoisted(() =>
@@ -35,7 +35,30 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+async function expectClientSideRedirect(
+  response: Response,
+  expectedTarget: string,
+  unexpectedTarget?: string
+) {
+  expect(response.status).toBe(200);
+  expect(response.headers.get("location")).toBeNull();
+
+  const body = await response.text();
+  expect(body).toContain(expectedTarget);
+  expect(body).toContain("window.location.replace(fullPath)");
+  if (unexpectedTarget) {
+    expect(body).not.toContain(unexpectedTarget);
+  }
+}
+
 describe("public status proxy path", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockIntlMiddleware.mockClear();
+    process.env.VSCODE_PROXY_URI = "";
+    process.env.vscode_proxy_uri = "";
+  });
+
   it("allows locale-prefixed public status without redirect", async () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(new NextRequest("http://localhost/en/status"));
@@ -45,16 +68,13 @@ describe("public status proxy path", () => {
   it("still redirects protected routes without auth", async () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(new NextRequest("http://localhost/en/dashboard"));
-    expect(response.headers.get("location")).toContain("/en/login");
+    await expectClientSideRedirect(response, "/en/login?from=%2Fdashboard");
   });
 
   it("redirects bare root to locale login with a dashboard fallback", async () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(new NextRequest("http://localhost/"));
-    const location = response.headers.get("location");
-
-    expect(location).toContain("/zh-CN/login");
-    expect(location).toContain("from=%2Fdashboard");
+    await expectClientSideRedirect(response, "/zh-CN/login?from=%2Fdashboard");
   });
 
   it("prefers NEXT_LOCALE when redirecting an unprefixed protected route", async () => {
@@ -62,10 +82,7 @@ describe("public status proxy path", () => {
     const request = new NextRequest("http://localhost/dashboard");
     request.cookies.set(localeCookieName, "en");
     const response = proxyHandler(request);
-    const location = response.headers.get("location");
-
-    expect(location).toContain("/en/login");
-    expect(location).toContain("from=%2Fdashboard");
+    await expectClientSideRedirect(response, "/en/login?from=%2Fdashboard");
   });
 
   it("falls back safely when NEXT_LOCALE cookie is malformed", async () => {
@@ -76,29 +93,23 @@ describe("public status proxy path", () => {
     expect(() => proxyHandler(request)).not.toThrow();
 
     const response = proxyHandler(request);
-    const location = response.headers.get("location");
-
-    expect(location).toContain("/zh-CN/login");
-    expect(location).toContain("from=%2Fdashboard");
+    await expectClientSideRedirect(response, "/zh-CN/login?from=%2Fdashboard");
   });
 
   it("normalizes repeated locale prefixes in the login from parameter", async () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(new NextRequest("http://localhost/en/en/dashboard"));
-    const location = response.headers.get("location");
-
-    expect(location).toContain("/en/login");
-    expect(location).toContain("from=%2Fdashboard");
-    expect(location).not.toContain("from=%2Fen%2Fdashboard");
+    await expectClientSideRedirect(
+      response,
+      "/en/login?from=%2Fdashboard",
+      "from=%2Fen%2Fdashboard"
+    );
   });
 
   it("redirects locale root to login with a dashboard fallback", async () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(new NextRequest("http://localhost/en"));
-    const location = response.headers.get("location");
-
-    expect(location).toContain("/en/login");
-    expect(location).toContain("from=%2Fdashboard");
+    await expectClientSideRedirect(response, "/en/login?from=%2Fdashboard");
   });
 
   it("strips spoofed x-cch-public-status on non-status requests", async () => {

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { redirect } from "@/i18n/routing";
-
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { DashboardHeader } from "../dashboard/_components/dashboard-header";
 import { PageTransition } from "./_components/page-transition";
 import { SettingsNav } from "./_components/settings-nav";
@@ -20,11 +19,11 @@ export default async function SettingsLayout({
   const session = await getSession();
 
   if (!session) {
-    return redirect({ href: "/login", locale });
+    return redirectWithWorkspaceBase("/login", locale);
   }
 
   if (session.user.role !== "admin") {
-    return redirect({ href: "/dashboard", locale });
+    return redirectWithWorkspaceBase("/dashboard", locale);
   }
 
   // Get translated navigation items

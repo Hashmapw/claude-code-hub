@@ -8,8 +8,9 @@ import { ReclusterVendorsDialog } from "@/app/[locale]/settings/providers/_compo
 import { SchedulingRulesDialog } from "@/app/[locale]/settings/providers/_components/scheduling-rules-dialog";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
-import { Link, redirect } from "@/i18n/routing";
+import { Link } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function DashboardProvidersPage({
   // 权限检查：仅 admin 用户可访问
   const session = await getSession();
   if (!session || session.user.role !== "admin") {
-    redirect({ href: session ? "/dashboard" : "/login", locale });
+    return redirectWithWorkspaceBase(session ? "/dashboard" : "/login", locale);
   }
 
   // TypeScript: session is guaranteed to be non-null after the redirect check

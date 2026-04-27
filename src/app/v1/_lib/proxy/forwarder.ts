@@ -927,6 +927,42 @@ function applyClaudeMetadataUserIdInjectionWithAudit(
 }
 
 export class ProxyForwarder {
+  static applyClientSpecificQueryParams(
+    proxyUrl: string,
+    session: ProxySession,
+    provider: Provider
+  ): string {
+    if (!ProxyForwarder.shouldAppendOpencodeClaudeBeta(session, provider)) {
+      return proxyUrl;
+    }
+
+    try {
+      const url = new URL(proxyUrl);
+      if (!url.searchParams.has("beta")) {
+        url.searchParams.set("beta", "true");
+      }
+      return url.toString();
+    } catch {
+      return proxyUrl;
+    }
+  }
+
+  static shouldAppendOpencodeClaudeBeta(session: ProxySession, provider: Provider): boolean {
+    if (provider.providerType !== "claude" && provider.providerType !== "claude-auth") {
+      return false;
+    }
+
+    if (session.requestUrl.pathname !== "/v1/messages") {
+      return false;
+    }
+
+    const userAgent = (session.userAgent || session.headers.get("user-agent") || "")
+      .trim()
+      .toLowerCase();
+
+    return userAgent.includes("opencode");
+  }
+
   static async send(session: ProxySession): Promise<Response> {
     if (!session.provider || !session.authState?.success) {
       throw new Error("代理上下文缺少供应商或鉴权信息");
@@ -1436,6 +1472,38 @@ export class ProxyForwarder {
               }).catch((error) => {
                 logger.error("ProxyForwarder: Failed to update session provider info", { error });
               });
+            }
+          }
+
+          const groupTags = currentProvider.groupTag
+            ?.split(",")
+            .map((tag) => tag.trim().toLowerCase())
+            .filter(Boolean);
+          if (groupTags?.includes("vip")) {
+            const alertUser = session.messageContext?.user ?? session.authState?.user ?? null;
+            const userId = alertUser?.id;
+            const userName = alertUser?.name;
+            if (typeof userId === "number" && userName) {
+              void import("@/lib/notification/notifier")
+                .then(({ sendVipGroupUsageAlert }) =>
+                  sendVipGroupUsageAlert({
+                    userId,
+                    userName,
+                    providerId: currentProvider.id,
+                    providerName: currentProvider.name,
+                    providerGroupTag: currentProvider.groupTag || "vip",
+                    model: session.getOriginalModel() || session.request.model || "",
+                    sessionId: session.sessionId || "",
+                    timestamp: new Date().toISOString(),
+                  })
+                )
+                .catch((error) => {
+                  logger.error("ProxyForwarder: Failed to enqueue vip group usage alert", {
+                    providerId: currentProvider.id,
+                    sessionId: session.sessionId,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                });
             }
           }
 
@@ -2188,6 +2256,7 @@ export class ProxyForwarder {
             : GEMINI_PROTOCOL.CLI_ENDPOINT);
 
         proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+        proxyUrl = ProxyForwarder.applyClientSpecificQueryParams(proxyUrl, session, provider);
 
         // 4. Headers 处理：默认透传 session.headers（含请求过滤器修改），但移除代理认证头并覆盖上游鉴权
         // 说明：之前 Gemini 分支使用 new Headers() 重建 headers，会导致 user-agent 丢失且过滤器不生效
@@ -2230,6 +2299,7 @@ export class ProxyForwarder {
             : GEMINI_PROTOCOL.CLI_ENDPOINT);
 
         proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+        proxyUrl = ProxyForwarder.applyClientSpecificQueryParams(proxyUrl, session, provider);
 
         processedHeaders = ProxyForwarder.buildGeminiHeaders(
           session,
@@ -2460,6 +2530,7 @@ export class ProxyForwarder {
       // 移除了强制 /v1/responses 路径重写，解决 Issue #139
       // buildProxyUrl() 会检测 base_url 是否已包含完整路径，避免重复拼接
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = ProxyForwarder.applyClientSpecificQueryParams(proxyUrl, session, provider);
 
       // Host header must match actual request target for undici TLS cert validation
       // When provider has multiple endpoints, provider.url and proxyUrl hosts may differ

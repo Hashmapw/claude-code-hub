@@ -328,7 +328,6 @@ describe("Usage logs CSV export retryCount", () => {
   });
 
   test("startUsageLogsExport: 异步导出任务完成后可轮询并下载", async () => {
-    vi.useFakeTimers();
     findUsageLogsWithDetailsMock.mockResolvedValue({
       logs: [],
       total: 1,
@@ -351,7 +350,13 @@ describe("Usage logs CSV export retryCount", () => {
     expect(queuedStatus.ok).toBe(true);
     expect(queuedStatus.data.status).toBe("queued");
 
-    await vi.runAllTimersAsync();
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const status = await getUsageLogsExportStatus(jobId);
+      if (status.ok && status.data.status === "completed") {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     const completedStatus = await getUsageLogsExportStatus(jobId);
     expect(completedStatus.ok).toBe(true);

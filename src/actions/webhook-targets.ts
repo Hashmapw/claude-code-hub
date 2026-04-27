@@ -80,6 +80,7 @@ const NotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
@@ -248,6 +249,8 @@ function toJobType(type: NotificationType): NotificationJobType {
       return "cost-alert";
     case "cache_hit_rate_alert":
       return "cache-hit-rate-alert";
+    case "vip_group_usage":
+      return "vip-group-usage";
   }
 }
 

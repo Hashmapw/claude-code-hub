@@ -16,6 +16,7 @@ vi.mock("@/repository/user", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: {
     debug: vi.fn(),
+    info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
   },

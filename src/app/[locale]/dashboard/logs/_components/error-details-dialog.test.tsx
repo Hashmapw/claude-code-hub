@@ -245,6 +245,15 @@ const messages = {
           billingOriginal: "Billing original",
           billingRedirected: "Billing redirected",
         },
+        modelAudit: {
+          unifiedLabel: "Model",
+          requestModelLabel: "Request Model",
+          responseModelLabel: "Actual Response Model",
+          mismatchTooltip:
+            "The upstream provider returned a different model than the one requested. Billing is still based on the requested model.",
+          secondaryLineAriaLabel: "Actual response model: {model}",
+          arrowPrefix: "↳",
+        },
         specialSettings: {
           title: "Special settings",
         },

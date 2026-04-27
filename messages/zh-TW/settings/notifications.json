@@ -160,5 +160,12 @@
     "placeholders": "佔位符",
     "title": "範本（JSON）"
   },
-  "title": "訊息推送"
+  "title": "訊息推送",
+  "vipGroupUsage": {
+    "title": "VIP 分組使用提醒",
+    "description": "當請求命中的 provider.groupTag 包含 vip 時，發送請求級提醒。",
+    "enable": "啟用 VIP 分組使用提醒",
+    "cooldownSeconds": "冷卻時間（秒）",
+    "cooldownHelp": "按 providerId + sessionId 去重；在冷卻視窗內同一組合只提醒一次。預設 300 秒。"
+  }
 }

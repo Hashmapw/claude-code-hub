@@ -19,6 +19,8 @@ export interface EditKeyDialogProps {
     name: string;
     expiresAt: string;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
     limit5hUsd?: number | null;

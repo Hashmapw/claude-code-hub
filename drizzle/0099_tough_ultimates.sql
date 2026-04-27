@@ -1,0 +1,1 @@
+ALTER TYPE "public"."notification_type" ADD VALUE IF NOT EXISTS 'vip_group_usage';

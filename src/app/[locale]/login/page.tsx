@@ -14,6 +14,7 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { Link, useRouter } from "@/i18n/routing";
 import { DEFAULT_SITE_TITLE } from "@/lib/site-title";
+import { apiFetch } from "@/lib/utils/base-path";
 import { resolveLoginRedirectTarget } from "./redirect-safety";
 
 export default function LoginPage() {
@@ -120,7 +121,7 @@ function LoginPageContent() {
   useEffect(() => {
     let active = true;
 
-    void fetch("/api/version")
+    void apiFetch("/version")
       .then((response) => response.json() as Promise<{ current?: unknown; hasUpdate?: unknown }>)
       .then((data) => {
         if (!active || typeof data.current !== "string") {
@@ -142,7 +143,7 @@ function LoginPageContent() {
   useEffect(() => {
     let active = true;
 
-    void fetch("/api/public-site-meta")
+    void apiFetch("/public/site-info")
       .then((response) => {
         if (!response.ok) {
           return null;
@@ -173,7 +174,7 @@ function LoginPageContent() {
     setStatus("submitting");
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await apiFetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: apiKey }),

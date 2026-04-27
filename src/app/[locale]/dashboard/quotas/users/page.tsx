@@ -4,9 +4,10 @@ import { Suspense } from "react";
 import { getUserLimitUsage, getUsersBatch } from "@/actions/users";
 import { QuotaToolbar } from "@/components/quota/quota-toolbar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Link, redirect } from "@/i18n/routing";
+import { Link } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
 import { resolveKeyCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { sumKeyTotalCostBatchByIds, sumUserTotalCostBatch } from "@/repository/statistics";
 import { getSystemSettings } from "@/repository/system-config";
 import type { UserDisplay } from "@/types/user";
@@ -126,7 +127,7 @@ export default async function UsersQuotaPage({ params }: { params: Promise<{ loc
   const session = await getSession();
 
   if (!session || session.user.role !== "admin") {
-    return redirect({ href: session ? "/dashboard/my-quota" : "/login", locale });
+    return redirectWithWorkspaceBase(session ? "/dashboard/my-quota" : "/login", locale);
   }
 
   const t = await getTranslations("quota.users");

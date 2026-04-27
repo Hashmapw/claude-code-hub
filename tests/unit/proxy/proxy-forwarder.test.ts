@@ -265,6 +265,53 @@ describe("ProxyForwarder - buildHeaders auth minimization", () => {
   });
 });
 
+describe("ProxyForwarder - opencode beta query patch", () => {
+  it("appends beta=true for opencode Claude /v1/messages requests", () => {
+    const session = createSession({
+      userAgent: "OpenCode/1.0",
+      headers: new Headers([["user-agent", "OpenCode/1.0"]]),
+    });
+
+    const patched = ProxyForwarder.applyClientSpecificQueryParams(
+      "https://api.anthropic.com/v1/messages",
+      session,
+      createClaudeProvider()
+    );
+
+    expect(patched).toBe("https://api.anthropic.com/v1/messages?beta=true");
+  });
+
+  it("does not override explicit beta query from caller", () => {
+    const session = createSession({
+      userAgent: "opencode desktop",
+      headers: new Headers([["user-agent", "opencode desktop"]]),
+    });
+
+    const patched = ProxyForwarder.applyClientSpecificQueryParams(
+      "https://api.anthropic.com/v1/messages?beta=false",
+      session,
+      createClaudeAuthProvider()
+    );
+
+    expect(patched).toBe("https://api.anthropic.com/v1/messages?beta=false");
+  });
+
+  it("does nothing for non-opencode clients or non-Claude targets", () => {
+    const session = createSession({
+      userAgent: "claude-cli/1.0",
+      headers: new Headers([["user-agent", "claude-cli/1.0"]]),
+    });
+
+    const unchanged = ProxyForwarder.applyClientSpecificQueryParams(
+      "https://openai.example.com/v1/chat/completions",
+      session,
+      createOpenAIProvider()
+    );
+
+    expect(unchanged).toBe("https://openai.example.com/v1/chat/completions");
+  });
+});
+
 describe("ProxyForwarder - buildGeminiHeaders headers passthrough", () => {
   it("应该透传 user-agent，并覆盖上游 x-goog-api-key（API key 模式）", () => {
     const session = createSession({

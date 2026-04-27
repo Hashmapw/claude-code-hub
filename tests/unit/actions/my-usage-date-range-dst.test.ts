@@ -152,6 +152,11 @@ describe("my-usage date range parsing", () => {
       user: { id: 1 },
     });
 
+    mocks.getSystemSettings.mockResolvedValue({
+      currencyDisplay: "USD",
+      billingModelSource: "original",
+    });
+
     mocks.findReadonlyUsageLogsBatchForKey.mockResolvedValue({
       logs: [],
       nextCursor: null,
@@ -173,6 +178,7 @@ describe("my-usage date range parsing", () => {
       expect.objectContaining({
         startTime: explicitStart,
         endTime: explicitEnd,
+        billingModelSource: "original",
       })
     );
   });

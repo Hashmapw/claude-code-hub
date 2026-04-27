@@ -1,4 +1,4 @@
-import { redirect } from "@/i18n/routing";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 
 import { SETTINGS_NAV_ITEMS } from "./_lib/nav-items";
 
@@ -7,5 +7,5 @@ export default async function SettingsIndex({ params }: { params: Promise<{ loca
   const { locale } = await params;
   const firstItem = SETTINGS_NAV_ITEMS[0];
   const href = firstItem?.href ?? "/dashboard";
-  return redirect({ href, locale });
+  return redirectWithWorkspaceBase(href, locale);
 }

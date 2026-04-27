@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { redirect } from "@/i18n/routing";
-
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { DashboardHeader } from "./_components/dashboard-header";
 import { DashboardMain } from "./_components/dashboard-main";
 import { WebhookMigrationDialog } from "./_components/webhook-migration-dialog";
@@ -19,11 +18,11 @@ export default async function DashboardLayout({
   const session = await getSession();
 
   if (!session) {
-    return redirect({ href: "/login?from=/dashboard", locale });
+    return redirectWithWorkspaceBase("/login?from=/dashboard", locale);
   }
 
   if (session.user.role !== "admin" && !session.key.canLoginWebUi) {
-    return redirect({ href: "/my-usage", locale });
+    return redirectWithWorkspaceBase("/my-usage", locale);
   }
 
   return (

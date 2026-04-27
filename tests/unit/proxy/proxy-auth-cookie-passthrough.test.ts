@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 // Hoist mocks before imports -- mock transitive dependencies to avoid
 // next-intl pulling in next/navigation (not resolvable in vitest)
@@ -18,23 +19,39 @@ vi.mock("@/lib/config/env.schema", () => ({
   isDevelopment: () => false,
 }));
 
+vi.mock("@/lib/auth", () => ({
+  AUTH_COOKIE_NAME: "cch_auth",
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 function makeRequest(pathname: string, cookies: Record<string, string> = {}) {
-  const url = new URL(`http://localhost:13500${pathname}`);
-  return {
-    method: "GET",
-    nextUrl: { pathname, clone: () => url },
-    cookies: {
-      get: (name: string) => (name in cookies ? { name, value: cookies[name] } : undefined),
-    },
-    headers: new Headers(),
-  } as unknown as import("next/server").NextRequest;
+  const request = new NextRequest(`http://localhost:13500${pathname}`);
+  for (const [name, value] of Object.entries(cookies)) {
+    request.cookies.set(name, value);
+  }
+  return request;
+}
+
+async function expectClientSideLoginRedirect(response: Response, expectedTarget: string) {
+  expect(response.status).toBe(200);
+  expect(response.headers.get("location")).toBeNull();
+
+  const body = await response.text();
+  expect(body).toContain(expectedTarget);
+  expect(body).toContain("window.location.replace(fullPath)");
 }
 
 describe("proxy auth cookie passthrough", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockIntlMiddleware.mockReset();
+    process.env.VSCODE_PROXY_URI = "";
+    process.env.vscode_proxy_uri = "";
+  });
+
   it("redirects to login when no auth cookie is present", async () => {
     const localeResponse = new Response(null, { status: 200 });
     mockIntlMiddleware.mockReturnValue(localeResponse);
@@ -42,11 +59,7 @@ describe("proxy auth cookie passthrough", () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(makeRequest("/zh-CN/dashboard"));
 
-    expect(response.status).toBeGreaterThanOrEqual(300);
-    expect(response.status).toBeLessThan(400);
-    const location = response.headers.get("location");
-    expect(location).toContain("/login");
-    expect(location).toContain("from=");
+    await expectClientSideLoginRedirect(response, "/zh-CN/login?from=%2Fdashboard");
   }, 60_000);
 
   it("passes through when auth cookie exists without deleting it", async () => {
@@ -58,7 +71,7 @@ describe("proxy auth cookie passthrough", () => {
 
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(
-      makeRequest("/zh-CN/dashboard", { "auth-token": "sid_test-session-id" })
+      makeRequest("/zh-CN/dashboard", { cch_auth: "sid_test-session-id" })
     );
 
     // Should return the locale response, not a redirect
@@ -96,8 +109,6 @@ describe("proxy auth cookie passthrough", () => {
     expect(matchesPublicPath("/loginx", "/login")).toBe(false);
 
     const collisionResponse = proxyHandler(makeRequest("/zh-CN/loginx"));
-    expect(collisionResponse.status).toBeGreaterThanOrEqual(300);
-    expect(collisionResponse.status).toBeLessThan(400);
-    expect(collisionResponse.headers.get("location")).toContain("/login");
+    await expectClientSideLoginRedirect(collisionResponse, "/zh-CN/login?from=%2Floginx");
   });
 });

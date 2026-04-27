@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { useZodForm } from "@/lib/hooks/use-zod-form";
 import { getErrorMessage } from "@/lib/utils/error-messages";
@@ -44,6 +45,8 @@ interface EditKeyFormProps {
     name: string;
     expiresAt: string;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
     limit5hUsd?: number | null;
@@ -128,6 +131,8 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
       name: keyData?.name || "",
       expiresAt: formatExpiresAt(keyData?.expiresAt || ""),
       canLoginWebUi: keyData?.canLoginWebUi ?? true,
+      softBlockEnabled: keyData?.softBlockEnabled ?? false,
+      softBlockMessage: keyData?.softBlockMessage ?? null,
       providerGroup: keyData?.providerGroup || PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: keyData?.cacheTtlPreference ?? "inherit",
       limit5hUsd: keyData?.limit5hUsd ?? null,
@@ -152,6 +157,8 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             // 重要：清除到期时间时用空字符串表达，避免 undefined 在 Server Action 序列化时被丢弃
             expiresAt: data.expiresAt ?? "",
             canLoginWebUi: data.canLoginWebUi,
+            softBlockEnabled: data.softBlockEnabled,
+            softBlockMessage: data.softBlockMessage ?? null,
             cacheTtlPreference: data.cacheTtlPreference,
             limit5hUsd: data.limit5hUsd,
             limit5hResetMode: data.limit5hResetMode,
@@ -250,6 +257,47 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
           checked={!form.values.canLoginWebUi}
           onCheckedChange={(checked) => form.setValue("canLoginWebUi", !checked)}
         />
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-dashed border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label htmlFor="soft-block-enabled" className="text-sm font-medium">
+              {tKeyEdit("softBlock.label")}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {form.values.softBlockEnabled
+                ? tKeyEdit("softBlock.descriptionEnabled")
+                : tKeyEdit("softBlock.descriptionDisabled")}
+            </p>
+          </div>
+          <Switch
+            id="soft-block-enabled"
+            checked={form.values.softBlockEnabled ?? false}
+            onCheckedChange={(checked) => form.setValue("softBlockEnabled", checked)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="soft-block-message">{tKeyEdit("softBlock.messageLabel")}</Label>
+          <Textarea
+            id="soft-block-message"
+            value={form.values.softBlockMessage ?? ""}
+            onChange={(event) => form.setValue("softBlockMessage", event.target.value)}
+            placeholder={tKeyEdit("softBlock.messagePlaceholder")}
+            maxLength={500}
+            rows={4}
+            disabled={!(form.values.softBlockEnabled ?? false)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {tKeyEdit("softBlock.messageDescription")}
+          </p>
+          {form.errors.softBlockMessage ? (
+            <p className="text-xs text-destructive" role="alert">
+              {form.errors.softBlockMessage}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <TagInputField

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
+  getSystemSettings: vi.fn(),
   findReadonlyUsageLogsBatchForKey: vi.fn(),
   getTranslations: vi.fn(async () => (key: string) => key),
   loggerError: vi.fn(),
@@ -19,6 +20,10 @@ vi.mock("@/repository/usage-logs", () => ({
   findUsageLogsForKeySlim: vi.fn(),
   getDistinctEndpointsForKey: vi.fn(),
   getDistinctModelsForKey: vi.fn(),
+}));
+
+vi.mock("@/repository/system-config", () => ({
+  getSystemSettings: mocks.getSystemSettings,
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -39,6 +44,10 @@ vi.mock("@/lib/logger", () => ({
 describe("getMyUsageLogsBatchFull", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getSystemSettings.mockResolvedValue({
+      billingModelSource: "original",
+      currencyDisplay: "USD",
+    });
   });
 
   it("readonly my-usage 仅对 raw fallback 链路做强脱敏，其它链路保留原有 clientError 可见性", async () => {

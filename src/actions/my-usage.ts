@@ -42,6 +42,21 @@ async function getErrorTranslator() {
   return getTranslations("errors");
 }
 
+function getUsageLedgerBillingModelExpr(billingModelSource: BillingModelSource) {
+  return billingModelSource === "original"
+    ? sql<string | null>`COALESCE(${usageLedger.originalModel}, ${usageLedger.model})`
+    : sql<string | null>`${usageLedger.model}`;
+}
+
+function resolveBillingModelValue(
+  values: { model: string | null; originalModel?: string | null },
+  billingModelSource: BillingModelSource
+): string | null {
+  return billingModelSource === "original"
+    ? (values.originalModel ?? values.model ?? null)
+    : (values.model ?? null);
+}
+
 function scrubProviderChainRequestForReadonly(
   providerChain: ProviderChainItem[] | null
 ): ProviderChainItem[] | null {
@@ -536,6 +551,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     const settings = await getSystemSettings();
     const billingModelSource = settings.billingModelSource;
     const currencyCode = settings.currencyDisplay;
+    const billingModelExpr = getUsageLedgerBillingModelExpr(billingModelSource);
 
     // 修复: 使用 Key 的 dailyResetTime 和 dailyResetMode 来计算时间范围
     const { getTimeRangeForPeriodWithMode } = await import("@/lib/rate-limit/time-utils");
@@ -547,8 +563,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
     const breakdown = await db
       .select({
-        model: usageLedger.model,
-        originalModel: usageLedger.originalModel,
+        model: billingModelExpr,
         calls: sql<number>`count(*)::int`,
         costUsd: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
         inputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}), 0)::double precision`,
@@ -563,7 +578,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
           lt(usageLedger.createdAt, timeRange.endTime)
         )
       )
-      .groupBy(usageLedger.model, usageLedger.originalModel);
+      .groupBy(billingModelExpr);
 
     let totalCalls = 0;
     let totalInputTokens = 0;
@@ -571,7 +586,6 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     let totalCostUsd = 0;
 
     const modelBreakdown = breakdown.map((row) => {
-      const billingModel = billingModelSource === "original" ? row.originalModel : row.model;
       const rawCostUsd = Number(row.costUsd ?? 0);
       const costUsd = Number.isFinite(rawCostUsd) ? rawCostUsd : 0;
 
@@ -582,7 +596,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
       return {
         model: row.model,
-        billingModel,
+        billingModel: row.model,
         calls: row.calls,
         costUsd,
         inputTokens: row.inputTokens,
@@ -633,8 +647,7 @@ function mapMyUsageLogEntries(
         ? `${log.originalModel} → ${log.model}`
         : null;
 
-    const billingModel =
-      (billingModelSource === "original" ? log.originalModel : log.model) ?? null;
+    const billingModel = resolveBillingModelValue(log, billingModelSource);
 
     return {
       id: log.id,
@@ -680,6 +693,7 @@ export async function getMyUsageLogs(
     const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.trunc(parsedPage) : 1;
     const result = await findUsageLogsForKeySlim({
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
       sessionId: filters.sessionId,
       startTime: dateRange.startTime,
       endTime: dateRange.endTime,
@@ -725,6 +739,7 @@ export async function getMyUsageLogsBatch(
     const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 100) : 20;
     const result = await findUsageLogsForKeyBatch({
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
       sessionId: filters.sessionId,
       startTime: dateRange.startTime,
       endTime: dateRange.endTime,
@@ -768,6 +783,7 @@ export async function getMyUsageLogsBatchFull(
       return { ok: false, error: tError("UNAUTHORIZED"), errorCode: ERROR_CODES.UNAUTHORIZED };
     }
 
+    const settings = await getSystemSettings();
     const timezone = await resolveSystemTimezone();
     const dateRange =
       params.startTime !== undefined || params.endTime !== undefined
@@ -786,6 +802,7 @@ export async function getMyUsageLogsBatchFull(
       endTime: dateRange.endTime,
       limit,
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
     });
 
     return { ok: true, data: scrubUsageLogsBatchForReadonly(result) };
@@ -807,7 +824,8 @@ export async function getMyAvailableModels(): Promise<ActionResult<string[]>> {
       return { ok: false, error: tError("UNAUTHORIZED"), errorCode: ERROR_CODES.UNAUTHORIZED };
     }
 
-    const models = await getDistinctModelsForKey(session.key.key);
+    const settings = await getSystemSettings();
+    const models = await getDistinctModelsForKey(session.key.key, settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("[my-usage] getMyAvailableModels failed", error);
@@ -978,6 +996,8 @@ export async function getMyStatsSummary(
 
     const settings = await getSystemSettings();
     const currencyCode = settings.currencyDisplay;
+    const billingModelSource = settings.billingModelSource;
+    const billingModelExpr = getUsageLedgerBillingModelExpr(billingModelSource);
 
     const timezone = await resolveSystemTimezone();
     const { startTime, endTime } = parseDateRangeInServerTimezone(
@@ -995,7 +1015,7 @@ export async function getMyStatsSummary(
     // Key 维度是 User 维度的子集：用一条聚合 SQL 扫描 userId 范围即可同时算出两套 breakdown。
     const modelBreakdown = await db
       .select({
-        model: usageLedger.model,
+        model: billingModelExpr,
         // User breakdown（跨所有 Key）
         userRequests: sql<number>`count(*)::int`,
         userCost: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
@@ -1024,7 +1044,7 @@ export async function getMyStatsSummary(
           endDate ? lt(usageLedger.createdAt, endDate) : undefined
         )
       )
-      .groupBy(usageLedger.model)
+      .groupBy(billingModelExpr)
       .orderBy(sql`sum(${usageLedger.costUsd}) DESC`);
 
     const keyOnlyBreakdown = modelBreakdown.filter((row) => (row.keyRequests ?? 0) > 0);

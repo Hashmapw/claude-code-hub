@@ -253,7 +253,7 @@
         "responseModelLabel": "實際回應模型",
         "mismatchTooltip": "上游供應商實際回傳的模型與請求的模型不一致。計費仍然依據請求模型。",
         "secondaryLineAriaLabel": "實際回應模型：{model}",
-        "arrowPrefix": "\u21b3"
+        "arrowPrefix": "↳"
       },
       "errorMessage": "錯誤訊息",
       "fake200ForwardedNotice": "提示：對於串流請求，此失敗可能在串流結束後才被識別；回應內容可能已原樣透傳給用戶端。",
@@ -2024,6 +2024,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "暫時限制此 Key 使用",
+          "descriptionEnabled": "啟用後，所有使用此 Key 的請求都會立即被攔截，並回傳下方自訂提示詞。",
+          "descriptionDisabled": "關閉後，此 Key 將繼續正常發起請求。",
+          "messageLabel": "限制提示詞",
+          "messagePlaceholder": "輸入請求被限制時回傳給使用者的提示詞",
+          "messageDescription": "當此 Key 被暫時限制時，會直接回傳給客戶端。最多 500 個字元。"
         }
       },
       "limitRules": {

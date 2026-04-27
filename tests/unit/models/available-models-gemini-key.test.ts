@@ -19,11 +19,17 @@ vi.mock("undici", () => {
   };
 });
 
+const getKeySoftBlockConfigMock = vi.fn(async () => ({ enabled: false, message: null }));
+
+vi.mock("@/lib/key-soft-block-store", () => ({
+  getKeySoftBlockConfig: getKeySoftBlockConfigMock,
+}));
+
 vi.mock("@/repository/key", () => {
   return {
     validateApiKeyAndGetUser: vi.fn(async () => ({
       user: { id: 1, providerGroup: null, isEnabled: true, expiresAt: null },
-      key: { providerGroup: null, name: "test-key" },
+      key: { id: 9, providerGroup: null, name: "test-key" },
     })),
   };
 });
@@ -95,5 +101,35 @@ describe("handleAvailableModels - Gemini key 传参", () => {
     const [url, options] = undiciRequestMock.mock.calls[0] ?? [];
     expect(String(url)).not.toContain("key=");
     expect(options?.headers?.["x-goog-api-key"]).toBe("upstream-api-key");
+  });
+
+  test("soft-blocked key should be rejected even when request uses ?key= query auth", async () => {
+    getKeySoftBlockConfigMock.mockResolvedValueOnce({
+      enabled: true,
+      message: "Temporarily blocked",
+    });
+
+    const { handleAvailableModels } = await import("@/app/v1/_lib/models/available-models");
+
+    const c = {
+      req: {
+        path: "/v1/models",
+        header: () => undefined,
+        query: (name: string) => (name === "key" ? "user-api-key" : undefined),
+      },
+      json: (body: unknown, status?: number) =>
+        new Response(JSON.stringify(body), {
+          status: status ?? 200,
+          headers: { "content-type": "application/json" },
+        }),
+    } as any;
+
+    const response = await handleAvailableModels(c);
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload.error?.type).toBe("user_disabled");
+    expect(payload.error?.message).toBe("Temporarily blocked");
+    expect(undiciRequestMock).not.toHaveBeenCalled();
   });
 });

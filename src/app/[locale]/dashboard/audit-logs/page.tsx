@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import { redirect } from "@/i18n/routing";
 import { getSession } from "@/lib/auth";
+import { redirectWithWorkspaceBase } from "@/lib/utils/workspace-aware-redirect";
 import { AuditLogsView } from "./_components/audit-logs-view";
 
 export const dynamic = "force-dynamic";
@@ -10,11 +10,11 @@ export default async function AuditLogsPage({ params }: { params: Promise<{ loca
   const session = await getSession();
 
   if (!session) {
-    return redirect({ href: "/login?from=/dashboard/audit-logs", locale });
+    return redirectWithWorkspaceBase("/login?from=/dashboard/audit-logs", locale);
   }
 
   if (session.user.role !== "admin") {
-    return redirect({ href: "/dashboard", locale });
+    return redirectWithWorkspaceBase("/dashboard", locale);
   }
 
   const t = await getTranslations("auditLogs");

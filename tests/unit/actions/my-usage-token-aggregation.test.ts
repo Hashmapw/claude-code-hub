@@ -151,6 +151,7 @@ describe("my-usage token aggregation", () => {
     expect(capturedSelections.length).toBeGreaterThanOrEqual(1);
     expectNoIntTokenSum(capturedSelections[0], "inputTokens");
     expectNoIntTokenSum(capturedSelections[0], "outputTokens");
+    expect(sqlToString(capturedSelections[0].model).toLowerCase()).toContain("coalesce");
   });
 
   test("getMyStatsSummary: token sum 不应使用 ::int", async () => {
@@ -214,5 +215,6 @@ describe("my-usage token aggregation", () => {
     for (const field of tokenFields) {
       expectNoIntTokenSum(selection, field);
     }
+    expect(sqlToString(selection.model).toLowerCase()).toContain("coalesce");
   });
 });

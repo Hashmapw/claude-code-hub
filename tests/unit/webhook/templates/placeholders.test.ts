@@ -22,6 +22,14 @@ describe("Webhook Template Placeholders", () => {
     expect(keys).toContain("{{usage_percent}}");
   });
 
+  it("getTemplatePlaceholders should include vip_group_usage placeholders", () => {
+    const placeholders = getTemplatePlaceholders("vip_group_usage");
+    const keys = placeholders.map((p) => p.key);
+    expect(keys).toContain("{{user_id}}");
+    expect(keys).toContain("{{provider_group_tag}}");
+    expect(keys).toContain("{{session_id}}");
+  });
+
   it("buildTemplateVariables should build common and circuit_breaker variables", () => {
     const message: StructuredMessage = {
       header: { title: "标题", level: "error" },
@@ -183,5 +191,35 @@ describe("Webhook Template Placeholders", () => {
     });
 
     expect(vars["{{usage_percent}}"]).toBe("");
+  });
+
+  it("buildTemplateVariables should build vip_group_usage variables", () => {
+    const message: StructuredMessage = {
+      header: { title: "VIP 提醒", level: "warning" },
+      sections: [],
+      timestamp: new Date("2025-01-02T12:00:00Z"),
+    };
+
+    const vars = buildTemplateVariables({
+      message,
+      notificationType: "vip_group_usage",
+      data: {
+        userId: 1,
+        userName: "Alice",
+        providerId: 2,
+        providerName: "VIP Provider",
+        providerGroupTag: "vip,premium",
+        model: "claude-sonnet-4-5",
+        sessionId: "sess-1",
+      },
+    });
+
+    expect(vars["{{user_id}}"]).toBe("1");
+    expect(vars["{{user_name}}"]).toBe("Alice");
+    expect(vars["{{provider_id}}"]).toBe("2");
+    expect(vars["{{provider_name}}"]).toBe("VIP Provider");
+    expect(vars["{{provider_group_tag}}"]).toBe("vip,premium");
+    expect(vars["{{model}}"]).toBe("claude-sonnet-4-5");
+    expect(vars["{{session_id}}"]).toBe("sess-1");
   });
 });

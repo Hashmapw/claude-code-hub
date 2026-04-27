@@ -4,6 +4,35 @@
 
 ---
 
+## v0.7.3 (2026-04-26)
+
+### 新增
+
+- SII Notebook / VSCode 深层代理前缀支持收敛：统一处理 workspace base path、`/proxy/3000` 污染路径、静态资源 `assetPrefix` 与登录跳转路径，默认代理端口统一为 3000。
+- 登录页 branding 改为通过公开最小接口 `/api/public/site-info` 获取，并隐藏登录页公共 footer，避免未登录态重复品牌信息与权限接口依赖。
+- Key Soft Block 完成 Redis-only 闭环：Dashboard 新增/编辑 Key 写入 Redis，用户与 Key 列表从 Redis 回填，主请求链路与 `/v1/models` 共享同一拦截口径。
+- `vip_group_usage` 高成本 provider group 使用提醒接入通知链路，支持 Redis 开关、冷却去重、Webhook 模板、测试消息与幂等 enum 迁移。
+- opencode 调用 Claude `/v1/messages` 时自动追加 `beta=true`，且不覆盖调用方显式提供的 `beta` 参数。
+- 补充 v0.7.3 实现说明文档：`docs/sii-branding-soft-block-v0.7.3.md`。
+
+### 优化
+
+- my-usage 与 dashboard usage logs 的模型展示、筛选、聚合、distinct model 列表统一按 `COALESCE(originalModel, model)` 的原始模型优先语义处理。
+- 登录页首屏 API 请求改为 base-path 感知，避免 Notebook / deep proxy 挂载时序下 branding 与 version 请求偶发落到根路径。
+- usage logs repository 层补齐 model filter 与 distinct-model 语义，保持 message_request 与 usage_ledger 两条路径一致。
+- `vip_group_usage` 默认模板字段语义修正，不再把 provider group 错标成 key group。
+
+### 修复
+
+- 修复 workspace bare-locale 根路径在 deep proxy 场景下可能生成自循环跳转页的问题。
+- 修复 SII 网关首跳把服务端可见路径剥离为 `/` 或短 `/proxy/<port>` 时，登录重定向过早返回 307 导致丢失 workspace 前缀的问题。
+- 修复登录 `from` 参数残留污染的 `/proxy/<port>` 或重复 locale 前缀的问题，root 与 bare-locale 登录后回到 dashboard fallback。
+- 修复未带 locale 的受保护路由登录跳转不尊重 `NEXT_LOCALE` cookie 的问题。
+- 修复 Key 编辑入口再次打开时 soft block 开关与提示词未从 Redis 正确回填的问题。
+- 修复 `vip_group_usage` enum label 已存在时迁移重复执行失败的问题。
+
+---
+
 ## v0.6.8 (2026-04-13)
 
 ### 新增
