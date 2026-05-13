@@ -1,5 +1,9 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  ProxyProviderResolver,
+  providerSupportsModel,
+} from "@/app/v1/_lib/proxy/provider-selector";
 import type { Provider } from "@/types/provider";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // ── Mocks (shared by findReusable and pickRandomProvider tests) ──
 
@@ -41,8 +45,32 @@ const rateLimitMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/rate-limit", () => rateLimitMocks);
 
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    trace: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+function setupResolverMocks() {
+  vi.spyOn(ProxyProviderResolver as any, "filterByLimits").mockImplementation(
+    async (...args: unknown[]) => args[0] as Provider[]
+  );
+  vi.spyOn(ProxyProviderResolver as any, "selectTopPriority").mockImplementation(
+    (...args: unknown[]) => args[0] as Provider[]
+  );
+  vi.spyOn(ProxyProviderResolver as any, "selectOptimal").mockImplementation(
+    (...args: unknown[]) => (args[0] as Provider[])[0] ?? null
+  );
+}
+
 beforeEach(() => {
-  vi.resetAllMocks();
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+  setupResolverMocks();
 });
 
 // ── Helpers ──
@@ -205,7 +233,6 @@ describe("providerSupportsModel - direct unit tests (#832)", () => {
     requestedModel,
     expected,
   }) => {
-    const { providerSupportsModel } = await import("@/app/v1/_lib/proxy/provider-selector");
     const provider = createProvider({
       providerType,
       allowedModels,
@@ -221,8 +248,6 @@ describe("providerSupportsModel - direct unit tests (#832)", () => {
 
 describe("findReusable - cross-type model routing (#832)", () => {
   test("openai-compatible + allowedModels with claude model -> reuse succeeds", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
     const provider = createProvider({
       id: 10,
       providerType: "openai-compatible",
@@ -254,8 +279,6 @@ describe("findReusable - cross-type model routing (#832)", () => {
   });
 
   test("openai-compatible + null allowedModels + claude model -> reuse succeeds (wildcard)", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
     const provider = createProvider({ id: 11, allowedModels: null });
 
     sessionManagerMocks.SessionManager.getSessionProvider.mockResolvedValueOnce(11);
@@ -283,8 +306,6 @@ describe("findReusable - cross-type model routing (#832)", () => {
   });
 
   test("openai-compatible + allowedModels mismatch -> clears stale binding", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
     const provider = createProvider({
       id: 12,
       allowedModels: ["gpt-4o", "gpt-4o-mini"],
@@ -310,8 +331,6 @@ describe("findReusable - cross-type model routing (#832)", () => {
   });
 
   test("modelRedirects do not bypass explicit allowedModels during reuse", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
     const provider = createProvider({
       id: 15,
       providerType: "claude",
@@ -358,25 +377,7 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
     } as any;
   }
 
-  async function setupResolverMocks() {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
-    vi.spyOn(ProxyProviderResolver as any, "filterByLimits").mockImplementation(
-      async (...args: unknown[]) => args[0] as Provider[]
-    );
-    vi.spyOn(ProxyProviderResolver as any, "selectTopPriority").mockImplementation(
-      (...args: unknown[]) => args[0] as Provider[]
-    );
-    vi.spyOn(ProxyProviderResolver as any, "selectOptimal").mockImplementation(
-      (...args: unknown[]) => (args[0] as Provider[])[0] ?? null
-    );
-
-    return ProxyProviderResolver;
-  }
-
   test("openai format + openai-compatible with allowedModels=[claude-opus-4-6] -> selected", async () => {
-    const Resolver = await setupResolverMocks();
-
     const provider = createProvider({
       id: 20,
       providerType: "openai-compatible",
@@ -384,15 +385,16 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
     });
     const session = createPickSession("openai", [provider], "claude-opus-4-6");
 
-    const { provider: picked } = await (Resolver as any).pickRandomProvider(session, []);
+    const { provider: picked } = await (ProxyProviderResolver as any).pickRandomProvider(
+      session,
+      []
+    );
 
     expect(picked).not.toBeNull();
     expect(picked?.id).toBe(20);
   });
 
   test("openai format + claude provider with null allowedModels -> rejected by format check", async () => {
-    const Resolver = await setupResolverMocks();
-
     const claudeProvider = createProvider({
       id: 21,
       providerType: "claude",
@@ -400,7 +402,10 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
     });
     const session = createPickSession("openai", [claudeProvider], "gpt-4o");
 
-    const { provider: picked, context } = await (Resolver as any).pickRandomProvider(session, []);
+    const { provider: picked, context } = await (ProxyProviderResolver as any).pickRandomProvider(
+      session,
+      []
+    );
 
     expect(picked).toBeNull();
     const mismatch = context.filteredProviders.find(
@@ -410,8 +415,6 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
   });
 
   test("openai format + openai-compatible with non-matching allowedModels -> rejected by model check", async () => {
-    const Resolver = await setupResolverMocks();
-
     const provider = createProvider({
       id: 22,
       providerType: "openai-compatible",
@@ -419,7 +422,10 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
     });
     const session = createPickSession("openai", [provider], "claude-opus-4-6");
 
-    const { provider: picked, context } = await (Resolver as any).pickRandomProvider(session, []);
+    const { provider: picked, context } = await (ProxyProviderResolver as any).pickRandomProvider(
+      session,
+      []
+    );
 
     expect(picked).toBeNull();
     const mismatch = context.filteredProviders.find(
@@ -429,8 +435,6 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
   });
 
   test("format check + model check combined: only format-and-model compatible provider selected", async () => {
-    const Resolver = await setupResolverMocks();
-
     // claude provider (format-incompatible with openai request)
     const p1 = createProvider({
       id: 30,
@@ -452,7 +456,10 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
 
     const session = createPickSession("openai", [p1, p2, p3], "claude-opus-4-6");
 
-    const { provider: picked, context } = await (Resolver as any).pickRandomProvider(session, []);
+    const { provider: picked, context } = await (ProxyProviderResolver as any).pickRandomProvider(
+      session,
+      []
+    );
 
     expect(picked?.id).toBe(32);
 
@@ -468,8 +475,6 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
   });
 
   test("claude format + explicit allowlist rejects opus request even when redirect points to allowed glm", async () => {
-    const Resolver = await setupResolverMocks();
-
     const provider = createProvider({
       id: 33,
       providerType: "claude",
@@ -481,7 +486,10 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
     });
     const session = createPickSession("claude", [provider], "claude-opus-4-5-20251001");
 
-    const { provider: picked, context } = await (Resolver as any).pickRandomProvider(session, []);
+    const { provider: picked, context } = await (ProxyProviderResolver as any).pickRandomProvider(
+      session,
+      []
+    );
 
     expect(picked).toBeNull();
     const mismatch = context.filteredProviders.find(
@@ -491,12 +499,6 @@ describe("pickRandomProvider - cross-type model routing (#832)", () => {
   });
 
   test("claude format skips priority-0 redirect-only provider and selects lower-priority allowed provider", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
-    vi.spyOn(ProxyProviderResolver as any, "filterByLimits").mockImplementation(
-      async (...args: unknown[]) => args[0] as Provider[]
-    );
-
     const priorityZeroProvider = createProvider({
       id: 40,
       providerType: "claude",

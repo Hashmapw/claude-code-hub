@@ -1,6 +1,5 @@
 import { getKeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
-import { SessionManager } from "@/lib/session-manager";
 import type { SpecialSetting } from "@/types/special-settings";
 import { ProxyResponses } from "./responses";
 import type { ProxySession } from "./session";
@@ -25,6 +24,8 @@ export async function handleKeySoftBlock(session: ProxySession): Promise<Respons
   if (!config.enabled) {
     return null;
   }
+
+  const { SessionManager } = await import("@/lib/session-manager");
 
   const message = resolveKeySoftBlockMessage(config.message);
 

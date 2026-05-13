@@ -88,6 +88,7 @@ vi.mock("@/app/v1/_lib/gemini/auth", () => ({
 }));
 
 const fetchMock = vi.fn<typeof fetch>();
+const { testProviderGemini, testProviderUnified } = await import("@/actions/providers");
 
 describe("providers api test actions", () => {
   beforeEach(() => {
@@ -133,7 +134,6 @@ describe("providers api test actions", () => {
       },
     });
 
-    const { testProviderUnified } = await import("@/actions/providers");
     const result = await testProviderUnified({
       providerUrl: "https://api.example.com",
       apiKey: "sk-test",
@@ -174,7 +174,6 @@ describe("providers api test actions", () => {
       text: async () => responseBody,
     } as Response);
 
-    const { testProviderGemini } = await import("@/actions/providers");
     const result = await testProviderGemini({
       providerUrl: "https://gemini.example.com",
       apiKey: "AIza1234567890abcdefghijklmnopqrstuvwxyz",

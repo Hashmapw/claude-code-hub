@@ -1,7 +1,6 @@
 import { ResponseFixer } from "@/app/v1/_lib/proxy/response-fixer";
 import { AsyncTaskManager } from "@/lib/async-task-manager";
 import { getEnvConfig } from "@/lib/config/env.schema";
-import { errorRuleDetector } from "@/lib/error-rule-detector";
 import { logger } from "@/lib/logger";
 import { requestCloudPriceTableSync } from "@/lib/price-sync/cloud-price-updater";
 import { ProxyStatusTracker } from "@/lib/proxy-status-tracker";
@@ -10,10 +9,6 @@ import { deleteLiveChain } from "@/lib/redis/live-chain-store";
 import { SessionManager } from "@/lib/session-manager";
 import { SessionTracker } from "@/lib/session-tracker";
 import { CODEX_1M_CONTEXT_TOKEN_THRESHOLD } from "@/lib/special-attributes";
-import {
-  findMatchedStreamPrefixKeyword,
-  type ResolvedStreamPrefixBlockRule,
-} from "@/lib/stream-prefix-block-rule";
 import type {
   CostBreakdown,
   RequestCostCalculationOptions,
@@ -46,10 +41,14 @@ import { GeminiAdapter } from "../gemini/adapter";
 import type { GeminiResponse } from "../gemini/types";
 import { extractActualResponseModelForProvider } from "./actual-response-model";
 import { bindClientAbortListener } from "./client-abort-listener";
-import { isClientAbortError, isTransportError } from "./errors";
-import { ProxyResponses } from "./responses";
+import { isClientAbortError, isTransportError, StreamPrefixBlockError } from "./errors";
 import type { ProxySession } from "./session";
 import { consumeDeferredStreamingFinalization } from "./stream-finalization";
+import {
+  buildStreamPrefixBlockProxyResponse,
+  hasStreamPrefixBlockGateHandled,
+  scanStreamPrefixBlockResponse,
+} from "./stream-prefix-block-gate";
 
 /**
  * Idempotent helper to release the agent pool reference count attached to a session.
@@ -107,29 +106,17 @@ function discardBeforeResponseBodySnapshot(session: ProxySession): void {
 
 async function buildStreamPrefixBlockErrorResponse(
   session: ProxySession,
-  rule: ResolvedStreamPrefixBlockRule,
-  matchedKeyword: string
+  error: StreamPrefixBlockError
 ): Promise<Response> {
-  const statusCode = rule.overrideStatusCode ?? rule.statusCode;
-  const errorResponse = rule.overrideResponse
-    ? new Response(JSON.stringify(rule.overrideResponse), {
-        status: statusCode,
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-        },
-      })
-    : ProxyResponses.buildError(statusCode, rule.message, "permission_error", {
-        reason: "stream_prefix_block",
-        ruleId: rule.id,
-        matchedKeyword,
-      });
+  const statusCode = error.overrideStatusCode ?? error.statusCode;
+  const errorResponse = buildStreamPrefixBlockProxyResponse(error);
 
   if (session.messageContext) {
     await persistRequestFailure({
       session,
       messageContext: session.messageContext,
       statusCode,
-      error: new Error(`STREAM_PREFIX_BLOCK:${matchedKeyword}`),
+      error: new Error(`STREAM_PREFIX_BLOCK:${error.matchedKeyword}`),
       taskId: `stream-prefix-block-${session.messageContext.id}`,
       phase: "stream",
     });
@@ -142,75 +129,22 @@ export async function applyStreamPrefixBlockGate(
   session: ProxySession,
   response: Response
 ): Promise<Response> {
+  if (hasStreamPrefixBlockGateHandled(session)) {
+    return response;
+  }
+
   const providerId = session.provider?.id ?? null;
-  const applicableRules = errorRuleDetector.getStreamPrefixBlockRulesForProvider(providerId);
-  if (applicableRules.length === 0 || !response.body) {
-    return response;
-  }
-
-  const scanLimitBytes = applicableRules.reduce(
-    (maxBytes, rule) => Math.max(maxBytes, rule.scanLimitBytes),
-    0
-  );
-  if (scanLimitBytes <= 0) {
-    return response;
-  }
-
-  const reader = response.body.getReader();
-  const bufferedChunks: Uint8Array[] = [];
-  let bufferedBytes = 0;
-  let streamEndedDuringScan = false;
 
   try {
-    while (bufferedBytes < scanLimitBytes) {
-      const { done, value } = await reader.read();
-      if (done) {
-        streamEndedDuringScan = true;
-        break;
-      }
-      if (!value || value.byteLength === 0) {
-        continue;
-      }
-      bufferedChunks.push(value);
-      bufferedBytes += value.byteLength;
-    }
-
-    if (bufferedChunks.length === 0 && streamEndedDuringScan) {
-      try {
-        reader.releaseLock();
-      } catch {
-        // ignore
-      }
-      return new Response(null, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: new Headers(response.headers),
-      });
-    }
-
-    const buffer = new Uint8Array(bufferedBytes);
-    let offset = 0;
-    for (const chunk of bufferedChunks) {
-      buffer.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-
-    const scannedText = new TextDecoder().decode(buffer);
-    for (const rule of applicableRules) {
-      const matchedKeyword = findMatchedStreamPrefixKeyword(scannedText, rule);
-      if (!matchedKeyword) {
-        continue;
-      }
-
-      logger.warn("[ResponseHandler] Stream prefix block rule matched", {
-        sessionId: session.sessionId ?? null,
-        providerId,
-        messageRequestId: session.messageContext?.id ?? null,
-        ruleId: rule.id,
-        matchedKeyword,
-        scanLimitBytes: rule.scanLimitBytes,
-      });
-
+    return await scanStreamPrefixBlockResponse({
+      response,
+      providerId,
+      providerName: session.provider?.name ?? null,
+      sessionId: session.sessionId ?? null,
+      messageRequestId: session.messageContext?.id ?? null,
+    });
+  } catch (error) {
+    if (error instanceof StreamPrefixBlockError) {
       const streamSession = session as ProxySession & {
         responseController?: AbortController;
       };
@@ -220,73 +154,9 @@ export async function applyStreamPrefixBlockGate(
         // ignore
       }
 
-      try {
-        await reader.cancel(`stream_prefix_block:${matchedKeyword}`);
-      } catch {
-        // ignore
-      }
-
       discardBeforeResponseBodySnapshot(session);
       releaseSessionAgent(session);
-      return await buildStreamPrefixBlockErrorResponse(session, rule, matchedKeyword);
-    }
-
-    const resumedStream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        for (const chunk of bufferedChunks) {
-          controller.enqueue(chunk);
-        }
-
-        if (streamEndedDuringScan) {
-          controller.close();
-          try {
-            reader.releaseLock();
-          } catch {
-            // ignore
-          }
-          return;
-        }
-
-        const pump = async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) {
-                controller.close();
-                break;
-              }
-              if (value && value.byteLength > 0) {
-                controller.enqueue(value);
-              }
-            }
-          } catch (error) {
-            controller.error(error);
-          } finally {
-            try {
-              reader.releaseLock();
-            } catch {
-              // ignore
-            }
-          }
-        };
-
-        void pump();
-      },
-      cancel(reason) {
-        return reader.cancel(reason);
-      },
-    });
-
-    return new Response(resumedStream, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: new Headers(response.headers),
-    });
-  } catch (error) {
-    try {
-      reader.releaseLock();
-    } catch {
-      // ignore
+      return await buildStreamPrefixBlockErrorResponse(session, error);
     }
     throw error;
   }

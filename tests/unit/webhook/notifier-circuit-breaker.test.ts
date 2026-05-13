@@ -1,57 +1,69 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CircuitBreakerAlertData } from "@/lib/webhook/types";
 
+const mocks = vi.hoisted(() => ({
+  redisGet: vi.fn(),
+  redisSet: vi.fn(),
+  getNotificationSettings: vi.fn(),
+  addNotificationJob: vi.fn(async () => {}),
+  addNotificationJobForTarget: vi.fn(async () => {}),
+}));
+
+vi.mock("@/lib/redis/client", () => ({
+  getRedisClient: vi.fn(() => ({
+    get: mocks.redisGet,
+    set: mocks.redisSet,
+  })),
+}));
+
+vi.mock("@/repository/notifications", () => ({
+  getNotificationSettings: mocks.getNotificationSettings,
+}));
+
+vi.mock("@/lib/notification/notification-queue", () => ({
+  addNotificationJob: mocks.addNotificationJob,
+  addNotificationJobForTarget: mocks.addNotificationJobForTarget,
+}));
+
+vi.mock("@/lib/notification/tasks/cost-alert", () => ({
+  generateCostAlerts: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/notification/tasks/daily-leaderboard", () => ({
+  generateDailyLeaderboard: vi.fn(async () => null),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    trace: vi.fn(),
+    fatal: vi.fn(),
+  },
+}));
+
 describe("sendCircuitBreakerAlert", () => {
-  const mockRedisGet = vi.fn();
-  const mockRedisSet = vi.fn();
-  const mockAddNotificationJob = vi.fn(async () => {});
-  const mockAddNotificationJobForTarget = vi.fn(async () => {});
+  let sendCircuitBreakerAlert: typeof import("@/lib/notification/notifier").sendCircuitBreakerAlert;
+
+  beforeAll(async () => {
+    ({ sendCircuitBreakerAlert } = await import("@/lib/notification/notifier"));
+  }, 20_000);
 
   beforeEach(() => {
-    vi.resetModules();
-
-    vi.doMock("@/lib/redis/client", () => ({
-      getRedisClient: vi.fn(() => ({
-        get: mockRedisGet,
-        set: mockRedisSet,
-      })),
-    }));
-
-    vi.doMock("@/repository/notifications", () => ({
-      getNotificationSettings: vi.fn(async () => ({
-        enabled: true,
-        circuitBreakerEnabled: true,
-        useLegacyMode: true,
-        circuitBreakerWebhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",
-      })),
-    }));
-
-    vi.doMock("@/lib/notification/notification-queue", () => ({
-      addNotificationJob: mockAddNotificationJob,
-      addNotificationJobForTarget: mockAddNotificationJobForTarget,
-    }));
-
-    vi.doMock("@/lib/logger", () => ({
-      logger: {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        trace: vi.fn(),
-        fatal: vi.fn(),
-      },
-    }));
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
+    mocks.getNotificationSettings.mockResolvedValue({
+      enabled: true,
+      circuitBreakerEnabled: true,
+      useLegacyMode: true,
+      circuitBreakerWebhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",
+    });
   });
 
   describe("dedup key with incidentSource", () => {
     it("should use provider dedup key when incidentSource is provider", async () => {
-      mockRedisGet.mockResolvedValue(null); // No cached alert
-
-      const { sendCircuitBreakerAlert } = await import("@/lib/notification/notifier");
+      mocks.redisGet.mockResolvedValue(null);
 
       const data: CircuitBreakerAlertData = {
         providerName: "OpenAI",
@@ -63,14 +75,16 @@ describe("sendCircuitBreakerAlert", () => {
 
       await sendCircuitBreakerAlert(data);
 
-      // Should use dedup key with provider source
-      expect(mockRedisSet).toHaveBeenCalledWith("circuit-breaker-alert:1:provider", "1", "EX", 300);
+      expect(mocks.redisSet).toHaveBeenCalledWith(
+        "circuit-breaker-alert:1:provider",
+        "1",
+        "EX",
+        300
+      );
     });
 
     it("should use endpoint dedup key when incidentSource is endpoint", async () => {
-      mockRedisGet.mockResolvedValue(null);
-
-      const { sendCircuitBreakerAlert } = await import("@/lib/notification/notifier");
+      mocks.redisGet.mockResolvedValue(null);
 
       const data: CircuitBreakerAlertData = {
         providerName: "OpenAI",
@@ -84,8 +98,7 @@ describe("sendCircuitBreakerAlert", () => {
 
       await sendCircuitBreakerAlert(data);
 
-      // Should use dedup key with endpoint source including endpointId
-      expect(mockRedisSet).toHaveBeenCalledWith(
+      expect(mocks.redisSet).toHaveBeenCalledWith(
         "circuit-breaker-alert:1:endpoint:42",
         "1",
         "EX",
@@ -94,12 +107,8 @@ describe("sendCircuitBreakerAlert", () => {
     });
 
     it("should dedup independently for same provider with different sources", async () => {
-      // Provider alert is cached
-      mockRedisGet.mockResolvedValueOnce("1");
-      // Endpoint alert is NOT cached
-      mockRedisGet.mockResolvedValueOnce(null);
-
-      const { sendCircuitBreakerAlert } = await import("@/lib/notification/notifier");
+      mocks.redisGet.mockResolvedValueOnce("1");
+      mocks.redisGet.mockResolvedValueOnce(null);
 
       const providerData: CircuitBreakerAlertData = {
         providerName: "OpenAI",
@@ -122,10 +131,8 @@ describe("sendCircuitBreakerAlert", () => {
       await sendCircuitBreakerAlert(providerData);
       await sendCircuitBreakerAlert(endpointData);
 
-      // Provider alert should be suppressed (cached)
-      expect(mockRedisSet).toHaveBeenCalledTimes(1);
-      // That one call should be for endpoint source
-      expect(mockRedisSet).toHaveBeenCalledWith(
+      expect(mocks.redisSet).toHaveBeenCalledTimes(1);
+      expect(mocks.redisSet).toHaveBeenCalledWith(
         "circuit-breaker-alert:1:endpoint:42",
         "1",
         "EX",
@@ -134,31 +141,28 @@ describe("sendCircuitBreakerAlert", () => {
     });
 
     it("should default to provider source when incidentSource is undefined", async () => {
-      mockRedisGet.mockResolvedValue(null);
-
-      const { sendCircuitBreakerAlert } = await import("@/lib/notification/notifier");
+      mocks.redisGet.mockResolvedValue(null);
 
       const data: CircuitBreakerAlertData = {
         providerName: "Anthropic",
         providerId: 2,
         failureCount: 3,
         retryAt: "2025-01-02T13:00:00Z",
-        // incidentSource is undefined - should default to provider
       };
 
       await sendCircuitBreakerAlert(data);
 
-      // Should use dedup key with default provider source
-      expect(mockRedisSet).toHaveBeenCalledWith("circuit-breaker-alert:2:provider", "1", "EX", 300);
+      expect(mocks.redisSet).toHaveBeenCalledWith(
+        "circuit-breaker-alert:2:provider",
+        "1",
+        "EX",
+        300
+      );
     });
 
     it("should suppress endpoint alert when same endpointId was recently alerted", async () => {
-      // First call: not cached
-      mockRedisGet.mockResolvedValueOnce(null);
-      // Second call: cached
-      mockRedisGet.mockResolvedValueOnce("1");
-
-      const { sendCircuitBreakerAlert } = await import("@/lib/notification/notifier");
+      mocks.redisGet.mockResolvedValueOnce(null);
+      mocks.redisGet.mockResolvedValueOnce("1");
 
       const data: CircuitBreakerAlertData = {
         providerName: "OpenAI",
@@ -172,10 +176,8 @@ describe("sendCircuitBreakerAlert", () => {
       await sendCircuitBreakerAlert(data);
       await sendCircuitBreakerAlert(data);
 
-      // Only first call should have set cache
-      expect(mockRedisSet).toHaveBeenCalledTimes(1);
-      // Should have checked cache twice
-      expect(mockRedisGet).toHaveBeenCalledTimes(2);
+      expect(mocks.redisSet).toHaveBeenCalledTimes(1);
+      expect(mocks.redisGet).toHaveBeenCalledTimes(2);
     });
   });
 });

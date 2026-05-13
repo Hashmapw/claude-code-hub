@@ -4,7 +4,7 @@ import { LoginAbusePolicy } from "@/lib/security/login-abuse-policy";
 import { validateApiKeyAndGetUser } from "@/repository/key";
 import { markUserExpired } from "@/repository/user";
 import { GEMINI_PROTOCOL } from "../gemini/protocol";
-import { handleKeySoftBlock } from "./key-soft-block";
+import { extractApiKeyFromHeaders as extractApiKeyFromHeadersValue } from "./api-key-extractor";
 import { ProxyResponses } from "./responses";
 import type { AuthState, ProxySession } from "./session";
 
@@ -69,6 +69,7 @@ export class ProxyAuthenticator {
     session.setAuthState(authState);
 
     if (authState.success) {
+      const { handleKeySoftBlock } = await import("./key-soft-block");
       const softBlockResponse = await handleKeySoftBlock(session);
       if (softBlockResponse) {
         return softBlockResponse;
@@ -286,26 +287,5 @@ export function extractApiKeyFromHeaders(headers: {
   "x-api-key"?: string | null;
   "x-goog-api-key"?: string | null;
 }): string | null {
-  // 1. Bearer token
-  const authHeader = headers.authorization?.trim();
-  if (authHeader) {
-    const match = /^Bearer\s+(.+)$/i.exec(authHeader);
-    if (match?.[1]?.trim()) {
-      return match[1].trim();
-    }
-  }
-
-  // 2. x-api-key header
-  const apiKey = headers["x-api-key"]?.trim();
-  if (apiKey) {
-    return apiKey;
-  }
-
-  // 3. x-goog-api-key header (Gemini)
-  const geminiKey = headers["x-goog-api-key"]?.trim();
-  if (geminiKey) {
-    return geminiKey;
-  }
-
-  return null;
+  return extractApiKeyFromHeadersValue(headers);
 }

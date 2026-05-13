@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import type { User } from "@/types/user";
 
 const getSessionMock = vi.fn();
@@ -12,6 +12,13 @@ vi.mock("next/cache", () => ({
 
 const getTranslationsMock = vi.fn(async () => (key: string) => key);
 const getLocaleMock = vi.fn(async () => "en");
+const emitActionAuditMock = vi.fn();
+const getKeySoftBlockConfigsMock = vi.fn(async () => new Map());
+const getUnauthorizedFieldsMock = vi.fn(() => []);
+const getRedisClientMock = vi.fn(() => null);
+const invalidateCachedUserMock = vi.fn();
+const resolveSystemTimezoneMock = vi.fn(async () => "UTC");
+
 vi.mock("next-intl/server", () => ({
   getTranslations: getTranslationsMock,
   getLocale: getLocaleMock,
@@ -41,6 +48,86 @@ vi.mock("@/repository/key", async (importOriginal) => {
   };
 });
 
+vi.mock("@/drizzle/db", () => ({
+  db: {},
+}));
+
+vi.mock("@/drizzle/schema", () => ({
+  messageRequest: {},
+  usageLedger: {},
+  users: {},
+}));
+
+vi.mock("@/lib/audit/emit", () => ({
+  emitActionAudit: (...args: unknown[]) => emitActionAuditMock(...args),
+}));
+
+vi.mock("@/lib/constants/provider.constants", () => ({
+  PROVIDER_GROUP: {
+    DEFAULT: "default",
+    ALL: "all",
+  },
+}));
+
+vi.mock("@/lib/key-soft-block-store", () => ({
+  getKeySoftBlockConfigs: (...args: unknown[]) => getKeySoftBlockConfigsMock(...args),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    trace: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/permissions/user-field-permissions", () => ({
+  getUnauthorizedFields: (...args: unknown[]) => getUnauthorizedFieldsMock(...args),
+}));
+
+vi.mock("@/lib/rate-limit/cost-reset-utils", () => ({
+  clipStartByResetAt: vi.fn((start: Date) => start),
+  resolveUser5hCostResetAt: vi.fn(
+    (primary: Date | null, secondary: Date | null) => secondary ?? primary ?? null
+  ),
+}));
+
+vi.mock("@/lib/redis", () => ({
+  getRedisClient: (...args: unknown[]) => getRedisClientMock(...args),
+}));
+
+vi.mock("@/lib/security/api-key-auth-cache", () => ({
+  invalidateCachedUser: (...args: unknown[]) => invalidateCachedUserMock(...args),
+}));
+
+vi.mock("@/lib/utils/date-input", () => ({
+  parseDateInputAsTimezone: vi.fn(),
+}));
+
+vi.mock("@/lib/utils/provider-group", () => ({
+  normalizeProviderGroup: vi.fn((value: unknown) => value),
+  parseProviderGroups: vi.fn(() => []),
+}));
+
+vi.mock("@/lib/utils/timezone", () => ({
+  resolveSystemTimezone: (...args: unknown[]) => resolveSystemTimezoneMock(...args),
+}));
+
+vi.mock("@/lib/utils/validation", () => ({
+  maskKey: vi.fn((value: string) => value),
+}));
+
+vi.mock("@/lib/utils/zod-i18n", () => ({
+  formatZodError: vi.fn(() => "validation_error"),
+}));
+
+vi.mock("@/lib/validation/schemas", () => ({
+  CreateUserSchema: {},
+  UpdateUserSchema: {},
+}));
+
 function makeUser(id: number, name = `user-${id}`): User {
   return {
     id,
@@ -64,7 +151,16 @@ function makeUser(id: number, name = `user-${id}`): User {
   };
 }
 
+let getUsersAction: typeof import("@/actions/users").getUsers;
+let getUsersBatchAction: typeof import("@/actions/users").getUsersBatch;
+
 describe("getUsers compatibility", () => {
+  beforeAll(async () => {
+    const actions = await import("@/actions/users");
+    getUsersAction = actions.getUsers;
+    getUsersBatchAction = actions.getUsersBatch;
+  }, 20_000);
+
   beforeEach(() => {
     getSessionMock.mockReset();
     findUserByIdMock.mockReset();
@@ -98,9 +194,7 @@ describe("getUsers compatibility", () => {
         hasMore: false,
       });
 
-    const { getUsers } = await import("@/actions/users");
-
-    const result = await getUsers();
+    const result = await getUsersAction();
 
     expect(findUserListBatchMock).toHaveBeenNthCalledWith(1, {
       cursor: undefined,
@@ -133,9 +227,7 @@ describe("getUsers compatibility", () => {
       hasMore: false,
     });
 
-    const { getUsers } = await import("@/actions/users");
-
-    const result = await getUsers({
+    const result = await getUsersAction({
       page: 2,
       limit: 50,
       query: "  小鹿楠贝  ",
@@ -162,9 +254,7 @@ describe("getUsers compatibility", () => {
       hasMore: false,
     });
 
-    const { getUsersBatch } = await import("@/actions/users");
-
-    await getUsersBatch({
+    await getUsersBatchAction({
       searchTerm: "   ",
       query: "  alice  ",
     });
@@ -194,9 +284,7 @@ describe("getUsers compatibility", () => {
         hasMore: false,
       });
 
-    const { getUsers } = await import("@/actions/users");
-
-    const result = await getUsers({ query: "match" });
+    const result = await getUsersAction({ query: "match" });
 
     expect(findUserListBatchMock).toHaveBeenNthCalledWith(1, {
       cursor: undefined,
@@ -237,9 +325,7 @@ describe("getUsers compatibility", () => {
         hasMore: false,
       });
 
-    const { getUsers } = await import("@/actions/users");
-
-    const result = await getUsers({
+    const result = await getUsersAction({
       cursor: "   ",
       query: "cursor-match",
     });

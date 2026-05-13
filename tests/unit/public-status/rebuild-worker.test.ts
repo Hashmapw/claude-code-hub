@@ -4,7 +4,6 @@ import {
   buildPublicStatusManifestKey,
   buildPublicStatusRebuildHintKey,
 } from "@/lib/public-status/redis-contract";
-import { importPublicStatusModule } from "../../helpers/public-status-test-helpers";
 
 const mockRedisSet = vi.hoisted(() => vi.fn());
 const mockRedisDel = vi.hoisted(() => vi.fn());
@@ -12,152 +11,77 @@ const mockRedisGet = vi.hoisted(() => vi.fn());
 const mockRedisEval = vi.hoisted(() => vi.fn());
 const mockRedisPttl = vi.hoisted(() => vi.fn());
 const mockReadCurrentInternalPublicStatusConfigSnapshot = vi.hoisted(() => vi.fn());
+const mockGetConfiguredPublicStatusGroups = vi.hoisted(() => vi.fn());
 const mockQueryPublicStatusRequests = vi.hoisted(() => vi.fn());
 const mockBuildPublicStatusPayloadFromRequests = vi.hoisted(() => vi.fn());
 const mockPublishCurrentPublicStatusConfigProjection = vi.hoisted(() => vi.fn());
+const aggregationMockState = vi.hoisted(() => ({ useMockedExports: false }));
 
-async function importAggregationModule() {
-  vi.resetModules();
-  vi.doUnmock("@/lib/public-status/aggregation");
+vi.mock("@/lib/redis", () => ({
+  getRedisClient: () => ({
+    get: mockRedisGet,
+    pttl: mockRedisPttl,
+    set: mockRedisSet,
+    del: mockRedisDel,
+    eval: mockRedisEval,
+    status: "ready",
+  }),
+}));
 
-  return importPublicStatusModule<{
-    buildPublicStatusPayloadFromRequests(input: {
-      rangeHours: number;
-      intervalMinutes: number;
-      now: string | Date;
-      groups: Array<{
-        sourceGroupName: string;
-        publicGroupSlug: string;
-        displayName: string;
-        explanatoryCopy: string | null;
-        sortOrder: number;
-        models: Array<{
-          publicModelKey: string;
-          label: string;
-          vendorIconKey: string;
-          requestTypeBadge: string;
-        }>;
-      }>;
-      requests: Array<{
-        id: number;
-        createdAt: string | Date;
-        originalModel?: string | null;
-        model?: string | null;
-        durationMs?: number | null;
-        ttfbMs?: number | null;
-        outputTokens?: number | null;
-        providerChain?: Array<{
-          id: number;
-          name: string;
-          groupTag?: string | null;
-          reason?: string | null;
-          statusCode?: number | null;
-          errorMessage?: string | null;
-        }> | null;
-      }>;
-    }): {
-      coveredFrom: string;
-      coveredTo: string;
-      groups: Array<{
-        publicGroupSlug: string;
-        models: Array<{
-          publicModelKey: string;
-          latestState: string;
-          timeline: Array<{
-            bucketStart: string;
-            state: string;
-            sampleCount: number;
-          }>;
-        }>;
-      }>;
-    };
-  }>("@/lib/public-status/aggregation");
+vi.mock("@/lib/public-status/config-snapshot", () => ({
+  readCurrentInternalPublicStatusConfigSnapshot: mockReadCurrentInternalPublicStatusConfigSnapshot,
+}));
+
+vi.mock("@/lib/public-status/config-publisher", () => ({
+  publishCurrentPublicStatusConfigProjection: mockPublishCurrentPublicStatusConfigProjection,
+}));
+
+vi.mock("@/lib/public-status/aggregation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/public-status/aggregation")>();
+
+  return {
+    ...actual,
+    getConfiguredPublicStatusGroups: (
+      ...args: Parameters<typeof actual.getConfiguredPublicStatusGroups>
+    ) =>
+      aggregationMockState.useMockedExports
+        ? mockGetConfiguredPublicStatusGroups(...args)
+        : actual.getConfiguredPublicStatusGroups(...args),
+    queryPublicStatusRequests: (...args: Parameters<typeof actual.queryPublicStatusRequests>) =>
+      aggregationMockState.useMockedExports
+        ? mockQueryPublicStatusRequests(...args)
+        : actual.queryPublicStatusRequests(...args),
+    buildPublicStatusPayloadFromRequests: (
+      ...args: Parameters<typeof actual.buildPublicStatusPayloadFromRequests>
+    ) =>
+      aggregationMockState.useMockedExports
+        ? mockBuildPublicStatusPayloadFromRequests(...args)
+        : actual.buildPublicStatusPayloadFromRequests(...args),
+  };
+});
+
+const aggregationModule = await import("@/lib/public-status/aggregation");
+const rebuildWorkerModule = await import("@/lib/public-status/rebuild-worker");
+const rebuildHintsModule = await import("@/lib/public-status/rebuild-hints");
+
+function useRealAggregation() {
+  aggregationMockState.useMockedExports = false;
 }
 
-async function importRebuildWorkerModule() {
-  vi.resetModules();
-  vi.doMock("@/lib/redis", () => ({
-    getRedisClient: () => ({
-      get: mockRedisGet,
-      pttl: mockRedisPttl,
-      set: mockRedisSet,
-      del: mockRedisDel,
-      eval: mockRedisEval,
-      status: "ready",
-    }),
-  }));
-  vi.doMock("@/lib/public-status/config-snapshot", () => ({
-    readCurrentInternalPublicStatusConfigSnapshot:
-      mockReadCurrentInternalPublicStatusConfigSnapshot,
-  }));
-  vi.doMock("@/lib/public-status/config-publisher", () => ({
-    publishCurrentPublicStatusConfigProjection: mockPublishCurrentPublicStatusConfigProjection,
-  }));
-  vi.doMock("@/lib/public-status/aggregation", () => ({
-    getConfiguredPublicStatusGroups: (snapshot: { groups: unknown[] }) => snapshot.groups,
-    queryPublicStatusRequests: mockQueryPublicStatusRequests,
-    buildPublicStatusPayloadFromRequests: mockBuildPublicStatusPayloadFromRequests,
-  }));
-
-  return importPublicStatusModule<{
-    runPublicStatusRebuild(input: {
-      flightKey: string;
-      computeGeneration: () => Promise<{
-        sourceGeneration: string;
-        skippedDueToDistributedLock?: boolean;
-      }>;
-    }): Promise<{
-      sourceGeneration: string;
-      skippedDueToDistributedLock?: boolean;
-    }>;
-    rebuildPublicStatusProjection(input: {
-      intervalMinutes: number;
-      rangeHours: number;
-      now?: Date;
-    }): Promise<
-      | { status: "disabled"; reason: string }
-      | { status: "skipped"; reason: string; sourceGeneration: string }
-      | { status: "updated"; sourceGeneration: string }
-    >;
-  }>("@/lib/public-status/rebuild-worker");
-}
-
-async function importRebuildHintsModule() {
-  vi.resetModules();
-  vi.doMock("@/lib/redis", () => ({
-    getRedisClient: () => ({
-      get: mockRedisGet,
-      pttl: mockRedisPttl,
-      set: mockRedisSet,
-      del: mockRedisDel,
-      eval: mockRedisEval,
-      status: "ready",
-    }),
-  }));
-  vi.doMock("@/lib/public-status/config-snapshot", () => ({
-    readCurrentInternalPublicStatusConfigSnapshot:
-      mockReadCurrentInternalPublicStatusConfigSnapshot,
-  }));
-
-  return importPublicStatusModule<{
-    schedulePublicStatusRebuild(input: {
-      intervalMinutes: number;
-      rangeHours: number;
-      reason: string;
-    }): Promise<{
-      accepted: boolean;
-      rebuildState: string;
-      key?: string;
-    }>;
-  }>("@/lib/public-status/rebuild-hints");
+function useMockedAggregation() {
+  aggregationMockState.useMockedExports = true;
 }
 
 describe("public-status rebuild worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useRealAggregation();
     mockRedisGet.mockResolvedValue(null);
     mockRedisEval.mockResolvedValue(1);
     mockRedisPttl.mockResolvedValue(-1);
+    mockGetConfiguredPublicStatusGroups.mockImplementation(
+      (snapshot: { groups: unknown[] }) => snapshot.groups
+    );
     mockPublishCurrentPublicStatusConfigProjection.mockResolvedValue({
       configVersion: "cfg-1",
       key: "public-status:v1:config:cfg-1",
@@ -166,10 +90,8 @@ describe("public-status rebuild worker", () => {
     });
   });
 
-  it("aggregates canonical request rows by public group, model key, and UTC bucket", async () => {
-    const mod = await importAggregationModule();
-
-    const result = mod.buildPublicStatusPayloadFromRequests({
+  it("aggregates canonical request rows by public group, model key, and UTC bucket", () => {
+    const result = aggregationModule.buildPublicStatusPayloadFromRequests({
       rangeHours: 1,
       intervalMinutes: 15,
       now: "2026-04-21T11:00:00.000Z",
@@ -238,10 +160,8 @@ describe("public-status rebuild worker", () => {
     expect(result.groups[0]?.models[0]?.latestState).toBe("failed");
   });
 
-  it("keeps default group samples when provider-chain tags are null blank or explicit default", async () => {
-    const mod = await importAggregationModule();
-
-    const result = mod.buildPublicStatusPayloadFromRequests({
+  it("keeps default group samples when provider-chain tags are null blank or explicit default", () => {
+    const result = aggregationModule.buildPublicStatusPayloadFromRequests({
       rangeHours: 1,
       intervalMinutes: 15,
       now: "2026-04-21T11:00:00.000Z",
@@ -314,7 +234,7 @@ describe("public-status rebuild worker", () => {
   });
 
   it("collapses concurrent rebuild requests into a single in-flight computation", async () => {
-    const mod = await importRebuildWorkerModule();
+    useMockedAggregation();
 
     let releaseCompute: (() => void) | undefined;
     const computeGate = new Promise<void>((resolve) => {
@@ -325,15 +245,15 @@ describe("public-status rebuild worker", () => {
       return { sourceGeneration: "generation-1" };
     });
 
-    const first = mod.runPublicStatusRebuild({
+    const first = rebuildWorkerModule.runPublicStatusRebuild({
       flightKey: "cfg-1:5m:24h",
       computeGeneration,
     });
-    const second = mod.runPublicStatusRebuild({
+    const second = rebuildWorkerModule.runPublicStatusRebuild({
       flightKey: "cfg-1:5m:24h",
       computeGeneration,
     });
-    const third = mod.runPublicStatusRebuild({
+    const third = rebuildWorkerModule.runPublicStatusRebuild({
       flightKey: "cfg-1:5m:24h",
       computeGeneration,
     });
@@ -354,7 +274,7 @@ describe("public-status rebuild worker", () => {
   });
 
   it("propagates distributed-lock skip state to piggyback callers", async () => {
-    const mod = await importRebuildWorkerModule();
+    useMockedAggregation();
 
     let releaseCompute: (() => void) | undefined;
     const computeGate = new Promise<void>((resolve) => {
@@ -368,11 +288,11 @@ describe("public-status rebuild worker", () => {
       };
     });
 
-    const first = mod.runPublicStatusRebuild({
+    const first = rebuildWorkerModule.runPublicStatusRebuild({
       flightKey: "cfg-2:15m:48h",
       computeGeneration,
     });
-    const second = mod.runPublicStatusRebuild({
+    const second = rebuildWorkerModule.runPublicStatusRebuild({
       flightKey: "cfg-2:15m:48h",
       computeGeneration,
     });
@@ -395,7 +315,7 @@ describe("public-status rebuild worker", () => {
   });
 
   it("publishes snapshot and manifest records for a rebuilt generation", async () => {
-    const mod = await importRebuildWorkerModule();
+    useMockedAggregation();
 
     mockReadCurrentInternalPublicStatusConfigSnapshot.mockResolvedValue({
       configVersion: "cfg-1",
@@ -432,7 +352,7 @@ describe("public-status rebuild worker", () => {
     mockRedisSet.mockReset();
     mockRedisSet.mockResolvedValueOnce("OK");
 
-    const result = await mod.rebuildPublicStatusProjection({
+    const result = await rebuildWorkerModule.rebuildPublicStatusProjection({
       intervalMinutes: 5,
       rangeHours: 24,
       now: new Date("2026-04-21T10:02:00.000Z"),
@@ -475,7 +395,7 @@ describe("public-status rebuild worker", () => {
   });
 
   it("re-publishes config projection before rebuild when redis config keys are missing", async () => {
-    const mod = await importRebuildWorkerModule();
+    useMockedAggregation();
 
     mockReadCurrentInternalPublicStatusConfigSnapshot
       .mockResolvedValueOnce(null)
@@ -514,7 +434,7 @@ describe("public-status rebuild worker", () => {
     mockRedisSet.mockReset();
     mockRedisSet.mockResolvedValueOnce("OK");
 
-    const result = await mod.rebuildPublicStatusProjection({
+    const result = await rebuildWorkerModule.rebuildPublicStatusProjection({
       intervalMinutes: 5,
       rangeHours: 24,
       now: new Date("2026-04-21T10:02:00.000Z"),
@@ -527,9 +447,7 @@ describe("public-status rebuild worker", () => {
   });
 
   it("writes rebuild hints with ttl and reason payload", async () => {
-    const mod = await importRebuildHintsModule();
-
-    await mod.schedulePublicStatusRebuild({
+    await rebuildHintsModule.schedulePublicStatusRebuild({
       intervalMinutes: 15,
       rangeHours: 48,
       reason: "manifest-missing",
@@ -548,8 +466,6 @@ describe("public-status rebuild worker", () => {
   });
 
   it("preserves manifest ttl when marking rebuildState as rebuilding", async () => {
-    const mod = await importRebuildHintsModule();
-
     mockReadCurrentInternalPublicStatusConfigSnapshot.mockResolvedValue({
       configVersion: "cfg-1",
     });
@@ -568,7 +484,7 @@ describe("public-status rebuild worker", () => {
       );
     mockRedisPttl.mockResolvedValueOnce(2_592_000_000).mockResolvedValueOnce(-1);
 
-    await mod.schedulePublicStatusRebuild({
+    await rebuildHintsModule.schedulePublicStatusRebuild({
       intervalMinutes: 5,
       rangeHours: 24,
       reason: "stale-generation",

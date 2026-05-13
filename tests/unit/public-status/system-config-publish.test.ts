@@ -6,7 +6,9 @@ const mockUpdateSystemSettings = vi.hoisted(() => vi.fn());
 const mockPublishCurrentPublicStatusConfigProjection = vi.hoisted(() => vi.fn());
 const mockSchedulePublicStatusRebuild = vi.hoisted(() => vi.fn());
 const mockInvalidateSystemSettingsCache = vi.hoisted(() => vi.fn());
+const mockInvalidateProviderSelectorSystemSettingsCache = vi.hoisted(() => vi.fn());
 const mockRevalidatePath = vi.hoisted(() => vi.fn());
+const mockEmitActionAudit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({
   getSession: mockGetSession,
@@ -29,6 +31,28 @@ vi.mock("@/lib/config", () => ({
   invalidateSystemSettingsCache: mockInvalidateSystemSettingsCache,
 }));
 
+vi.mock("@/app/v1/_lib/proxy/provider-selector-settings-cache", () => ({
+  invalidateProviderSelectorSystemSettingsCache: mockInvalidateProviderSelectorSystemSettingsCache,
+}));
+
+vi.mock("@/i18n/config", () => ({
+  locales: ["zh-CN"],
+}));
+
+vi.mock("@/lib/audit/emit", () => ({
+  emitActionAudit: mockEmitActionAudit,
+}));
+
+vi.mock("@/lib/utils/timezone", () => ({
+  resolveSystemTimezone: vi.fn(),
+}));
+
+vi.mock("@/lib/validation/schemas", () => ({
+  UpdateSystemSettingsSchema: {
+    parse: (value: unknown) => value,
+  },
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: mockRevalidatePath,
 }));
@@ -39,6 +63,8 @@ vi.mock("@/lib/logger", () => ({
     warn: () => {},
   },
 }));
+
+const { saveSystemSettings } = await import("@/actions/system-config");
 
 describe("system settings public-status republish", () => {
   beforeEach(() => {
@@ -72,8 +98,6 @@ describe("system settings public-status republish", () => {
   });
 
   it("republishes public-status projection when related system settings change", async () => {
-    const { saveSystemSettings } = await import("@/actions/system-config");
-
     const result = await saveSystemSettings({
       siteTitle: "Status Aware Title",
       publicStatusWindowHours: 48,

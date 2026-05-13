@@ -39,6 +39,7 @@ import { NOTIFICATION_JOB_TYPES } from "@/lib/constants/notification.constants";
 import { logger } from "@/lib/logger";
 import { PROVIDER_MODEL_REDIRECT_RULE_SCHEMA } from "@/lib/provider-model-redirect-schema";
 import { appendPublicStatusOpenApi } from "@/lib/public-status/openapi";
+import { resolveLegacySearchTerm } from "@/lib/users/legacy-search-term";
 // 导入 validation schemas
 import {
   CreateProviderSchema,
@@ -231,11 +232,7 @@ const { route: searchUsersRoute, handler: searchUsersHandler } = createActionRou
     tags: ["用户管理"],
     requiredRole: "admin",
     argsMapper: (body) => {
-      const searchTerm = [body.searchTerm, body.query, body.keyword]
-        .map((value: string | undefined) => value?.trim())
-        .find((value): value is string => Boolean(value));
-
-      return [searchTerm];
+      return [resolveLegacySearchTerm(body)];
     },
   }
 );

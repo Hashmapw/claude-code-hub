@@ -8,6 +8,8 @@ const computeVendorKeyMock = vi.fn();
 const backfillProviderEndpointsFromProvidersMock = vi.fn();
 const tryDeleteProviderVendorIfEmptyMock = vi.fn();
 const publishProviderCacheInvalidationMock = vi.fn();
+const emitActionAuditMock = vi.fn();
+const ensureProviderGroupsExistMock = vi.fn();
 const dbMock = {
   transaction: vi.fn(),
   update: vi.fn(),
@@ -39,8 +41,98 @@ vi.mock("@/lib/cache/provider-cache", () => ({
   publishProviderCacheInvalidation: publishProviderCacheInvalidationMock,
 }));
 
+vi.mock("@/lib/audit/emit", () => ({
+  emitActionAudit: emitActionAuditMock,
+}));
+
 vi.mock("@/drizzle/db", () => ({
   db: dbMock,
+}));
+
+vi.mock("drizzle-orm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("drizzle-orm")>();
+  return {
+    ...actual,
+    eq: vi.fn(() => Symbol("eq")),
+  };
+});
+
+vi.mock("@/drizzle/schema", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/drizzle/schema")>();
+  return {
+    ...actual,
+    providers: {
+      ...actual.providers,
+      id: actual.providers.id,
+    },
+  };
+});
+
+vi.mock("@/lib/circuit-breaker", () => ({
+  clearConfigCache: vi.fn(),
+  clearProviderState: vi.fn(async () => undefined),
+  forceCloseCircuitState: vi.fn(async () => undefined),
+  getAllHealthStatusAsync: vi.fn(async () => ({})),
+  publishCircuitBreakerConfigInvalidation: vi.fn(async () => undefined),
+  resetCircuit: vi.fn(),
+}));
+
+vi.mock("@/lib/redis/circuit-breaker-config", () => ({
+  deleteProviderCircuitConfig: vi.fn(async () => undefined),
+  saveProviderCircuitConfig: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/session-manager", () => ({
+  SessionManager: {
+    terminateProviderSessionsBatch: vi.fn(async () => 0),
+    terminateStickySessionsForProviders: vi.fn(async () => 0),
+  },
+}));
+
+vi.mock("@/lib/redis/redis-kv-store", () => ({
+  RedisKVStore: class {
+    async get() {
+      return null;
+    }
+
+    async set() {}
+
+    async delete() {}
+  },
+}));
+
+vi.mock("@/repository/provider-groups", () => ({
+  ensureProviderGroupsExist: ensureProviderGroupsExistMock,
+}));
+
+vi.mock("@/app/v1/_lib/gemini/auth", () => ({
+  GeminiAuth: class {},
+}));
+
+vi.mock("@/app/v1/_lib/headers", () => ({
+  resolveAnthropicAuthHeaders: vi.fn(),
+}));
+
+vi.mock("@/app/v1/_lib/url", () => ({
+  buildProxyUrl: vi.fn(),
+}));
+
+vi.mock("@/lib/provider-testing", () => ({
+  executeProviderTest: vi.fn(),
+}));
+
+vi.mock("@/lib/provider-testing/presets", () => ({
+  getPresetsForProvider: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/proxy-agent", () => ({
+  createProxyAgentForProvider: vi.fn(),
+  isValidProxyUrl: vi.fn(() => true),
+}));
+
+vi.mock("@/lib/validation/schemas", () => ({
+  CreateProviderSchema: { parse: vi.fn((value) => value) },
+  UpdateProviderSchema: { parse: vi.fn((value) => value) },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -53,16 +145,22 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+const providerActions = await import("@/actions/providers");
+
 describe("reclusterProviderVendors", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    getSessionMock.mockResolvedValue({ user: { id: 1, role: "admin" } });
+    findAllProvidersFreshMock.mockResolvedValue([]);
+    ensureProviderGroupsExistMock.mockResolvedValue(undefined);
   });
 
   describe("permission checks", () => {
     it("returns error when not logged in", async () => {
       getSessionMock.mockResolvedValue(null);
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: false });
 
       expect(result.ok).toBe(false);
@@ -72,7 +170,7 @@ describe("reclusterProviderVendors", () => {
     it("returns error when user is not admin", async () => {
       getSessionMock.mockResolvedValue({ user: { id: 1, role: "user" } });
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: false });
 
       expect(result.ok).toBe(false);
@@ -83,7 +181,7 @@ describe("reclusterProviderVendors", () => {
       getSessionMock.mockResolvedValue({ user: { id: 1, role: "admin" } });
       findAllProvidersFreshMock.mockResolvedValue([]);
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: false });
 
       expect(result.ok).toBe(true);
@@ -95,7 +193,7 @@ describe("reclusterProviderVendors", () => {
       getSessionMock.mockResolvedValue({ user: { id: 1, role: "admin" } });
       findAllProvidersFreshMock.mockResolvedValue([]);
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: false });
 
       expect(result.ok).toBe(true);
@@ -136,7 +234,7 @@ describe("reclusterProviderVendors", () => {
         .mockReturnValueOnce("192.168.1.1:8080")
         .mockReturnValueOnce("192.168.1.1:9090");
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: false });
 
       expect(result.ok).toBe(true);
@@ -164,7 +262,7 @@ describe("reclusterProviderVendors", () => {
       });
       computeVendorKeyMock.mockReturnValue("192.168.1.1:8080");
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       await reclusterProviderVendors({ confirm: false });
 
       expect(dbMock.transaction).not.toHaveBeenCalled();
@@ -184,7 +282,7 @@ describe("reclusterProviderVendors", () => {
       ]);
       computeVendorKeyMock.mockReturnValue(null);
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: false });
 
       expect(result.ok).toBe(true);
@@ -226,7 +324,7 @@ describe("reclusterProviderVendors", () => {
         return fn(tx);
       });
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: true });
 
       expect(result.ok).toBe(true);
@@ -272,7 +370,7 @@ describe("reclusterProviderVendors", () => {
         });
       });
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       await reclusterProviderVendors({ confirm: true });
 
       expect(publishProviderCacheInvalidationMock).toHaveBeenCalled();
@@ -296,7 +394,7 @@ describe("reclusterProviderVendors", () => {
       });
       computeVendorKeyMock.mockReturnValue("192.168.1.1:8080");
 
-      const { reclusterProviderVendors } = await import("@/actions/providers");
+      const { reclusterProviderVendors } = providerActions;
       const result = await reclusterProviderVendors({ confirm: true });
 
       expect(result.ok).toBe(true);

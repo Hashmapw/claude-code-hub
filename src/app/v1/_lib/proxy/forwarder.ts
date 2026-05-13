@@ -1,4 +1,3 @@
-import { STATUS_CODES } from "node:http";
 import type { Readable } from "node:stream";
 import { createGunzip, constants as zlibConstants } from "node:zlib";
 import type { Dispatcher } from "undici";
@@ -66,6 +65,7 @@ import {
   isHttp2Error,
   isSSLCertificateError,
   ProxyError,
+  StreamPrefixBlockError,
   sanitizeUrl,
 } from "./errors";
 import { ModelRedirector } from "./model-redirector";
@@ -78,7 +78,12 @@ import {
 } from "./openai-image-compat";
 import { ProxyProviderResolver } from "./provider-selector";
 import type { ProxySession } from "./session";
+import { resolveHttpStatusText } from "./status-text";
 import { setDeferredStreamingFinalization } from "./stream-finalization";
+import {
+  markStreamPrefixBlockGateHandled,
+  scanStreamPrefixBlockResponse,
+} from "./stream-prefix-block-gate";
 import {
   detectThinkingBudgetRectifierTrigger,
   rectifyThinkingBudget,
@@ -102,6 +107,7 @@ type CacheTtlOption = CacheTtlPreference | null | undefined;
 type ProxySessionWithAttemptRuntime = ProxySession & {
   clearResponseTimeout?: () => void;
   responseController?: AbortController;
+  releaseAgent?: () => void;
 };
 
 type StreamingHedgeAttempt = {
@@ -633,6 +639,51 @@ function buildRetryFailedChainEntry(
   };
 }
 
+function buildStreamPrefixBlockChainEntry(
+  provider: Provider,
+  endpointAudit: { endpointId: number | null; endpointUrl: string },
+  attemptNumber: number,
+  error: StreamPrefixBlockError,
+  errorMessage: string,
+  requestDetails: ReturnType<typeof buildRequestDetails>,
+  rawCrossProviderFallbackEnabled: boolean
+): NonNullable<Parameters<ProxySession["addProviderToChain"]>[1]> {
+  const providerDetails = rawCrossProviderFallbackEnabled
+    ? {
+        id: provider.id,
+        name: provider.name,
+        statusCode: error.statusCode,
+        statusText: error.message,
+      }
+    : {
+        id: provider.id,
+        name: provider.name,
+        statusCode: error.statusCode,
+        statusText: error.message,
+        upstreamBody: error.upstreamError?.body,
+        upstreamParsed: error.upstreamError?.parsed,
+      };
+
+  return {
+    ...endpointAudit,
+    reason: "stream_prefix_block",
+    circuitState: getCircuitState(provider.id),
+    attemptNumber,
+    rawCrossProviderFallbackEnabled: rawCrossProviderFallbackEnabled || undefined,
+    errorMessage,
+    statusCode: error.statusCode,
+    errorDetails: {
+      provider: providerDetails,
+      streamPrefixBlock: {
+        ruleId: error.ruleId,
+        matchedKeyword: error.matchedKeyword,
+        scanLimitBytes: error.scanLimitBytes,
+      },
+      request: requestDetails,
+    },
+  };
+}
+
 function getReactiveRectifierDisplayName(
   rectifierType: "thinking_signature_rectifier" | "thinking_budget_rectifier"
 ): string {
@@ -982,6 +1033,7 @@ export class ProxyForwarder {
       !endpointPolicy.allowRetry && !rawCrossProviderFallbackEnabled;
 
     let lastError: Error | null = null;
+    let lastErrorCategory: ErrorCategory | null = null;
     let currentProvider = session.provider;
     const failedProviderIds: number[] = []; // 记录已失败的供应商ID
     let totalProvidersAttempted = 0; // 已尝试的供应商数量（用于日志）
@@ -1230,6 +1282,12 @@ export class ProxyForwarder {
           // 解决：Forwarder 只负责尽快把 Response 返回给下游开始透传，
           // 把最终成功/失败结算延迟到 ResponseHandler：等 SSE 正常结束后再基于最终 body 补充检查并更新内部状态。
           if (isSSE) {
+            const screenedResponse = await ProxyForwarder.preScanStreamingResponse(
+              session,
+              response,
+              currentProvider
+            );
+            markStreamPrefixBlockGateHandled(session);
             setDeferredStreamingFinalization(session, {
               providerId: currentProvider.id,
               providerName: currentProvider.name,
@@ -1248,10 +1306,10 @@ export class ProxyForwarder {
               providerName: currentProvider.name,
               attemptNumber: attemptCount,
               totalProvidersAttempted,
-              statusCode: response.status,
+              statusCode: screenedResponse.status,
             });
 
-            return response;
+            return screenedResponse;
           }
 
           // 非流式响应：检测空响应
@@ -1534,6 +1592,7 @@ export class ProxyForwarder {
           // ⭐ 1. 分类错误（供应商错误 vs 系统错误 vs 客户端中断）
           // 使用异步版本确保错误规则已加载
           let errorCategory = await categorizeErrorAsync(lastError);
+          lastErrorCategory = errorCategory;
           const errorMessage =
             lastError instanceof ProxyError
               ? lastError.getDetailedErrorMessage()
@@ -1582,6 +1641,53 @@ export class ProxyForwarder {
             });
 
             throw lastError;
+          }
+
+          if (errorCategory === ErrorCategory.STREAM_PREFIX_BLOCK) {
+            const streamPrefixBlockError = lastError as StreamPrefixBlockError;
+
+            logger.warn(
+              "ProxyForwarder: Stream prefix block matched, switching provider immediately",
+              {
+                providerId: currentProvider.id,
+                providerName: currentProvider.name,
+                attemptNumber: attemptCount,
+                totalProvidersAttempted,
+                statusCode: streamPrefixBlockError.statusCode,
+                ruleId: streamPrefixBlockError.ruleId,
+                matchedKeyword: streamPrefixBlockError.matchedKeyword,
+                scanLimitBytes: streamPrefixBlockError.scanLimitBytes,
+                willSwitchProvider: !shouldSkipRawRetryAndProviderSwitch,
+              }
+            );
+
+            session.addProviderToChain(
+              currentProvider,
+              buildStreamPrefixBlockChainEntry(
+                currentProvider,
+                endpointAudit,
+                attemptCount,
+                streamPrefixBlockError,
+                errorMessage,
+                buildRequestDetails(session),
+                rawCrossProviderFallbackEnabled
+              )
+            );
+
+            if (shouldSkipRawRetryAndProviderSwitch) {
+              logger.debug(
+                "ProxyForwarder: raw passthrough endpoint stream prefix block, skipping provider switch",
+                {
+                  providerId: currentProvider.id,
+                  providerName: currentProvider.name,
+                  policyKind: endpointPolicy.kind,
+                }
+              );
+              throw lastError;
+            }
+
+            ProxyForwarder.markProviderFailed(session, failedProviderIds, currentProvider.id);
+            break;
           }
 
           // 2.5 Reactive rectifier：命中后对同供应商“整流 + 重试一次”
@@ -2140,7 +2246,7 @@ export class ProxyForwarder {
 
     // ⭐ 不暴露供应商详情，仅返回简单错误
     await ProxyForwarder.clearSessionProviderBinding(session);
-    throw ProxyForwarder.buildAllProvidersUnavailableError(lastError); // Service Unavailable
+    throw ProxyForwarder.resolveTerminalError(lastError, lastErrorCategory);
   }
 
   /**
@@ -3574,7 +3680,7 @@ export class ProxyForwarder {
 
     const finishIfExhausted = async () => {
       if (!settled && noMoreProviders && attempts.size === 0) {
-        await settleFailure(ProxyForwarder.resolveHedgeTerminalError(lastError, lastErrorCategory));
+        await settleFailure(ProxyForwarder.resolveTerminalError(lastError, lastErrorCategory));
       }
     };
 
@@ -3673,7 +3779,25 @@ export class ProxyForwarder {
           attempt.clearResponseTimeout?.();
           attempt.response = response;
 
-          if (!response.body) {
+          let screenedResponse: Response;
+          try {
+            screenedResponse = await ProxyForwarder.preScanStreamingResponse(
+              attempt.session,
+              response,
+              attempt.provider
+            );
+          } catch (screenError) {
+            const normalizedError =
+              screenError instanceof Error ? screenError : new Error(String(screenError));
+            await handleAttemptFailure(attempt, normalizedError);
+            return;
+          }
+
+          markStreamPrefixBlockGateHandled(attempt.session);
+          markStreamPrefixBlockGateHandled(session);
+          attempt.response = screenedResponse;
+
+          if (!screenedResponse.body) {
             await handleAttemptFailure(
               attempt,
               new EmptyResponseError(attempt.provider.id, attempt.provider.name, "empty_body")
@@ -3681,7 +3805,7 @@ export class ProxyForwarder {
             return;
           }
 
-          attempt.reader = response.body.getReader();
+          attempt.reader = screenedResponse.body.getReader();
 
           try {
             const firstChunk = await ProxyForwarder.readFirstReadableChunk(attempt.reader);
@@ -3753,6 +3877,49 @@ export class ProxyForwarder {
             ? error
             : new ProxyError("Request aborted by client", 499, undefined, true)
         );
+        return;
+      }
+
+      if (errorCategory === ErrorCategory.STREAM_PREFIX_BLOCK) {
+        const streamPrefixBlockError = error as StreamPrefixBlockError;
+
+        logger.warn(
+          "ProxyForwarder: Stream prefix block matched in hedge, continuing with alternative provider",
+          {
+            providerId: attempt.provider.id,
+            providerName: attempt.provider.name,
+            participantSequence: attempt.sequence,
+            attemptNumber: attempt.requestAttemptCount,
+            statusCode: streamPrefixBlockError.statusCode,
+            ruleId: streamPrefixBlockError.ruleId,
+            matchedKeyword: streamPrefixBlockError.matchedKeyword,
+            scanLimitBytes: streamPrefixBlockError.scanLimitBytes,
+          }
+        );
+
+        attempt.settled = true;
+        if (attempt.thresholdTimer) {
+          clearTimeout(attempt.thresholdTimer);
+          attempt.thresholdTimer = null;
+        }
+        attempts.delete(attempt);
+        ProxyForwarder.markProviderFailed(session, failedProviderIds, attempt.provider.id);
+
+        session.addProviderToChain(attempt.provider, {
+          ...buildStreamPrefixBlockChainEntry(
+            attempt.provider,
+            attempt.endpointAudit,
+            attempt.requestAttemptCount,
+            streamPrefixBlockError,
+            errorMessage,
+            buildRequestDetails(session),
+            rawCrossProviderFallbackEnabled
+          ),
+          modelRedirect: getAttemptModelRedirect(attempt),
+        });
+
+        await launchAlternative();
+        await finishIfExhausted();
         return;
       }
 
@@ -4317,6 +4484,7 @@ export class ProxyForwarder {
       } | null;
       clearResponseTimeout?: () => void;
       responseController?: AbortController;
+      releaseAgent?: () => void;
     };
     const sourceRuntime = source as ProxySessionWithAttemptRuntime;
 
@@ -4353,6 +4521,68 @@ export class ProxyForwarder {
       : null;
     targetState.clearResponseTimeout = sourceRuntime.clearResponseTimeout;
     targetState.responseController = sourceRuntime.responseController;
+    targetState.releaseAgent = sourceRuntime.releaseAgent;
+  }
+
+  private static async preScanStreamingResponse(
+    session: ProxySession,
+    response: Response,
+    provider: Provider
+  ): Promise<Response> {
+    try {
+      return await scanStreamPrefixBlockResponse({
+        response,
+        providerId: provider.id,
+        providerName: provider.name,
+        sessionId: session.sessionId ?? null,
+        messageRequestId: session.messageContext?.id ?? null,
+      });
+    } catch (error) {
+      if (error instanceof StreamPrefixBlockError) {
+        ProxyForwarder.cleanupStreamingAttemptRuntime(session, "stream_prefix_block");
+      }
+      throw error;
+    }
+  }
+
+  private static cleanupStreamingAttemptRuntime(session: ProxySession, reason: string): void {
+    const runtime = session as ProxySessionWithAttemptRuntime;
+
+    try {
+      runtime.clearResponseTimeout?.();
+    } catch (error) {
+      logger.debug("ProxyForwarder: Failed to clear streaming attempt timeout", {
+        sessionId: session.sessionId ?? null,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      runtime.clearResponseTimeout = undefined;
+    }
+
+    try {
+      runtime.responseController?.abort(new Error(reason));
+    } catch (error) {
+      logger.debug("ProxyForwarder: Failed to abort streaming attempt runtime", {
+        sessionId: session.sessionId ?? null,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      runtime.responseController = undefined;
+    }
+
+    try {
+      runtime.releaseAgent?.();
+    } catch (error) {
+      logger.debug("ProxyForwarder: Failed to release streaming attempt agent", {
+        sessionId: session.sessionId ?? null,
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      runtime.releaseAgent = undefined;
+    }
   }
 
   private static async clearSessionProviderBinding(session: ProxySession): Promise<void> {
@@ -4408,14 +4638,15 @@ export class ProxyForwarder {
     });
   }
 
-  private static resolveHedgeTerminalError(
+  private static resolveTerminalError(
     lastError: Error | null,
     lastErrorCategory: ErrorCategory | null
   ): Error {
     if (
       lastError &&
       (lastErrorCategory === ErrorCategory.CLIENT_ABORT ||
-        lastErrorCategory === ErrorCategory.NON_RETRYABLE_CLIENT_ERROR)
+        lastErrorCategory === ErrorCategory.NON_RETRYABLE_CLIENT_ERROR ||
+        lastErrorCategory === ErrorCategory.STREAM_PREFIX_BLOCK)
     ) {
       return lastError;
     }
@@ -4820,7 +5051,7 @@ export class ProxyForwarder {
     return new Response(bodyStream, {
       status: undiciRes.statusCode,
       // 未知/非标准状态码不应兜底为 OK（避免误导客户端日志与调试）
-      statusText: STATUS_CODES[undiciRes.statusCode] ?? "",
+      statusText: resolveHttpStatusText(undiciRes.statusCode),
       headers: responseHeaders,
     });
   }

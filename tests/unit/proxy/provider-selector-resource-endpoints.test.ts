@@ -8,9 +8,54 @@ const circuitBreakerMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/circuit-breaker", () => circuitBreakerMocks);
 
+const vendorTypeCircuitMocks = vi.hoisted(() => ({
+  isVendorTypeCircuitOpen: vi.fn(async () => false),
+}));
+
+vi.mock("@/lib/vendor-type-circuit-breaker", () => vendorTypeCircuitMocks);
+
+const sessionManagerMocks = vi.hoisted(() => ({
+  SessionManager: {
+    getSessionProvider: vi.fn(async () => null as number | null),
+    clearSessionProvider: vi.fn(async () => undefined),
+  },
+}));
+
+vi.mock("@/lib/session-manager", () => sessionManagerMocks);
+
+const providerRepositoryMocks = vi.hoisted(() => ({
+  findProviderById: vi.fn(async () => null as Provider | null),
+  findAllProviders: vi.fn(async () => [] as Provider[]),
+}));
+
+vi.mock("@/repository/provider", () => providerRepositoryMocks);
+
+const rateLimitMocks = vi.hoisted(() => ({
+  RateLimitService: {
+    checkCostLimitsWithLease: vi.fn(async () => ({ allowed: true })),
+    checkTotalCostLimit: vi.fn(async () => ({ allowed: true, current: 0 })),
+  },
+}));
+
+vi.mock("@/lib/rate-limit", () => rateLimitMocks);
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    trace: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
+
 describe("ProxyProviderResolver.pickRandomProvider - resource endpoints without model", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+    setupResolverMocks();
   });
 
   function createSessionStub(originalFormat: string, providers: Provider[]) {
@@ -43,9 +88,7 @@ describe("ProxyProviderResolver.pickRandomProvider - resource endpoints without 
     } as unknown as Provider;
   }
 
-  async function setupResolverMocks() {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
+  function setupResolverMocks() {
     vi.spyOn(ProxyProviderResolver as any, "filterByLimits").mockImplementation(
       async (...args: unknown[]) => args[0] as Provider[]
     );
@@ -55,13 +98,9 @@ describe("ProxyProviderResolver.pickRandomProvider - resource endpoints without 
     vi.spyOn(ProxyProviderResolver as any, "selectOptimal").mockImplementation(
       (...args: unknown[]) => (args[0] as Provider[])[0] ?? null
     );
-
-    return ProxyProviderResolver;
   }
 
   test("openai 资源端点在无 model 时仍应选择 openai-compatible provider", async () => {
-    const ProxyProviderResolver = await setupResolverMocks();
-
     const incompatible = createProvider(1, "claude");
     const compatible = createProvider(2, "openai-compatible");
     const session = createSessionStub("openai", [incompatible, compatible]);
@@ -77,8 +116,6 @@ describe("ProxyProviderResolver.pickRandomProvider - resource endpoints without 
   });
 
   test("response 资源端点在无 model 时仍应选择 codex provider", async () => {
-    const ProxyProviderResolver = await setupResolverMocks();
-
     const incompatible = createProvider(1, "openai-compatible");
     const compatible = createProvider(2, "codex");
     const session = createSessionStub("response", [incompatible, compatible]);
@@ -94,8 +131,6 @@ describe("ProxyProviderResolver.pickRandomProvider - resource endpoints without 
   });
 
   test("gemini 资源端点在无 model 时仍应选择 gemini provider", async () => {
-    const ProxyProviderResolver = await setupResolverMocks();
-
     const incompatible = createProvider(1, "gemini-cli");
     const compatible = createProvider(2, "gemini");
     const session = createSessionStub("gemini", [incompatible, compatible]);

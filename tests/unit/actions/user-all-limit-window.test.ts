@@ -8,7 +8,7 @@
  * Fixed mode: since reset time window
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock functions
 const getSessionMock = vi.fn();
@@ -17,6 +17,25 @@ const getTimeRangeForPeriodMock = vi.fn();
 const getTimeRangeForPeriodWithModeMock = vi.fn();
 const sumUserCostInTimeRangeMock = vi.fn();
 const sumUserTotalCostMock = vi.fn();
+const getKeySoftBlockConfigsMock = vi.fn();
+const createKeyMock = vi.fn();
+const findKeyListMock = vi.fn();
+const findKeyListBatchMock = vi.fn();
+const findKeysStatisticsBatchFromKeysMock = vi.fn();
+const findKeyUsageTodayBatchMock = vi.fn();
+const createUserMock = vi.fn();
+const deleteUserMock = vi.fn();
+const findUserListBatchMock = vi.fn();
+const getAllUserProviderGroupsRepositoryMock = vi.fn();
+const getAllUserTagsRepositoryMock = vi.fn();
+const searchUsersForFilterRepositoryMock = vi.fn();
+const updateUserMock = vi.fn();
+const updateUserCostResetMarkersMock = vi.fn();
+const emitActionAuditMock = vi.fn();
+const getUnauthorizedFieldsMock = vi.fn(() => []);
+const getRedisClientMock = vi.fn(() => null);
+const invalidateCachedUserMock = vi.fn();
+const resolveSystemTimezoneMock = vi.fn(async () => "UTC");
 
 // Mock modules
 vi.mock("@/lib/auth", () => ({
@@ -25,6 +44,14 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/repository/user", () => ({
   findUserById: (...args: unknown[]) => findUserByIdMock(...args),
+  createUser: (...args: unknown[]) => createUserMock(...args),
+  deleteUser: (...args: unknown[]) => deleteUserMock(...args),
+  findUserListBatch: (...args: unknown[]) => findUserListBatchMock(...args),
+  getAllUserProviderGroups: (...args: unknown[]) => getAllUserProviderGroupsRepositoryMock(...args),
+  getAllUserTags: (...args: unknown[]) => getAllUserTagsRepositoryMock(...args),
+  searchUsersForFilter: (...args: unknown[]) => searchUsersForFilterRepositoryMock(...args),
+  updateUser: (...args: unknown[]) => updateUserMock(...args),
+  updateUserCostResetMarkers: (...args: unknown[]) => updateUserCostResetMarkersMock(...args),
 }));
 
 vi.mock("@/lib/rate-limit/time-utils", () => ({
@@ -32,9 +59,49 @@ vi.mock("@/lib/rate-limit/time-utils", () => ({
   getTimeRangeForPeriodWithMode: (...args: unknown[]) => getTimeRangeForPeriodWithModeMock(...args),
 }));
 
+vi.mock("@/lib/rate-limit/service", () => ({
+  RateLimitService: {
+    getCurrentCost: vi.fn(async () => 0),
+  },
+}));
+
 vi.mock("@/repository/statistics", () => ({
   sumUserCostInTimeRange: (...args: unknown[]) => sumUserCostInTimeRangeMock(...args),
   sumUserTotalCost: (...args: unknown[]) => sumUserTotalCostMock(...args),
+}));
+
+vi.mock("@/repository/key", () => ({
+  createKey: (...args: unknown[]) => createKeyMock(...args),
+  findKeyList: (...args: unknown[]) => findKeyListMock(...args),
+  findKeyListBatch: (...args: unknown[]) => findKeyListBatchMock(...args),
+  findKeysStatisticsBatchFromKeys: (...args: unknown[]) =>
+    findKeysStatisticsBatchFromKeysMock(...args),
+  findKeyUsageTodayBatch: (...args: unknown[]) => findKeyUsageTodayBatchMock(...args),
+}));
+
+vi.mock("@/drizzle/db", () => ({
+  db: {},
+}));
+
+vi.mock("@/drizzle/schema", () => ({
+  messageRequest: {},
+  usageLedger: {},
+  users: {},
+}));
+
+vi.mock("@/lib/audit/emit", () => ({
+  emitActionAudit: (...args: unknown[]) => emitActionAuditMock(...args),
+}));
+
+vi.mock("@/lib/constants/provider.constants", () => ({
+  PROVIDER_GROUP: {
+    DEFAULT: "default",
+    ALL: "all",
+  },
+}));
+
+vi.mock("@/lib/key-soft-block-store", () => ({
+  getKeySoftBlockConfigs: (...args: unknown[]) => getKeySoftBlockConfigsMock(...args),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -56,10 +123,60 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("@/lib/permissions/user-field-permissions", () => ({
+  getUnauthorizedFields: (...args: unknown[]) => getUnauthorizedFieldsMock(...args),
+}));
+
+vi.mock("@/lib/rate-limit/cost-reset-utils", () => ({
+  clipStartByResetAt: vi.fn((start: Date) => start),
+  resolveUser5hCostResetAt: vi.fn(
+    (primary: Date | null, secondary: Date | null) => secondary ?? primary ?? null
+  ),
+}));
+
+vi.mock("@/lib/redis", () => ({
+  getRedisClient: (...args: unknown[]) => getRedisClientMock(...args),
+}));
+
+vi.mock("@/lib/security/api-key-auth-cache", () => ({
+  invalidateCachedUser: (...args: unknown[]) => invalidateCachedUserMock(...args),
+}));
+
+vi.mock("@/lib/utils/date-input", () => ({
+  parseDateInputAsTimezone: vi.fn(),
+}));
+
+vi.mock("@/lib/utils/provider-group", () => ({
+  normalizeProviderGroup: vi.fn((value: unknown) => value),
+  parseProviderGroups: vi.fn(() => []),
+}));
+
+vi.mock("@/lib/utils/timezone", () => ({
+  resolveSystemTimezone: (...args: unknown[]) => resolveSystemTimezoneMock(...args),
+}));
+
+vi.mock("@/lib/utils/validation", () => ({
+  maskKey: vi.fn((value: string) => value),
+}));
+
+vi.mock("@/lib/utils/zod-i18n", () => ({
+  formatZodError: vi.fn(() => "validation_error"),
+}));
+
+vi.mock("@/lib/validation/schemas", () => ({
+  CreateUserSchema: {},
+  UpdateUserSchema: {},
+}));
+
 describe("getUserAllLimitUsage - daily window mode handling", () => {
+  let getUserAllLimitUsage: typeof import("@/actions/users").getUserAllLimitUsage;
   const now = new Date("2024-06-15T12:00:00.000Z");
   const past24h = new Date("2024-06-14T12:00:00.000Z");
   const fixedReset = new Date("2024-06-15T00:00:00.000Z");
+
+  beforeAll(async () => {
+    ({ getUserAllLimitUsage } = await import("@/actions/users"));
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -119,7 +236,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     const result = await getUserAllLimitUsage(1);
 
     expect(result.ok).toBe(true);
@@ -142,7 +258,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     const result = await getUserAllLimitUsage(1);
 
     expect(result.ok).toBe(true);
@@ -165,7 +280,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     const result = await getUserAllLimitUsage(1);
 
     expect(result.ok).toBe(true);
@@ -187,7 +301,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     await getUserAllLimitUsage(1);
 
     // Verify custom reset time is passed
@@ -207,7 +320,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     await getUserAllLimitUsage(1);
 
     // Should default to "00:00"
@@ -227,7 +339,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     await getUserAllLimitUsage(1);
 
     // getTimeRangeForPeriod should only be called for 5h, weekly, monthly - NOT daily
@@ -248,7 +359,6 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     await getUserAllLimitUsage(1);
 
     // Verify other periods still use getTimeRangeForPeriod
@@ -259,7 +369,12 @@ describe("getUserAllLimitUsage - daily window mode handling", () => {
 });
 
 describe("getUserAllLimitUsage - consistency with key-quota.ts", () => {
+  let getUserAllLimitUsage: typeof import("@/actions/users").getUserAllLimitUsage;
   const now = new Date("2024-06-15T12:00:00.000Z");
+
+  beforeAll(async () => {
+    ({ getUserAllLimitUsage } = await import("@/actions/users"));
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -317,7 +432,6 @@ describe("getUserAllLimitUsage - consistency with key-quota.ts", () => {
       limitTotalUsd: null,
     });
 
-    const { getUserAllLimitUsage } = await import("@/actions/users");
     await getUserAllLimitUsage(1);
 
     // Should use getTimeRangeForPeriodWithMode matching key-quota.ts pattern

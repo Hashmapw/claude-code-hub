@@ -1,4 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const originalAllowNonTestDb = process.env.ALLOW_NON_TEST_DB;
+process.env.ALLOW_NON_TEST_DB = "true";
 
 let redisClientRef: any;
 
@@ -86,7 +89,21 @@ vi.mock("@/lib/session-tracker", () => ({
   SessionTracker: sessionTrackerMock,
 }));
 
+afterAll(() => {
+  if (originalAllowNonTestDb === undefined) {
+    delete process.env.ALLOW_NON_TEST_DB;
+    return;
+  }
+
+  process.env.ALLOW_NON_TEST_DB = originalAllowNonTestDb;
+});
+
 describe("RateLimitService - other quota paths", () => {
+  let RateLimitService: typeof import("@/lib/rate-limit").RateLimitService;
+
+  beforeAll(async () => {
+    ({ RateLimitService } = await import("@/lib/rate-limit"));
+  }, 20_000);
   const nowMs = 1_700_000_000_000;
 
   beforeEach(() => {
@@ -114,16 +131,12 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkSessionLimit：limit<=0 时应放行", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     await expect(RateLimitService.checkSessionLimit(1, "key", 0)).resolves.toEqual({
       allowed: true,
     });
   });
 
   it("checkSessionLimit：Key 并发数达到上限时应拦截", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     sessionTrackerMock.getKeySessionCount.mockResolvedValueOnce(2);
 
     const result = await RateLimitService.checkSessionLimit(1, "key", 2);
@@ -132,8 +145,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkSessionLimit：Provider 并发数未达上限时应放行", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     sessionTrackerMock.getProviderSessionCount.mockResolvedValueOnce(1);
 
     await expect(RateLimitService.checkSessionLimit(9, "provider", 2)).resolves.toEqual({
@@ -142,23 +153,17 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackProviderSession：limit<=0 时应放行且不追踪", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const result = await RateLimitService.checkAndTrackProviderSession(9, "sess", 0);
     expect(result).toEqual({ allowed: true, count: 0, tracked: false, referenced: false });
   });
 
   it("checkAndTrackProviderSession：Redis 非 ready 时应 Fail Open", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.status = "end";
     const result = await RateLimitService.checkAndTrackProviderSession(9, "sess", 2);
     expect(result).toEqual({ allowed: true, count: 0, tracked: false, referenced: false });
   });
 
   it("checkAndTrackProviderSession：达到上限时应返回 not allowed", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([0, 2, 0, 0]);
     const result = await RateLimitService.checkAndTrackProviderSession(9, "sess", 2);
     expect(result.allowed).toBe(false);
@@ -166,24 +171,18 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackProviderSession：未达到上限时应返回 allowed 且可标记 tracked", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([1, 1, 1, 1]);
     const result = await RateLimitService.checkAndTrackProviderSession(9, "sess", 2);
     expect(result).toEqual({ allowed: true, count: 1, tracked: true, referenced: true });
   });
 
   it("checkAndTrackProviderSession：旧 membership 无引用计数时不应返回 release 引用", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([1, 1, 0, 0]);
     const result = await RateLimitService.checkAndTrackProviderSession(9, "sess", 2);
     expect(result).toEqual({ allowed: true, count: 1, tracked: false, referenced: false });
   });
 
   it("checkAndTrackProviderSession: should pass SESSION_TTL_MS as ARGV[4] to Lua script", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([1, 1, 1, 1]);
     await RateLimitService.checkAndTrackProviderSession(9, "sess", 2);
 
@@ -203,8 +202,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackKeyUserSession：keyLimit/userLimit 均 <=0 时应放行且不追踪", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const result = await RateLimitService.checkAndTrackKeyUserSession(2, 1, "sess", 0, 0);
     expect(result).toEqual({
       allowed: true,
@@ -217,8 +214,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackKeyUserSession：Redis 非 ready 时应 Fail Open", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.status = "end";
     const result = await RateLimitService.checkAndTrackKeyUserSession(2, 1, "sess", 2, 2);
     expect(result).toEqual({
@@ -231,8 +226,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackKeyUserSession：Key 超限时应返回 not allowed", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([0, 1, 2, 0, 1, 0]);
     const result = await RateLimitService.checkAndTrackKeyUserSession(2, 1, "sess", 2, 10);
     expect(result.allowed).toBe(false);
@@ -242,8 +235,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackKeyUserSession：User 超限时应返回 not allowed", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([0, 2, 1, 0, 2, 0]);
     const result = await RateLimitService.checkAndTrackKeyUserSession(2, 1, "sess", 10, 2);
     expect(result.allowed).toBe(false);
@@ -253,8 +244,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackKeyUserSession：未超限时应返回 allowed 且可标记 tracked", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([1, 0, 2, 1, 2, 1]);
     const result = await RateLimitService.checkAndTrackKeyUserSession(2, 1, "sess", 2, 2);
     expect(result).toEqual({
@@ -267,8 +256,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkAndTrackKeyUserSession: should pass SESSION_TTL_MS as ARGV[5] to Lua script", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce([1, 0, 1, 1, 1, 1]);
     await RateLimitService.checkAndTrackKeyUserSession(2, 1, "sess", 2, 2);
 
@@ -284,8 +271,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("trackUserDailyCost：fixed 模式应使用 STRING + TTL", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     await RateLimitService.trackUserDailyCost(1, 1.25, "00:00", "fixed");
 
     expect(pipelineCalls.some((c) => c[0] === "incrbyfloat")).toBe(true);
@@ -293,16 +278,12 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("trackUserDailyCost：rolling 模式应使用 ZSET Lua 脚本", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     await RateLimitService.trackUserDailyCost(1, 1.25, "00:00", "rolling", { requestId: 123 });
 
     expect(redisClientRef.eval).toHaveBeenCalled();
   });
 
   it("checkUserRPM：达到上限时应拦截", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const pipeline = makePipeline();
     pipeline.exec
       .mockResolvedValueOnce([
@@ -319,8 +300,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkUserRPM：未达到上限时应写入本次请求并放行", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const readPipeline = makePipeline();
     readPipeline.exec.mockResolvedValueOnce([
       [null, 0],
@@ -339,8 +318,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkRpmLimit：user 类型应复用 checkUserRPM 逻辑", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const readPipeline = makePipeline();
     readPipeline.exec.mockResolvedValueOnce([
       [null, 0],
@@ -358,23 +335,17 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("getCurrentCostBatch：providerIds 为空时应返回空 Map", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const result = await RateLimitService.getCurrentCostBatch([], new Map());
     expect(result.size).toBe(0);
   });
 
   it("getCurrentCostBatch：Redis 非 ready 时应返回默认 0", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.status = "end";
     const result = await RateLimitService.getCurrentCostBatch([1], new Map());
     expect(result.get(1)).toEqual({ cost5h: 0, costDaily: 0, costWeekly: 0, costMonthly: 0 });
   });
 
   it("getCurrentCostBatch：应按 pipeline 返回解析 5h/daily/weekly/monthly", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const pipeline = makePipeline();
     // queryMeta: 5h(eval), daily(get fixed), weekly(get), monthly(get)
     pipeline.exec.mockResolvedValueOnce([
@@ -401,8 +372,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkCostLimits：5h 滚动窗口超限时应返回 not allowed", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce("11");
     const result = await RateLimitService.checkCostLimits(1, "provider", {
       limit_5h_usd: 10,
@@ -416,8 +385,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkCostLimits：daily rolling cache miss 时应回退 DB 并 warm ZSET", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce("0");
     redisClientRef.exists.mockResolvedValueOnce(0);
     statisticsMock.findProviderCostEntriesInTimeRange.mockResolvedValueOnce([
@@ -440,8 +407,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("getCurrentCost：daily fixed cache hit 时应直接返回当前值", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.get.mockImplementation(async (key: string) => {
       if (key === "provider:9:cost_daily_0000") return "7.5";
       return null;
@@ -452,8 +417,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("getCurrentCost：daily rolling cache miss 时应从 DB 重建并返回", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.eval.mockResolvedValueOnce("0");
     redisClientRef.exists.mockResolvedValueOnce(0);
     statisticsMock.findProviderCostEntriesInTimeRange.mockResolvedValueOnce([
@@ -473,8 +436,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("checkCostLimits：5h fixed 在没有活动窗口时应视为 0 且不回退 DB", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.get.mockResolvedValueOnce(null);
     redisClientRef.ttl.mockResolvedValueOnce(-2);
 
@@ -491,8 +452,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("getCurrentCost：5h fixed cache hit 时应返回当前值", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     redisClientRef.get.mockImplementation(async (key: string) => {
       if (key === "provider:9:cost_5h_fixed") return "7.5";
       return null;
@@ -504,8 +463,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("trackCost：5h fixed 模式应使用固定窗口 key 而不是 rolling Lua", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     await RateLimitService.trackCost(1, 9, "sess", 1.25, {
       userId: 7,
       key5hResetMode: "fixed",
@@ -542,8 +499,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("trackCost：fixed 模式应写入 key/provider 的 daily+weekly+monthly（STRING）", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     await RateLimitService.trackCost(1, 9, "sess", 1.25, {
       keyResetMode: "fixed",
       providerResetMode: "fixed",
@@ -560,8 +515,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("trackCost：rolling 模式应写入 key/provider 的 daily_rolling（ZSET）", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     await RateLimitService.trackCost(1, 9, "sess", 1.25, {
       keyResetMode: "rolling",
       providerResetMode: "rolling",
@@ -575,8 +528,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("getCurrentCostBatch：pipeline.exec 返回 null 时应返回默认值", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const pipeline = makePipeline();
     pipeline.exec.mockResolvedValueOnce(null);
     redisClientRef.pipeline.mockReturnValueOnce(pipeline);
@@ -586,8 +537,6 @@ describe("RateLimitService - other quota paths", () => {
   });
 
   it("getCurrentCostBatch：单个 query 出错时应跳过该项", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     const pipeline = makePipeline();
     pipeline.exec.mockResolvedValueOnce([
       [new Error("boom"), null],

@@ -15,7 +15,11 @@ const saveProviderCircuitConfigMock = vi.fn();
 const deleteProviderCircuitConfigMock = vi.fn();
 const clearConfigCacheMock = vi.fn();
 const clearProviderStateMock = vi.fn();
+const publishCircuitBreakerConfigInvalidationMock = vi.fn();
+const forceCloseCircuitStateMock = vi.fn();
 const terminateProviderSessionsBatchMock = vi.fn();
+const emitActionAuditMock = vi.fn();
+const ensureProviderGroupsExistMock = vi.fn();
 
 const revalidatePathMock = vi.fn();
 
@@ -39,6 +43,10 @@ vi.mock("@/lib/cache/provider-cache", () => ({
   publishProviderCacheInvalidation: publishProviderCacheInvalidationMock,
 }));
 
+vi.mock("@/lib/audit/emit", () => ({
+  emitActionAudit: emitActionAuditMock,
+}));
+
 vi.mock("@/lib/redis/circuit-breaker-config", () => ({
   deleteProviderCircuitConfig: deleteProviderCircuitConfigMock,
   saveProviderCircuitConfig: saveProviderCircuitConfigMock,
@@ -47,7 +55,9 @@ vi.mock("@/lib/redis/circuit-breaker-config", () => ({
 vi.mock("@/lib/circuit-breaker", () => ({
   clearConfigCache: clearConfigCacheMock,
   clearProviderState: clearProviderStateMock,
+  forceCloseCircuitState: forceCloseCircuitStateMock,
   getAllHealthStatusAsync: vi.fn(async () => ({})),
+  publishCircuitBreakerConfigInvalidation: publishCircuitBreakerConfigInvalidationMock,
   resetCircuit: vi.fn(),
 }));
 
@@ -56,6 +66,47 @@ vi.mock("@/lib/session-manager", () => ({
     terminateProviderSessionsBatch: terminateProviderSessionsBatchMock,
     terminateStickySessionsForProviders: terminateProviderSessionsBatchMock,
   },
+}));
+
+vi.mock("@/lib/redis/redis-kv-store", () => ({
+  RedisKVStore: class {
+    async get() {
+      return null;
+    }
+
+    async set() {}
+
+    async delete() {}
+  },
+}));
+
+vi.mock("@/repository/provider-groups", () => ({
+  ensureProviderGroupsExist: ensureProviderGroupsExistMock,
+}));
+
+vi.mock("@/app/v1/_lib/gemini/auth", () => ({
+  GeminiAuth: class {},
+}));
+
+vi.mock("@/app/v1/_lib/headers", () => ({
+  resolveAnthropicAuthHeaders: vi.fn(),
+}));
+
+vi.mock("@/app/v1/_lib/url", () => ({
+  buildProxyUrl: vi.fn(),
+}));
+
+vi.mock("@/lib/provider-testing", () => ({
+  executeProviderTest: vi.fn(),
+}));
+
+vi.mock("@/lib/provider-testing/presets", () => ({
+  getPresetsForProvider: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/proxy-agent", () => ({
+  createProxyAgentForProvider: vi.fn(),
+  isValidProxyUrl: vi.fn(() => true),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -71,6 +122,8 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
 }));
+
+const providerActions = await import("@/actions/providers");
 
 function nowMs(): number {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -175,7 +228,11 @@ describe("Provider Actions - Async Optimization", () => {
     saveProviderCircuitConfigMock.mockResolvedValue(undefined);
     deleteProviderCircuitConfigMock.mockResolvedValue(undefined);
     clearProviderStateMock.mockResolvedValue(undefined);
+    publishCircuitBreakerConfigInvalidationMock.mockResolvedValue(undefined);
+    forceCloseCircuitStateMock.mockResolvedValue(undefined);
     terminateProviderSessionsBatchMock.mockResolvedValue(0);
+    emitActionAuditMock.mockResolvedValue(undefined);
+    ensureProviderGroupsExistMock.mockResolvedValue(undefined);
     updateProviderPrioritiesBatchMock.mockResolvedValue(0);
   });
 
@@ -183,7 +240,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("should return providers without blocking on statistics", async () => {
       getProviderStatisticsMock.mockImplementation(() => new Promise(() => {}));
 
-      const { getProviders } = await import("@/actions/providers");
+      const { getProviders } = providerActions;
       const result = await withTimeout(getProviders(), 200);
 
       expect(result).toHaveLength(1);
@@ -194,7 +251,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("should complete within 500ms", async () => {
       getProviderStatisticsMock.mockImplementation(() => new Promise(() => {}));
 
-      const { getProviders } = await import("@/actions/providers");
+      const { getProviders } = providerActions;
       const start = nowMs();
       const result = await withTimeout(getProviders(), 500);
       const elapsed = nowMs() - start;
@@ -212,7 +269,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 3, name: "c", costMultiplier: "1.0", priority: 9 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: false });
 
       expect(result.ok).toBe(true);
@@ -248,7 +305,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 2, name: "good", costMultiplier: "1.0", priority: 0 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: false });
 
       expect(result.ok).toBe(true);
@@ -275,7 +332,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 20, name: "y", costMultiplier: "1.0", priority: 0 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: true });
 
       expect(result.ok).toBe(true);
@@ -294,7 +351,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 1, name: "only", costMultiplier: "1.0", priority: 9 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: true });
 
       expect(result.ok).toBe(true);
@@ -314,7 +371,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 3, name: "c", costMultiplier: "1.0", priority: 7 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: true });
 
       expect(result.ok).toBe(true);
@@ -342,7 +399,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("should reject non-admin users", async () => {
       getSessionMock.mockResolvedValueOnce({ user: { id: 2, role: "user" } });
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: true });
 
       expect(result.ok).toBe(false);
@@ -360,7 +417,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 20, name: "y", costMultiplier: "1.0", priority: 0 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: true });
 
       expect(result.ok).toBe(true);
@@ -374,7 +431,7 @@ describe("Provider Actions - Async Optimization", () => {
         { id: 20, name: "y", costMultiplier: "2.0", priority: 1 } as any,
       ]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const result = await autoSortProviderPriority({ confirm: true });
 
       expect(result.ok).toBe(true);
@@ -389,7 +446,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("should handle empty providers list", async () => {
       findAllProvidersFreshMock.mockResolvedValue([]);
 
-      const { autoSortProviderPriority } = await import("@/actions/providers");
+      const { autoSortProviderPriority } = providerActions;
       const preview = await autoSortProviderPriority({ confirm: false });
       const applied = await autoSortProviderPriority({ confirm: true });
 
@@ -426,7 +483,7 @@ describe("Provider Actions - Async Optimization", () => {
         },
       ]);
 
-      const { getProviderStatisticsAsync } = await import("@/actions/providers");
+      const { getProviderStatisticsAsync } = providerActions;
       const result = await getProviderStatisticsAsync();
 
       expect(result[1]).toEqual({
@@ -446,7 +503,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("should return empty object for non-admin", async () => {
       getSessionMock.mockResolvedValueOnce({ user: { id: 2, role: "user" } });
 
-      const { getProviderStatisticsAsync } = await import("@/actions/providers");
+      const { getProviderStatisticsAsync } = providerActions;
       const result = await getProviderStatisticsAsync();
 
       expect(result).toEqual({});
@@ -456,7 +513,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("should handle errors gracefully and return empty object", async () => {
       getProviderStatisticsMock.mockRejectedValueOnce(new Error("boom"));
 
-      const { getProviderStatisticsAsync } = await import("@/actions/providers");
+      const { getProviderStatisticsAsync } = providerActions;
       const result = await getProviderStatisticsAsync();
 
       expect(result).toEqual({});
@@ -465,7 +522,7 @@ describe("Provider Actions - Async Optimization", () => {
 
   describe("addProvider", () => {
     it("should not call revalidatePath", async () => {
-      const { addProvider } = await import("@/actions/providers");
+      const { addProvider } = providerActions;
       const result = await addProvider({
         name: "p2",
         url: "https://api.example.com",
@@ -481,7 +538,7 @@ describe("Provider Actions - Async Optimization", () => {
     });
 
     it("should complete quickly without blocking", async () => {
-      const { addProvider } = await import("@/actions/providers");
+      const { addProvider } = providerActions;
       const start = nowMs();
       await withTimeout(
         addProvider({
@@ -506,7 +563,7 @@ describe("Provider Actions - Async Optimization", () => {
   // 这里按需求用例命名 describe，但实际调用对应实现以确保测试可编译、可运行。
   describe("updateProvider", () => {
     it("should not call revalidatePath", async () => {
-      const { editProvider } = await import("@/actions/providers");
+      const { editProvider } = providerActions;
       const result = await editProvider(1, { name: "p1-updated" });
 
       expect(result.ok).toBe(true);
@@ -516,7 +573,7 @@ describe("Provider Actions - Async Optimization", () => {
 
     it("editProvider endpoint sync: should forward url/provider_type edits to repository", async () => {
       const nextUrl = "https://new.example.com/v1/responses";
-      const { editProvider } = await import("@/actions/providers");
+      const { editProvider } = providerActions;
 
       const result = await editProvider(1, {
         url: nextUrl,
@@ -538,7 +595,7 @@ describe("Provider Actions - Async Optimization", () => {
     it("editProvider endpoint sync: should generate favicon_url when website_url is updated", async () => {
       const nextUrl = "https://new.example.com/v1/messages";
       const nextWebsiteUrl = "https://vendor.example.com/home";
-      const { editProvider } = await import("@/actions/providers");
+      const { editProvider } = providerActions;
 
       const result = await editProvider(1, {
         url: nextUrl,
@@ -558,7 +615,7 @@ describe("Provider Actions - Async Optimization", () => {
     });
 
     it("editProvider endpoint sync: should clear favicon_url when website_url is cleared", async () => {
-      const { editProvider } = await import("@/actions/providers");
+      const { editProvider } = providerActions;
 
       const result = await editProvider(1, {
         url: "https://new.example.com/v1/messages",
@@ -577,7 +634,7 @@ describe("Provider Actions - Async Optimization", () => {
     });
 
     it("editProvider: group or allowlist changes should also terminate sticky sessions", async () => {
-      const { editProvider } = await import("@/actions/providers");
+      const { editProvider } = providerActions;
 
       const result = await editProvider(1, {
         group_tag: "gpt-load",
@@ -598,7 +655,7 @@ describe("Provider Actions - Async Optimization", () => {
 
   describe("deleteProvider", () => {
     it("should not call revalidatePath", async () => {
-      const { removeProvider } = await import("@/actions/providers");
+      const { removeProvider } = providerActions;
       const result = await removeProvider(1);
 
       expect(result.ok).toBe(true);

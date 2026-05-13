@@ -34,12 +34,51 @@ vi.mock("@/lib/utils/timezone", () => ({
   resolveSystemTimezone: mocks.resolveSystemTimezone,
 }));
 
+vi.mock("@/drizzle/db", () => ({
+  db: {},
+}));
+
+vi.mock("@/drizzle/schema", () => ({
+  messageRequest: {},
+  usageLedger: {},
+}));
+
+vi.mock("@/lib/ip-geo/client", () => ({
+  lookupIp: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit/concurrent-session-limit", () => ({
+  resolveKeyConcurrentSessionLimit: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit/cost-reset-utils", () => ({
+  clipStartByResetAt: vi.fn((value: unknown) => value),
+  resolveKeyCostResetAt: vi.fn(() => null),
+  resolveUser5hCostResetAt: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/session-tracker", () => ({
+  SessionTracker: {
+    getKeySessionCount: vi.fn(async () => 0),
+  },
+}));
+
+vi.mock("@/repository/_shared/ledger-conditions", () => ({
+  LEDGER_BILLING_CONDITION: {},
+}));
+
+vi.mock("@/repository/_shared/message-request-conditions", () => ({
+  EXCLUDE_WARMUP_CONDITION: {},
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: {
     error: mocks.loggerError,
     info: mocks.loggerInfo,
   },
 }));
+
+const { getMyUsageLogsBatchFull } = await import("@/actions/my-usage");
 
 describe("getMyUsageLogsBatchFull", () => {
   beforeEach(() => {
@@ -51,7 +90,6 @@ describe("getMyUsageLogsBatchFull", () => {
   });
 
   it("readonly my-usage 仅对 raw fallback 链路做强脱敏，其它链路保留原有 clientError 可见性", async () => {
-    vi.resetModules();
     mocks.getSession.mockResolvedValueOnce({
       user: { id: 1 },
       key: { id: 7, key: "sk-readonly" },
@@ -145,7 +183,6 @@ describe("getMyUsageLogsBatchFull", () => {
       hasMore: false,
     });
 
-    const { getMyUsageLogsBatchFull } = await import("@/actions/my-usage");
     const result = await getMyUsageLogsBatchFull({ limit: 20 });
 
     expect(mocks.getSession).toHaveBeenCalledWith({ allowReadOnlyAccess: true });

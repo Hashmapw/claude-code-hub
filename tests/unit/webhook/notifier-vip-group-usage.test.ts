@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadVipGroupUsageAlertConfig: vi.fn(),
@@ -25,6 +25,14 @@ vi.mock("@/lib/notification/notification-queue", () => ({
   addNotificationJobForTarget: mocks.addNotificationJobForTarget,
 }));
 
+vi.mock("@/lib/notification/tasks/cost-alert", () => ({
+  generateCostAlerts: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/notification/tasks/daily-leaderboard", () => ({
+  generateDailyLeaderboard: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: {
     info: mocks.loggerInfo,
@@ -33,6 +41,12 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 describe("sendVipGroupUsageAlert", () => {
+  let sendVipGroupUsageAlert: typeof import("@/lib/notification/notifier").sendVipGroupUsageAlert;
+
+  beforeAll(async () => {
+    ({ sendVipGroupUsageAlert } = await import("@/lib/notification/notifier"));
+  }, 20_000);
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.loadVipGroupUsageAlertConfig.mockResolvedValue({
@@ -49,8 +63,6 @@ describe("sendVipGroupUsageAlert", () => {
   });
 
   it("enqueues one notification per enabled binding when not suppressed", async () => {
-    const { sendVipGroupUsageAlert } = await import("@/lib/notification/notifier");
-
     await sendVipGroupUsageAlert({
       userId: 1,
       userName: "Alice",
@@ -80,8 +92,6 @@ describe("sendVipGroupUsageAlert", () => {
     mocks.getRedisClient.mockReturnValue({
       set: vi.fn(async () => null),
     });
-
-    const { sendVipGroupUsageAlert } = await import("@/lib/notification/notifier");
 
     await sendVipGroupUsageAlert({
       userId: 1,

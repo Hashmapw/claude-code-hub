@@ -24,17 +24,68 @@ vi.mock("@/lib/utils/timezone", () => ({
   resolveSystemTimezone: mocks.resolveSystemTimezone,
 }));
 
-vi.mock("@/repository/usage-logs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/repository/usage-logs")>();
-  return {
-    ...actual,
-    findUsageLogsForKeySlim: mocks.findUsageLogsForKeySlim,
-  };
-});
+vi.mock("@/drizzle/db", () => ({
+  db: {},
+}));
+
+vi.mock("@/drizzle/schema", () => ({
+  messageRequest: {},
+  usageLedger: {},
+}));
+
+vi.mock("@/lib/ip-geo/client", () => ({
+  lookupIp: vi.fn(),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/rate-limit/concurrent-session-limit", () => ({
+  resolveKeyConcurrentSessionLimit: vi.fn(),
+}));
+
+vi.mock("@/lib/rate-limit/cost-reset-utils", () => ({
+  clipStartByResetAt: vi.fn((value: unknown) => value),
+  resolveKeyCostResetAt: vi.fn(() => null),
+  resolveUser5hCostResetAt: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/session-tracker", () => ({
+  SessionTracker: {
+    getKeySessionCount: vi.fn(async () => 0),
+  },
+}));
+
+vi.mock("@/repository/_shared/ledger-conditions", () => ({
+  LEDGER_BILLING_CONDITION: {},
+}));
+
+vi.mock("@/repository/_shared/message-request-conditions", () => ({
+  EXCLUDE_WARMUP_CONDITION: {},
+}));
+
+vi.mock("@/repository/usage-logs", () => ({
+  findReadonlyUsageLogsBatchForKey: vi.fn(),
+  findUsageLogsForKeyBatch: vi.fn(),
+  findUsageLogsForKeySlim: mocks.findUsageLogsForKeySlim,
+  getDistinctEndpointsForKey: vi.fn(),
+  getDistinctModelsForKey: vi.fn(),
+}));
+
+const { getMyUsageLogs } = await import("@/actions/my-usage");
 
 describe("my-usage billing model source mapping", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getSystemSettings.mockResolvedValue({
+      currencyDisplay: "USD",
+      billingModelSource: "original",
+    });
   });
 
   it("falls back to redirected model in getMyUsageLogs when originalModel is missing", async () => {
@@ -72,7 +123,6 @@ describe("my-usage billing model source mapping", () => {
       total: 1,
     });
 
-    const { getMyUsageLogs } = await import("@/actions/my-usage");
     const result = await getMyUsageLogs();
 
     expect(result.ok).toBe(true);

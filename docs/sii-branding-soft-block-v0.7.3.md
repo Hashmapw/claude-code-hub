@@ -198,7 +198,11 @@ beta=true
 
 - `src/lib/stream-prefix-block-rule.ts`
 - `src/lib/error-rule-detector.ts`
+- `src/app/v1/_lib/proxy/errors.ts`
+- `src/app/v1/_lib/proxy/forwarder.ts`
+- `src/app/v1/_lib/proxy/stream-prefix-block-gate.ts`
 - `src/app/v1/_lib/proxy/response-handler.ts`
+- `src/app/v1/_lib/proxy/error-handler.ts`
 - `src/actions/error-rules.ts`
 - `src/app/[locale]/settings/error-rules/_components/add-rule-dialog.tsx`
 - `src/app/[locale]/settings/error-rules/_components/edit-rule-dialog.tsx`
@@ -238,16 +242,16 @@ beta=true
 
 ### 7.2 运行时行为
 
-当前实现走的是“严格版前缀门禁”，而不是命中后才中途掐断的普通流式模式：
+当前实现走的是“严格版前缀门禁 + provider fallback”，而不是命中后才中途掐断的普通流式模式：
 
 1. 仅当当前 provider 命中 `providerIds` 范围时才启用。
-2. 在把 SSE 响应发给客户端前，先读取 `scanLimitBytes` 指定的前缀窗口。
+2. `forwarder` 在把 SSE 响应真正视为成功之前，先读取 `scanLimitBytes` 指定的前缀窗口。
 3. 若命中关键词：
    - 立即取消上游 reader
-   - 中止当前响应控制器
-   - 释放会话 / agent 占用
-   - 记录请求失败
-   - 直接返回 JSON 错误响应
+   - 清理当前 attempt 的超时 / agent 占用
+   - 把当前 provider 记为 `stream_prefix_block` 失败
+   - 若还有可用 provider，则继续尝试下一个 provider
+   - 若所有 provider 都失败，才返回配置的 JSON 错误响应
 4. 若未命中：
    - 将已读前缀 chunk 回吐
    - 后续继续透传整条 SSE 流
@@ -256,8 +260,10 @@ beta=true
 
 补充说明：
 
-- 检查发生在前缀窗口读取完成、真正把响应继续透传给客户端之前，因此命中时会直接返回配置的非 2xx JSON 错误；
-  **不会出现“先给 200，再在 SSE 中途塞一个错误”** 的混合行为。
+- 检查发生在前缀窗口读取完成、真正把响应继续透传给客户端之前，因此命中时不会出现“先给 200，再在 SSE 中途塞一个错误”的混合行为。
+- 如果只是某一个 provider 命中该规则，而后续 provider 成功，则最终客户端看到的仍然是后续 provider 的正常 SSE 响应；
+  管理后台的 provider chain 会记录前一个 provider 的 `stream_prefix_block` 失败轨迹。
+- `response-handler` 仍保留同语义的兜底 gate；正常路径下由 `forwarder` 预扫描并决定是否继续 fallback。
 - 单请求的额外内存开销只与前缀扫描窗口有关。当前默认窗口是 `64 KiB`，但可以改成更小的任意正整数；
   也就是说，严格版前缀门禁的额外缓冲上限就是一个前缀窗口加对应的解码字符串开销，而不是把整条流完整读入内存。
 
@@ -275,6 +281,7 @@ beta=true
 
 - `tests/unit/lib/stream-prefix-block-rule.test.ts`
 - `tests/unit/proxy/response-handler-stream-prefix-block.test.ts`
+- `tests/unit/proxy/proxy-forwarder-stream-prefix-block-fallback.test.ts`
 - `tests/integration/error-rule-detector.test.ts`
 - `tests/integration/proxy-errors.test.ts`
 - `tests/integration/e2e-error-rules.test.ts`
@@ -284,17 +291,34 @@ beta=true
 当前这轮文档同步时，实际重新执行并确认通过的是：
 
 ```bash
-ALLOW_NON_TEST_DB=true bun run test
+bun run typecheck
+DSN= AUTO_CLEANUP_TEST_DATA=false bunx vitest run \
+  tests/unit/lib/stream-prefix-block-rule.test.ts \
+  tests/unit/proxy/response-handler-stream-prefix-block.test.ts \
+  tests/unit/proxy/proxy-forwarder-stream-prefix-block-fallback.test.ts \
+  --reporter=dot
 ```
 
 验证结果：
 
-- 全量 Vitest 通过：`563 passed | 1 skipped`，`5250 passed | 3 skipped`。
+- `typecheck` 通过。
+- 上述 `stream_prefix_block` 相关定向回归通过：`3 files, 9 tests passed`。
 
 说明：
 
-- 本轮重点是把新增的 `stream_prefix_block` 与相关回归测试修齐，因此这里记录的是**这轮实际重跑并拿到结果**的命令。
-- `build / lint / typecheck` 如果后续需要做提交流水线闭环，应再单独重跑，并在文档里按最新结果更新。
+- 本轮重点是把新增的 `stream_prefix_block` provider fallback 语义补齐，因此这里记录的是**这轮实际重跑并拿到结果**的命令。
+- 后续在同一 `0.7.3` 工作树里又继续推进了 full-suite 首测冷启动稳定化；截至这版文档同步时，已额外单独回归通过的代表性用例包括：
+  - `tests/security/session-contract.test.ts`
+  - `tests/unit/actions/providers-api-test.test.ts`
+  - `tests/unit/public-status/system-config-publish.test.ts`
+  - `tests/unit/proxy/provider-selector-total-limit.test.ts`
+  - `tests/unit/proxy/provider-selector-resource-endpoints.test.ts`
+  - `tests/unit/repository/provider-restore.test.ts`
+  - `tests/unit/repository/provider-endpoints.test.ts`
+- 这些测试稳定化属于“提交流水线护栏补强”，不是本文件主体功能语义的一部分；因此这里只做验证记录，不把它们展开成新的功能章节。
+- `lint` 当前还受两类仓库外部因素影响：
+  - 本地 Biome CLI 版本 `2.4.4` 与仓库 `biome.json` schema `2.4.12` 不一致；
+  - 仓库内已有未格式化文件 `tests/integration/usage-ledger.test.ts`。
 
 ## 9. 后续维护约束
 

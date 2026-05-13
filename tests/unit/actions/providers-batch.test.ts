@@ -46,6 +46,10 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+const { batchDeleteProviders, batchResetProviderCircuits, batchUpdateProviders } = await import(
+  "@/actions/providers"
+);
+
 describe("Provider Batch Actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -64,7 +68,6 @@ describe("Provider Batch Actions", () => {
     it("should require admin role", async () => {
       getSessionMock.mockResolvedValueOnce({ user: { id: 2, role: "user" } });
 
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [1, 2, 3],
         updates: { is_enabled: true },
@@ -79,7 +82,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should reject empty providerIds", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [],
         updates: { is_enabled: true },
@@ -95,7 +97,6 @@ describe("Provider Batch Actions", () => {
     it("should enforce max batch size 500", async () => {
       const largeIds = Array.from({ length: 501 }, (_, i) => i + 1);
 
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: largeIds,
         updates: { is_enabled: true },
@@ -109,7 +110,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should update specified fields for selected providers", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [10, 20, 30],
         updates: {
@@ -135,7 +135,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should invalidate cache after update", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       await batchUpdateProviders({
         providerIds: [1, 2],
         updates: { is_enabled: true },
@@ -147,7 +146,6 @@ describe("Provider Batch Actions", () => {
     it("should not fail when cache invalidation throws", async () => {
       publishProviderCacheInvalidationMock.mockRejectedValueOnce(new Error("cache error"));
 
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [1, 2],
         updates: { priority: 10 },
@@ -159,7 +157,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should handle partial updates with null group_tag", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [5],
         updates: { group_tag: null },
@@ -174,7 +171,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should handle partial updates with only one field", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [1, 2],
         updates: { priority: 0 },
@@ -189,7 +185,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should convert cost_multiplier to string", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       await batchUpdateProviders({
         providerIds: [1],
         updates: { cost_multiplier: 2.5 },
@@ -203,7 +198,6 @@ describe("Provider Batch Actions", () => {
     it("should handle repository errors gracefully", async () => {
       updateProvidersBatchMock.mockRejectedValueOnce(new Error("DB error"));
 
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [1, 2],
         updates: { is_enabled: true },
@@ -216,7 +210,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should reject when no updates provided", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
       const result = await batchUpdateProviders({
         providerIds: [1, 2],
         updates: {},
@@ -234,7 +227,6 @@ describe("Provider Batch Actions", () => {
     it("should require admin role", async () => {
       getSessionMock.mockResolvedValueOnce({ user: { id: 2, role: "user" } });
 
-      const { batchDeleteProviders } = await import("@/actions/providers");
       const result = await batchDeleteProviders({ providerIds: [1, 2] });
 
       expect(result.ok).toBe(false);
@@ -245,7 +237,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should reject empty providerIds", async () => {
-      const { batchDeleteProviders } = await import("@/actions/providers");
       const result = await batchDeleteProviders({ providerIds: [] });
 
       expect(result.ok).toBe(false);
@@ -258,7 +249,6 @@ describe("Provider Batch Actions", () => {
     it("should enforce max batch size 500", async () => {
       const largeIds = Array.from({ length: 501 }, (_, i) => i + 1);
 
-      const { batchDeleteProviders } = await import("@/actions/providers");
       const result = await batchDeleteProviders({ providerIds: largeIds });
 
       expect(result.ok).toBe(false);
@@ -269,7 +259,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should soft delete providers", async () => {
-      const { batchDeleteProviders } = await import("@/actions/providers");
       const result = await batchDeleteProviders({ providerIds: [10, 20, 30] });
 
       expect(result.ok).toBe(true);
@@ -280,7 +269,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should clear circuit breaker state for each deleted provider", async () => {
-      const { batchDeleteProviders } = await import("@/actions/providers");
       await batchDeleteProviders({ providerIds: [1, 2, 3] });
 
       expect(clearProviderStateMock).toHaveBeenCalledTimes(3);
@@ -295,7 +283,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should invalidate cache after deletion", async () => {
-      const { batchDeleteProviders } = await import("@/actions/providers");
       await batchDeleteProviders({ providerIds: [1, 2] });
 
       expect(publishProviderCacheInvalidationMock).toHaveBeenCalledTimes(1);
@@ -304,7 +291,6 @@ describe("Provider Batch Actions", () => {
     it("should not fail when cache invalidation throws", async () => {
       publishProviderCacheInvalidationMock.mockRejectedValueOnce(new Error("cache error"));
 
-      const { batchDeleteProviders } = await import("@/actions/providers");
       const result = await batchDeleteProviders({ providerIds: [1, 2] });
 
       expect(result.ok).toBe(true);
@@ -314,7 +300,6 @@ describe("Provider Batch Actions", () => {
     it("should handle repository errors gracefully", async () => {
       deleteProvidersBatchMock.mockRejectedValueOnce(new Error("DB error"));
 
-      const { batchDeleteProviders } = await import("@/actions/providers");
       const result = await batchDeleteProviders({ providerIds: [1, 2] });
 
       expect(result.ok).toBe(false);
@@ -328,7 +313,6 @@ describe("Provider Batch Actions", () => {
     it("should require admin role", async () => {
       getSessionMock.mockResolvedValueOnce({ user: { id: 2, role: "user" } });
 
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: [1, 2] });
 
       expect(result.ok).toBe(false);
@@ -339,7 +323,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should reject empty providerIds", async () => {
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: [] });
 
       expect(result.ok).toBe(false);
@@ -352,7 +335,6 @@ describe("Provider Batch Actions", () => {
     it("should enforce max batch size 500", async () => {
       const largeIds = Array.from({ length: 501 }, (_, i) => i + 1);
 
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: largeIds });
 
       expect(result.ok).toBe(false);
@@ -363,7 +345,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should reset circuit state for all providers", async () => {
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: [10, 20, 30] });
 
       expect(result.ok).toBe(true);
@@ -377,7 +358,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should clear config cache for each provider", async () => {
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       await batchResetProviderCircuits({ providerIds: [1, 2] });
 
       expect(clearConfigCacheMock).toHaveBeenCalledTimes(2);
@@ -386,7 +366,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should handle single provider", async () => {
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: [1] });
 
       expect(result.ok).toBe(true);
@@ -399,7 +378,6 @@ describe("Provider Batch Actions", () => {
     it("should handle large batch within limit", async () => {
       const ids = Array.from({ length: 500 }, (_, i) => i + 1);
 
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: ids });
 
       expect(result.ok).toBe(true);
@@ -414,7 +392,6 @@ describe("Provider Batch Actions", () => {
         throw new Error("Reset failed");
       });
 
-      const { batchResetProviderCircuits } = await import("@/actions/providers");
       const result = await batchResetProviderCircuits({ providerIds: [1] });
 
       expect(result.ok).toBe(false);
@@ -426,9 +403,6 @@ describe("Provider Batch Actions", () => {
 
   describe("Batch Operations Integration", () => {
     it("should handle multiple operations in sequence", async () => {
-      const { batchUpdateProviders, batchResetProviderCircuits, batchDeleteProviders } =
-        await import("@/actions/providers");
-
       const updateResult = await batchUpdateProviders({
         providerIds: [1, 2],
         updates: { is_enabled: false },
@@ -448,8 +422,6 @@ describe("Provider Batch Actions", () => {
     });
 
     it("should handle overlapping provider sets", async () => {
-      const { batchUpdateProviders } = await import("@/actions/providers");
-
       await batchUpdateProviders({
         providerIds: [1, 2, 3],
         updates: { priority: 0 },
@@ -465,10 +437,6 @@ describe("Provider Batch Actions", () => {
 
     it("should maintain operation isolation on errors", async () => {
       updateProvidersBatchMock.mockRejectedValueOnce(new Error("update error"));
-
-      const { batchUpdateProviders, batchResetProviderCircuits } = await import(
-        "@/actions/providers"
-      );
 
       const updateResult = await batchUpdateProviders({
         providerIds: [1],

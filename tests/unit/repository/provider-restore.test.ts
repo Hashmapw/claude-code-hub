@@ -2,39 +2,63 @@ import { describe, expect, test, vi } from "vitest";
 
 type SelectRow = Record<string, unknown>;
 
+const restoreDbState = vi.hoisted(() => ({
+  selectQueue: [] as SelectRow[][],
+  updateReturningQueue: [] as SelectRow[][],
+}));
+
+const selectLimitMock = vi.hoisted(() =>
+  vi.fn(async () => restoreDbState.selectQueue.shift() ?? [])
+);
+const selectOrderByMock = vi.hoisted(() => vi.fn(() => ({ limit: selectLimitMock })));
+const selectWhereMock = vi.hoisted(() =>
+  vi.fn(() => ({ limit: selectLimitMock, orderBy: selectOrderByMock }))
+);
+const selectFromMock = vi.hoisted(() => vi.fn(() => ({ where: selectWhereMock })));
+const selectMock = vi.hoisted(() => vi.fn(() => ({ from: selectFromMock })));
+
+const updateReturningMock = vi.hoisted(() =>
+  vi.fn(async () => restoreDbState.updateReturningQueue.shift() ?? [])
+);
+const updateWhereMock = vi.hoisted(() => vi.fn(() => ({ returning: updateReturningMock })));
+const updateSetMock = vi.hoisted(() => vi.fn(() => ({ where: updateWhereMock })));
+const updateMock = vi.hoisted(() => vi.fn(() => ({ set: updateSetMock })));
+
+const tx = {
+  select: selectMock,
+  update: updateMock,
+};
+
+const transactionMock = vi.hoisted(() =>
+  vi.fn(async (runInTx: (trx: typeof tx) => Promise<unknown>) => runInTx(tx))
+);
+
+vi.mock("@/drizzle/db", () => ({
+  db: {
+    transaction: transactionMock,
+    select: selectMock,
+    update: updateMock,
+  },
+}));
+
+vi.mock("@/repository/provider-endpoints", () => ({
+  ensureProviderEndpointExistsForUrl: vi.fn(),
+  getOrCreateProviderVendorIdFromUrls: vi.fn(),
+  syncProviderEndpointOnProviderEdit: vi.fn(),
+  tryDeleteProviderVendorIfEmpty: vi.fn(),
+}));
+
+const { restoreProvider, restoreProvidersBatch } = await import("../../../src/repository/provider");
+
 function createRestoreDbHarness(options: {
   selectQueue: SelectRow[][];
   updateReturningQueue?: SelectRow[][];
 }) {
-  const selectQueue = [...options.selectQueue];
-  const updateReturningQueue = [...(options.updateReturningQueue ?? [])];
-
-  const selectLimitMock = vi.fn(async () => selectQueue.shift() ?? []);
-  const selectOrderByMock = vi.fn(() => ({ limit: selectLimitMock }));
-  const selectWhereMock = vi.fn(() => ({ limit: selectLimitMock, orderBy: selectOrderByMock }));
-  const selectFromMock = vi.fn(() => ({ where: selectWhereMock }));
-  const selectMock = vi.fn(() => ({ from: selectFromMock }));
-
-  const updateReturningMock = vi.fn(async () => updateReturningQueue.shift() ?? []);
-  const updateWhereMock = vi.fn(() => ({ returning: updateReturningMock }));
-  const updateSetMock = vi.fn(() => ({ where: updateWhereMock }));
-  const updateMock = vi.fn(() => ({ set: updateSetMock }));
-
-  const tx = {
-    select: selectMock,
-    update: updateMock,
-  };
-
-  const transactionMock = vi.fn(async (runInTx: (trx: typeof tx) => Promise<unknown>) => {
-    return runInTx(tx);
-  });
+  vi.clearAllMocks();
+  restoreDbState.selectQueue = [...options.selectQueue];
+  restoreDbState.updateReturningQueue = [...(options.updateReturningQueue ?? [])];
 
   return {
-    db: {
-      transaction: transactionMock,
-      select: selectMock,
-      update: updateMock,
-    },
     mocks: {
       transactionMock,
       selectLimitMock,
@@ -44,29 +68,15 @@ function createRestoreDbHarness(options: {
   };
 }
 
-async function setupProviderRepository(options: {
+function setupProviderRepository(options: {
   selectQueue: SelectRow[][];
   updateReturningQueue?: SelectRow[][];
 }) {
-  vi.resetModules();
-
   const harness = createRestoreDbHarness(options);
 
-  vi.doMock("@/drizzle/db", () => ({
-    db: harness.db,
-  }));
-
-  vi.doMock("@/repository/provider-endpoints", () => ({
-    ensureProviderEndpointExistsForUrl: vi.fn(),
-    getOrCreateProviderVendorIdFromUrls: vi.fn(),
-    syncProviderEndpointOnProviderEdit: vi.fn(),
-    tryDeleteProviderVendorIfEmpty: vi.fn(),
-  }));
-
-  const repository = await import("../../../src/repository/provider");
-
   return {
-    ...repository,
+    restoreProvider,
+    restoreProvidersBatch,
     harness,
   };
 }
@@ -74,7 +84,7 @@ async function setupProviderRepository(options: {
 describe("provider repository restore", () => {
   test("restoreProvider restores recent soft-deleted provider and clears deletedAt", async () => {
     const deletedAt = new Date(Date.now() - 15_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -104,7 +114,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvider returns false when provider row is already restored concurrently", async () => {
     const deletedAt = new Date(Date.now() - 5_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -128,7 +138,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvider rejects provider deleted more than 60 seconds ago", async () => {
     const deletedAt = new Date(Date.now() - 61_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -151,7 +161,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvidersBatch restores multiple providers in a single transaction", async () => {
     const recent = new Date(Date.now() - 10_000);
-    const { restoreProvidersBatch, harness } = await setupProviderRepository({
+    const { restoreProvidersBatch, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -185,7 +195,7 @@ describe("provider repository restore", () => {
   });
 
   test("restoreProvidersBatch should short-circuit for empty id list", async () => {
-    const { restoreProvidersBatch, harness } = await setupProviderRepository({
+    const { restoreProvidersBatch, harness } = setupProviderRepository({
       selectQueue: [],
       updateReturningQueue: [],
     });
@@ -198,7 +208,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvider skips endpoint restoration when provider url is blank", async () => {
     const deletedAt = new Date(Date.now() - 8_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -222,7 +232,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvider skips endpoint restoration when active provider reference exists", async () => {
     const deletedAt = new Date(Date.now() - 8_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -247,7 +257,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvider skips endpoint restoration when no deleted endpoint can be matched", async () => {
     const deletedAt = new Date(Date.now() - 8_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {
@@ -274,7 +284,7 @@ describe("provider repository restore", () => {
 
   test("restoreProvider skips endpoint restoration when active endpoint already exists", async () => {
     const deletedAt = new Date(Date.now() - 10_000);
-    const { restoreProvider, harness } = await setupProviderRepository({
+    const { restoreProvider, harness } = setupProviderRepository({
       selectQueue: [
         [
           {

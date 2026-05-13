@@ -8,6 +8,12 @@ const circuitBreakerMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/circuit-breaker", () => circuitBreakerMocks);
 
+const vendorTypeCircuitMocks = vi.hoisted(() => ({
+  isVendorTypeCircuitOpen: vi.fn(async () => false),
+}));
+
+vi.mock("@/lib/vendor-type-circuit-breaker", () => vendorTypeCircuitMocks);
+
 const sessionManagerMocks = vi.hoisted(() => ({
   SessionManager: {
     getSessionProvider: vi.fn(async () => null as number | null),
@@ -32,14 +38,24 @@ const rateLimitMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/rate-limit", () => rateLimitMocks);
 
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    trace: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
+
 beforeEach(() => {
   vi.resetAllMocks();
 });
 
 describe("ProxyProviderResolver.filterByLimits - provider total limit", () => {
   test("当供应商达到总消费上限时应被过滤掉", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
     const resetAt = new Date("2026-01-04T00:00:00.000Z");
 
     const providers: Provider[] = [
@@ -103,8 +119,6 @@ describe("ProxyProviderResolver.filterByLimits - provider total limit", () => {
 
 describe("ProxyProviderResolver.findReusable - provider total limit", () => {
   test("当会话复用的供应商达到总限额时应拒绝复用", async () => {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
     const resetAt = new Date("2026-01-04T00:00:00.000Z");
 
     sessionManagerMocks.SessionManager.getSessionProvider.mockResolvedValueOnce(1);

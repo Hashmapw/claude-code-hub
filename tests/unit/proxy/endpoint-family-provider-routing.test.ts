@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { listKnownEndpointFamilies } from "@/app/v1/_lib/proxy/endpoint-family-catalog";
 import { detectFormatByEndpoint } from "@/app/v1/_lib/proxy/format-mapper";
+import { ProxyProviderResolver } from "@/app/v1/_lib/proxy/provider-selector";
 import type { Provider } from "@/types/provider";
 
 const circuitBreakerMocks = vi.hoisted(() => ({
@@ -9,6 +10,16 @@ const circuitBreakerMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/circuit-breaker", () => circuitBreakerMocks);
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    trace: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 const ENDPOINT_PROVIDER_CASES = [
   {
@@ -280,6 +291,8 @@ const ENDPOINT_PROVIDER_CASES = [
 describe("endpoint family -> provider routing matrix", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+    setupResolverMocks();
   });
 
   function createSessionStub(pathname: string, originalModel: string) {
@@ -362,9 +375,7 @@ describe("endpoint family -> provider routing matrix", () => {
     };
   }
 
-  async function setupResolverMocks() {
-    const { ProxyProviderResolver } = await import("@/app/v1/_lib/proxy/provider-selector");
-
+  function setupResolverMocks() {
     vi.spyOn(ProxyProviderResolver as any, "filterByLimits").mockImplementation(
       async (...args: unknown[]) => args[0] as Provider[]
     );
@@ -374,8 +385,6 @@ describe("endpoint family -> provider routing matrix", () => {
     vi.spyOn(ProxyProviderResolver as any, "selectOptimal").mockImplementation(
       (...args: unknown[]) => (args[0] as Provider[])[0] ?? null
     );
-
-    return ProxyProviderResolver;
   }
 
   test("matrix should cover every known endpoint family id", () => {
@@ -389,8 +398,6 @@ describe("endpoint family -> provider routing matrix", () => {
     expectedProviderType,
     requestedModel,
   }) => {
-    const ProxyProviderResolver = await setupResolverMocks();
-
     const providers: Provider[] = [
       createTestProvider(1, "claude"),
       createTestProvider(2, "claude-auth"),
@@ -412,7 +419,6 @@ describe("endpoint family -> provider routing matrix", () => {
   });
 
   test("/v1/chat/completions should never select codex when openai-compatible is available", async () => {
-    const ProxyProviderResolver = await setupResolverMocks();
     const session = createSessionStub("/v1/chat/completions", "gpt-4o");
     session.getProvidersSnapshot = async () => [
       createTestProvider(1, "codex"),
@@ -425,7 +431,6 @@ describe("endpoint family -> provider routing matrix", () => {
   });
 
   test("/v1/responses should never select openai-compatible when codex is available", async () => {
-    const ProxyProviderResolver = await setupResolverMocks();
     const session = createSessionStub("/v1/responses", "codex-mini-latest");
     session.getProvidersSnapshot = async () => [
       createTestProvider(1, "openai-compatible"),

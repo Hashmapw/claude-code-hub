@@ -19,9 +19,11 @@ import {
   isRateLimitError,
   ProxyError,
   type RateLimitError,
+  StreamPrefixBlockError,
 } from "./errors";
 import { ProxyResponses } from "./responses";
 import type { ProxySession } from "./session";
+import { buildStreamPrefixBlockProxyResponse } from "./stream-prefix-block-gate";
 
 /** 覆写状态码最小值 */
 const OVERRIDE_STATUS_CODE_MIN = 400;
@@ -193,6 +195,19 @@ export class ProxyErrorHandler {
       );
 
       return await attachSessionIdToErrorResponse(session.sessionId, response);
+    }
+
+    if (error instanceof StreamPrefixBlockError) {
+      clientErrorMessage = error.getClientSafeMessage();
+      logErrorMessage = error.getDetailedErrorMessage();
+      statusCode = error.overrideStatusCode ?? error.statusCode;
+
+      await ProxyErrorHandler.logErrorToDatabase(session, logErrorMessage, statusCode, null);
+
+      return await attachSessionIdToErrorResponse(
+        session.sessionId,
+        buildStreamPrefixBlockProxyResponse(error)
+      );
     }
 
     // 识别 ProxyError，提取详细信息（包含上游响应）

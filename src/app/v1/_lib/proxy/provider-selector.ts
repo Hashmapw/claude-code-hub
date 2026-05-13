@@ -2,8 +2,6 @@ import { matchesAllowedModelRules } from "@/lib/allowed-model-rules";
 import { getCircuitState, isCircuitOpen } from "@/lib/circuit-breaker";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { logger } from "@/lib/logger";
-import { RateLimitService } from "@/lib/rate-limit";
-import { SessionManager } from "@/lib/session-manager";
 import { parseProviderGroups, resolveProviderGroupsWithDefault } from "@/lib/utils/provider-group";
 import { isProviderActiveNow } from "@/lib/utils/provider-schedule";
 import { resolveSystemTimezone } from "@/lib/utils/timezone";
@@ -127,6 +125,16 @@ function checkFormatProviderTypeCompatibility(
 }
 
 export class ProxyProviderResolver {
+  private static async getRateLimitService() {
+    const { RateLimitService } = await import("@/lib/rate-limit");
+    return RateLimitService;
+  }
+
+  private static async getSessionManager() {
+    const { SessionManager } = await import("@/lib/session-manager");
+    return SessionManager;
+  }
+
   static async ensure(
     session: ProxySession,
     _deprecatedTargetProviderType?: "claude" | "codex" // 废弃参数，保留向后兼容
@@ -218,6 +226,7 @@ export class ProxyProviderResolver {
       // 选定供应商后，进行原子性并发检查并追踪
       if (session.sessionId) {
         const limit = session.provider.limitConcurrentSessions || 0;
+        const RateLimitService = await ProxyProviderResolver.getRateLimitService();
 
         // 使用原子性检查并追踪（解决竞态条件）
         const checkResult = await RateLimitService.checkAndTrackProviderSession(
@@ -465,6 +474,8 @@ export class ProxyProviderResolver {
       return null;
     }
 
+    const SessionManager = await ProxyProviderResolver.getSessionManager();
+
     // 从 Redis 读取该 session 绑定的 provider
     const providerId = await SessionManager.getSessionProvider(
       session.sessionId,
@@ -669,6 +680,7 @@ export class ProxyProviderResolver {
     // No auth group info (effectiveGroup is null) can reuse any provider
 
     // 会话复用也必须遵守限额（否则会绕过"达到限额即禁用"的语义）
+    const RateLimitService = await ProxyProviderResolver.getRateLimitService();
     const costCheck = await RateLimitService.checkCostLimitsWithLease(provider.id, "provider", {
       limit_5h_usd: provider.limit5hUsd,
       limit_5h_reset_mode: provider.limit5hResetMode,
@@ -1045,6 +1057,7 @@ export class ProxyProviderResolver {
    * 此处仅检查金额限制和熔断器状态
    */
   private static async filterByLimits(providers: Provider[]): Promise<Provider[]> {
+    const RateLimitService = await ProxyProviderResolver.getRateLimitService();
     const results = await Promise.all(
       providers.map(async (p) => {
         // -1. 检查临时熔断（vendor+type）

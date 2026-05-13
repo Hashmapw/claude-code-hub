@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 function createThenableQuery<T>(result: T) {
   type Query = Promise<T> & {
@@ -16,18 +16,58 @@ function createThenableQuery<T>(result: T) {
   return query;
 }
 
+const dbMock = vi.hoisted(() => ({
+  insert: vi.fn(),
+  select: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  transaction: vi.fn(),
+}));
+
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
+vi.mock("@/drizzle/db", () => ({
+  db: dbMock,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: loggerMock,
+}));
+
+vi.mock("@/lib/endpoint-circuit-breaker", () => ({
+  resetEndpointCircuit: vi.fn(),
+}));
+
+const {
+  backfillProviderEndpointsFromProviders,
+  deleteProviderVendor,
+  ensureProviderEndpointExistsForUrl,
+  tryDeleteProviderVendorIfEmpty,
+} = await import("@/repository/provider-endpoints");
+
 describe("provider-endpoints repository", () => {
+  beforeEach(() => {
+    dbMock.insert.mockReset();
+    dbMock.select.mockReset();
+    dbMock.update.mockReset();
+    dbMock.delete.mockReset();
+    dbMock.transaction.mockReset();
+
+    loggerMock.debug.mockReset();
+    loggerMock.info.mockReset();
+    loggerMock.warn.mockReset();
+    loggerMock.error.mockReset();
+  });
+
   test("ensureProviderEndpointExistsForUrl: url 为空时抛错且不写 DB", async () => {
-    vi.resetModules();
-
     const insertMock = vi.fn();
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        insert: insertMock,
-      },
-    }));
+    dbMock.insert.mockImplementation(insertMock);
 
-    const { ensureProviderEndpointExistsForUrl } = await import("@/repository/provider-endpoints");
     await expect(
       ensureProviderEndpointExistsForUrl({
         vendorId: 1,
@@ -39,16 +79,9 @@ describe("provider-endpoints repository", () => {
   });
 
   test("ensureProviderEndpointExistsForUrl: url 非法时抛错且不写 DB", async () => {
-    vi.resetModules();
-
     const insertMock = vi.fn();
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        insert: insertMock,
-      },
-    }));
+    dbMock.insert.mockImplementation(insertMock);
 
-    const { ensureProviderEndpointExistsForUrl } = await import("@/repository/provider-endpoints");
     await expect(
       ensureProviderEndpointExistsForUrl({
         vendorId: 1,
@@ -60,8 +93,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("ensureProviderEndpointExistsForUrl: 插入成功时返回 true（trim + label=null）", async () => {
-    vi.resetModules();
-
     const state = { values: undefined as unknown };
     const returning = vi.fn(async () => [{ id: 1 }]);
     const onConflictDoNothing = vi.fn(() => ({ returning }));
@@ -70,14 +101,8 @@ describe("provider-endpoints repository", () => {
       return { onConflictDoNothing };
     });
     const insertMock = vi.fn(() => ({ values }));
+    dbMock.insert.mockImplementation(insertMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        insert: insertMock,
-      },
-    }));
-
-    const { ensureProviderEndpointExistsForUrl } = await import("@/repository/provider-endpoints");
     const ok = await ensureProviderEndpointExistsForUrl({
       vendorId: 1,
       providerType: "claude",
@@ -105,20 +130,12 @@ describe("provider-endpoints repository", () => {
   });
 
   test("ensureProviderEndpointExistsForUrl: 冲突不插入时返回 false", async () => {
-    vi.resetModules();
-
     const returning = vi.fn(async () => []);
     const onConflictDoNothing = vi.fn(() => ({ returning }));
     const values = vi.fn(() => ({ onConflictDoNothing }));
     const insertMock = vi.fn(() => ({ values }));
+    dbMock.insert.mockImplementation(insertMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        insert: insertMock,
-      },
-    }));
-
-    const { ensureProviderEndpointExistsForUrl } = await import("@/repository/provider-endpoints");
     const ok = await ensureProviderEndpointExistsForUrl({
       vendorId: 1,
       providerType: "claude",
@@ -129,24 +146,16 @@ describe("provider-endpoints repository", () => {
   });
 
   test("ensureProviderEndpointExistsForUrl: 非编辑路径保持 insert-only 语义（不触发 update/transaction）", async () => {
-    vi.resetModules();
-
     const returning = vi.fn(async () => []);
     const onConflictDoNothing = vi.fn(() => ({ returning }));
     const values = vi.fn(() => ({ onConflictDoNothing }));
     const insertMock = vi.fn(() => ({ values }));
     const updateMock = vi.fn();
     const transactionMock = vi.fn();
+    dbMock.insert.mockImplementation(insertMock);
+    dbMock.update.mockImplementation(updateMock);
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        insert: insertMock,
-        update: updateMock,
-        transaction: transactionMock,
-      },
-    }));
-
-    const { ensureProviderEndpointExistsForUrl } = await import("@/repository/provider-endpoints");
     const ok = await ensureProviderEndpointExistsForUrl({
       vendorId: 1,
       providerType: "codex",
@@ -160,8 +169,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("backfillProviderEndpointsFromProviders: 全部无效时不写 DB", async () => {
-    vi.resetModules();
-
     const selectPages = [
       [
         { id: 1, vendorId: 0, providerType: "claude", url: "https://ok.example.com" },
@@ -173,17 +180,9 @@ describe("provider-endpoints repository", () => {
 
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
     const insertMock = vi.fn();
+    dbMock.select.mockImplementation(selectMock);
+    dbMock.insert.mockImplementation(insertMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        insert: insertMock,
-      },
-    }));
-
-    const { backfillProviderEndpointsFromProviders } = await import(
-      "@/repository/provider-endpoints"
-    );
     const result = await backfillProviderEndpointsFromProviders();
 
     expect(result).toEqual({ inserted: 0, uniqueCandidates: 0, skippedInvalid: 3 });
@@ -191,8 +190,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("backfillProviderEndpointsFromProviders: 去重 + trim + 统计 inserted/uniqueCandidates/skippedInvalid", async () => {
-    vi.resetModules();
-
     const capturedValues: unknown[] = [];
 
     const insertState = { values: undefined as unknown };
@@ -224,17 +221,9 @@ describe("provider-endpoints repository", () => {
     ];
 
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
+    dbMock.select.mockImplementation(selectMock);
+    dbMock.insert.mockImplementation(insertMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        insert: insertMock,
-      },
-    }));
-
-    const { backfillProviderEndpointsFromProviders } = await import(
-      "@/repository/provider-endpoints"
-    );
     const result = await backfillProviderEndpointsFromProviders();
 
     expect(result).toEqual({ inserted: 3, uniqueCandidates: 3, skippedInvalid: 2 });
@@ -253,8 +242,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("backfillProviderEndpointsFromProviders: 冲突不插入时 inserted=0 但 uniqueCandidates 仍统计", async () => {
-    vi.resetModules();
-
     const insertState = { values: undefined as unknown };
     const returning = vi.fn(async () => []);
     const onConflictDoNothing = vi.fn(() => ({ returning }));
@@ -273,25 +260,15 @@ describe("provider-endpoints repository", () => {
     ];
 
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
+    dbMock.select.mockImplementation(selectMock);
+    dbMock.insert.mockImplementation(insertMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        insert: insertMock,
-      },
-    }));
-
-    const { backfillProviderEndpointsFromProviders } = await import(
-      "@/repository/provider-endpoints"
-    );
     const result = await backfillProviderEndpointsFromProviders();
 
     expect(result).toEqual({ inserted: 0, uniqueCandidates: 2, skippedInvalid: 0 });
   });
 
   test("tryDeleteProviderVendorIfEmpty: 有 active provider 时不删除", async () => {
-    vi.resetModules();
-
     const selectPages = [[{ id: 1 }], []];
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
     const deleteMock = vi.fn();
@@ -301,14 +278,8 @@ describe("provider-endpoints repository", () => {
         delete: deleteMock,
       });
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { tryDeleteProviderVendorIfEmpty } = await import("@/repository/provider-endpoints");
     const ok = await tryDeleteProviderVendorIfEmpty(123);
 
     expect(ok).toBe(false);
@@ -317,8 +288,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("tryDeleteProviderVendorIfEmpty: 有 active endpoint 时不删除", async () => {
-    vi.resetModules();
-
     const selectPages = [[], [{ id: 1 }]];
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
     const deleteMock = vi.fn();
@@ -328,14 +297,8 @@ describe("provider-endpoints repository", () => {
         delete: deleteMock,
       });
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { tryDeleteProviderVendorIfEmpty } = await import("@/repository/provider-endpoints");
     const ok = await tryDeleteProviderVendorIfEmpty(123);
 
     expect(ok).toBe(false);
@@ -344,8 +307,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("tryDeleteProviderVendorIfEmpty: 无 active provider/endpoint 时删除 vendor", async () => {
-    vi.resetModules();
-
     const selectPages = [[], []];
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
 
@@ -370,14 +331,8 @@ describe("provider-endpoints repository", () => {
         delete: deleteMock,
       });
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { tryDeleteProviderVendorIfEmpty } = await import("@/repository/provider-endpoints");
     const ok = await tryDeleteProviderVendorIfEmpty(123);
 
     expect(ok).toBe(true);
@@ -386,8 +341,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("tryDeleteProviderVendorIfEmpty: vendor 不存在时返回 false", async () => {
-    vi.resetModules();
-
     const selectPages = [[], []];
     const selectMock = vi.fn(() => createThenableQuery(selectPages.shift() ?? []));
 
@@ -412,14 +365,8 @@ describe("provider-endpoints repository", () => {
         delete: deleteMock,
       });
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { tryDeleteProviderVendorIfEmpty } = await import("@/repository/provider-endpoints");
     const ok = await tryDeleteProviderVendorIfEmpty(123);
 
     expect(ok).toBe(false);
@@ -428,35 +375,23 @@ describe("provider-endpoints repository", () => {
   });
 
   test("tryDeleteProviderVendorIfEmpty: transaction 抛错时抛出异常", async () => {
-    vi.resetModules();
-
     const transactionMock = vi.fn(async () => {
       throw new Error("boom");
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { tryDeleteProviderVendorIfEmpty } = await import("@/repository/provider-endpoints");
     await expect(tryDeleteProviderVendorIfEmpty(123)).rejects.toThrow("boom");
   });
 
   test("deleteProviderVendor: vendor 存在时返回 true 且执行级联删除", async () => {
-    vi.resetModules();
-
     let deleteCallIndex = 0;
     const deleteMock = vi.fn(() => {
       deleteCallIndex += 1;
-      // 1) delete endpoints, 2) delete providers
       if (deleteCallIndex <= 2) {
         return {
           where: vi.fn(async () => []),
         };
       }
-      // 3) delete vendor
       return {
         where: vi.fn(() => ({
           returning: vi.fn(async () => [{ id: 123 }]),
@@ -469,14 +404,8 @@ describe("provider-endpoints repository", () => {
         delete: deleteMock,
       });
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { deleteProviderVendor } = await import("@/repository/provider-endpoints");
     const ok = await deleteProviderVendor(123);
 
     expect(ok).toBe(true);
@@ -484,8 +413,6 @@ describe("provider-endpoints repository", () => {
   });
 
   test("deleteProviderVendor: vendor 不存在时返回 false", async () => {
-    vi.resetModules();
-
     let deleteCallIndex = 0;
     const deleteMock = vi.fn(() => {
       deleteCallIndex += 1;
@@ -506,14 +433,8 @@ describe("provider-endpoints repository", () => {
         delete: deleteMock,
       });
     });
+    dbMock.transaction.mockImplementation(transactionMock);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        transaction: transactionMock,
-      },
-    }));
-
-    const { deleteProviderVendor } = await import("@/repository/provider-endpoints");
     const ok = await deleteProviderVendor(123);
 
     expect(ok).toBe(false);

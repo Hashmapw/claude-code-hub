@@ -14,7 +14,7 @@ import type {
   OpenAIModelsResponse,
 } from "@/types/models";
 import type { Provider } from "@/types/provider";
-import { extractApiKeyFromHeaders } from "../proxy/auth-guard";
+import { extractApiKeyFromHeaders } from "../proxy/api-key-extractor";
 import type { ClientFormat } from "../proxy/format-mapper";
 import { buildKeySoftBlockResponse, resolveKeySoftBlockMessage } from "../proxy/key-soft-block";
 import { checkProviderGroupMatch } from "../proxy/provider-selector";

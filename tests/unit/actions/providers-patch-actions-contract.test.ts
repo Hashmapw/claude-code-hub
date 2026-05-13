@@ -39,6 +39,10 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+const { applyProviderBatchPatch, previewProviderBatchPatch, undoProviderPatch } = await import(
+  "@/actions/providers"
+);
+
 function makeProvider(id: number, overrides: Record<string, unknown> = {}) {
   return {
     id,
@@ -103,7 +107,6 @@ function makeProvider(id: number, overrides: Record<string, unknown> = {}) {
 describe("Provider Batch Patch Action Contracts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     redisStore.clear();
     getSessionMock.mockResolvedValue({ user: { id: 1, role: "admin" } });
     findAllProvidersFreshMock.mockResolvedValue([]);
@@ -113,7 +116,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   it("previewProviderBatchPatch should require admin role", async () => {
     getSessionMock.mockResolvedValueOnce({ user: { id: 2, role: "user" } });
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [1, 2],
       patch: { group_tag: { set: "ops" } },
@@ -126,7 +128,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   });
 
   it("previewProviderBatchPatch should return structured preview payload", async () => {
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [3, 1, 3, 2],
       patch: {
@@ -148,7 +149,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   });
 
   it("previewProviderBatchPatch should return NOTHING_TO_APPLY when patch has no changes", async () => {
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [1],
       patch: { group_tag: { no_change: true } },
@@ -161,7 +161,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   });
 
   it("applyProviderBatchPatch should reject unknown preview token", async () => {
-    const { applyProviderBatchPatch } = await import("@/actions/providers");
     const result = await applyProviderBatchPatch({
       previewToken: "provider_patch_preview_missing",
       previewRevision: "rev",
@@ -176,9 +175,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   });
 
   it("applyProviderBatchPatch should reject stale revision", async () => {
-    const { previewProviderBatchPatch, applyProviderBatchPatch } = await import(
-      "@/actions/providers"
-    );
     const preview = await previewProviderBatchPatch({
       providerIds: [1],
       patch: { group_tag: { set: "x" } },
@@ -199,9 +195,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   });
 
   it("applyProviderBatchPatch should return idempotent result for same idempotency key", async () => {
-    const { previewProviderBatchPatch, applyProviderBatchPatch } = await import(
-      "@/actions/providers"
-    );
     const preview = await previewProviderBatchPatch({
       providerIds: [1, 2],
       patch: { group_tag: { set: "x" } },
@@ -232,10 +225,6 @@ describe("Provider Batch Patch Action Contracts", () => {
   });
 
   it("undoProviderPatch should reject mismatched operation id", async () => {
-    const { previewProviderBatchPatch, applyProviderBatchPatch, undoProviderPatch } = await import(
-      "@/actions/providers"
-    );
-
     const preview = await previewProviderBatchPatch({
       providerIds: [10],
       patch: { group_tag: { set: "undo-test" } },
@@ -268,10 +257,6 @@ describe("Provider Batch Patch Action Contracts", () => {
       makeProvider(13, { groupTag: "before-13" }),
     ]);
     updateProvidersBatchMock.mockResolvedValue(1);
-
-    const { previewProviderBatchPatch, applyProviderBatchPatch, undoProviderPatch } = await import(
-      "@/actions/providers"
-    );
 
     const preview = await previewProviderBatchPatch({
       providerIds: [12, 13],

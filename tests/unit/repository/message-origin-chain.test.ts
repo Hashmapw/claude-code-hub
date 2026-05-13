@@ -1,5 +1,32 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { ProviderChainItem } from "@/types/message";
+
+const selectMock = vi.hoisted(() => vi.fn());
+const executeMock = vi.hoisted(() => vi.fn(async () => ({ count: 0 })));
+
+vi.mock("@/drizzle/db", () => ({
+  db: {
+    select: (...args: unknown[]) => selectMock(...args),
+    execute: executeMock,
+  },
+}));
+
+vi.mock("@/lib/config/env.schema", () => ({
+  getEnvConfig: () => ({ MESSAGE_REQUEST_WRITE_MODE: "sync" }),
+}));
+
+vi.mock("@/lib/ledger-fallback", () => ({
+  isLedgerOnlyMode: () => false,
+}));
+
+vi.mock("@/lib/utils/currency", () => ({
+  formatCostForStorage: (value: unknown) =>
+    value == null ? null : typeof value === "string" ? value : String(value),
+}));
+
+vi.mock("@/repository/message-write-buffer", () => ({
+  enqueueMessageRequestUpdate: vi.fn(),
+}));
 
 function sqlToString(sqlObj: unknown): string {
   const visited = new Set<unknown>();
@@ -11,12 +38,12 @@ function sqlToString(sqlObj: unknown): string {
     if (typeof node === "string") return node;
 
     if (typeof node === "object") {
-      const anyNode = node as any;
+      const anyNode = node as Record<string, unknown>;
       if (Array.isArray(anyNode)) {
         return anyNode.map(walk).join("");
       }
 
-      if (anyNode.name && typeof anyNode.name === "string") {
+      if (typeof anyNode.name === "string") {
         return anyNode.name;
       }
 
@@ -46,7 +73,17 @@ function createThenableQuery<T>(
     limitArgs?: unknown[];
   }
 ) {
-  const query: any = Promise.resolve(result);
+  const query: Promise<T> & {
+    from: ReturnType<typeof vi.fn>;
+    where: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
+    limit: ReturnType<typeof vi.fn>;
+  } = Promise.resolve(result) as Promise<T> & {
+    from: ReturnType<typeof vi.fn>;
+    where: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
+    limit: ReturnType<typeof vi.fn>;
+  };
 
   query.from = vi.fn(() => query);
   query.where = vi.fn((arg: unknown) => {
@@ -65,14 +102,36 @@ function createThenableQuery<T>(
   return query;
 }
 
+type FindSessionOriginChain = typeof import("@/repository/message").findSessionOriginChain;
+
+const { findSessionOriginChain }: { findSessionOriginChain: FindSessionOriginChain } = await import(
+  "@/repository/message"
+);
+let whereArgs: unknown[];
+let orderByArgs: unknown[];
+let limitArgs: unknown[];
+
+function mockOriginChainRows(rows: Array<{ providerChain: ProviderChainItem[] | null }>) {
+  selectMock.mockImplementation(() =>
+    createThenableQuery(rows, {
+      whereArgs,
+      orderByArgs,
+      limitArgs,
+    })
+  );
+}
+
 describe("repository/message findSessionOriginChain", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    whereArgs = [];
+    orderByArgs = [];
+    limitArgs = [];
+    selectMock.mockReset();
+    executeMock.mockClear();
+  });
+
   test("happy path: 返回 session 首条非 warmup 的完整 providerChain", async () => {
-    vi.resetModules();
-
-    const whereArgs: unknown[] = [];
-    const orderByArgs: unknown[] = [];
-    const limitArgs: unknown[] = [];
-
     const chain: ProviderChainItem[] = [
       {
         id: 101,
@@ -83,18 +142,8 @@ describe("repository/message findSessionOriginChain", () => {
       },
     ];
 
-    const selectMock = vi.fn(() =>
-      createThenableQuery([{ providerChain: chain }], { whereArgs, orderByArgs, limitArgs })
-    );
+    mockOriginChainRows([{ providerChain: chain }]);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     const result = await findSessionOriginChain("session-happy");
 
     expect(result).toEqual(chain);
@@ -114,8 +163,6 @@ describe("repository/message findSessionOriginChain", () => {
   });
 
   test("warmup skip: 第一条为 warmup 时应返回后续首条非 warmup 的 chain", async () => {
-    vi.resetModules();
-
     const chain: ProviderChainItem[] = [
       {
         id: 202,
@@ -126,98 +173,46 @@ describe("repository/message findSessionOriginChain", () => {
       },
     ];
 
-    const selectMock = vi.fn(() => createThenableQuery([{ providerChain: chain }]));
+    mockOriginChainRows([{ providerChain: chain }]);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     const result = await findSessionOriginChain("session-warmup-first");
 
     expect(result).toEqual(chain);
   });
 
   test("no data: session 不存在时返回 null", async () => {
-    vi.resetModules();
+    mockOriginChainRows([]);
 
-    const selectMock = vi.fn(() => createThenableQuery([]));
-
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     const result = await findSessionOriginChain("session-not-found");
 
     expect(result).toBeNull();
   });
 
   test("all warmup: 全部请求都被 warmup 拦截时返回 null", async () => {
-    vi.resetModules();
+    mockOriginChainRows([]);
 
-    const selectMock = vi.fn(() => createThenableQuery([]));
-
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     const result = await findSessionOriginChain("session-all-warmup");
 
     expect(result).toBeNull();
   });
 
   test("null providerChain: 首条非 warmup 记录 providerChain 为空时返回 null", async () => {
-    vi.resetModules();
+    mockOriginChainRows([{ providerChain: null }]);
 
-    const selectMock = vi.fn(() => createThenableQuery([{ providerChain: null }]));
-
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     const result = await findSessionOriginChain("session-null-provider-chain");
 
     expect(result).toBeNull();
   });
 
   test("all session_reuse: 全部请求都是 session_reuse 时 JSONB 过滤后返回 null", async () => {
-    vi.resetModules();
+    mockOriginChainRows([]);
 
-    const selectMock = vi.fn(() => createThenableQuery([]));
-
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     const result = await findSessionOriginChain("session-all-reuse");
 
     expect(result).toBeNull();
   });
 
   test("JSONB filter present: WHERE 子句包含 initial_selection 过滤条件", async () => {
-    vi.resetModules();
-
-    const whereArgs: unknown[] = [];
-
     const chain: ProviderChainItem[] = [
       {
         id: 301,
@@ -228,16 +223,8 @@ describe("repository/message findSessionOriginChain", () => {
       },
     ];
 
-    const selectMock = vi.fn(() => createThenableQuery([{ providerChain: chain }], { whereArgs }));
+    mockOriginChainRows([{ providerChain: chain }]);
 
-    vi.doMock("@/drizzle/db", () => ({
-      db: {
-        select: selectMock,
-        execute: vi.fn(async () => ({ count: 0 })),
-      },
-    }));
-
-    const { findSessionOriginChain } = await import("@/repository/message");
     await findSessionOriginChain("session-jsonb-filter");
 
     expect(whereArgs.length).toBeGreaterThan(0);

@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 const loggerWarnMock = vi.fn();
 const PARSE_HEADER_RECORD_WARN_MESSAGE = "SessionManager: Failed to parse header record JSON";
@@ -22,38 +22,89 @@ const sanitizeHeadersMock = vi.fn();
 
 vi.mock("@/app/v1/_lib/proxy/errors", () => ({
   sanitizeHeaders: sanitizeHeadersMock,
+  sanitizeUrl: vi.fn((value: string) => value),
 }));
 
-async function loadHelpers() {
-  const mod = await import("@/lib/session-manager");
-  return {
-    headersToSanitizedObject: mod.headersToSanitizedObject,
-    parseHeaderRecord: mod.parseHeaderRecord,
-    extractClientSessionId: mod.SessionManager.extractClientSessionId,
-  };
-}
+vi.mock("@/app/v1/_lib/codex/session-extractor", () => ({
+  extractCodexSessionId: vi.fn(() => ({ sessionId: null, source: null })),
+}));
+
+vi.mock("@/lib/claude-code/metadata-user-id", () => ({
+  parseClaudeMetadataUserId: vi.fn((value: unknown) => {
+    if (typeof value !== "string") {
+      return { sessionId: null, format: null };
+    }
+
+    try {
+      const parsed = JSON.parse(value) as { session_id?: unknown };
+      if (typeof parsed?.session_id === "string" && parsed.session_id.length > 0) {
+        return { sessionId: parsed.session_id, format: "json" };
+      }
+    } catch {}
+
+    const legacyMatch = value.match(/_account__session_(.+)$/);
+    return {
+      sessionId: legacyMatch?.[1] ?? null,
+      format: legacyMatch ? "legacy" : null,
+    };
+  }),
+}));
+
+vi.mock("@/lib/config/env.schema", () => ({
+  getEnvConfig: vi.fn(() => ({ STORE_SESSION_MESSAGES: false })),
+}));
+
+vi.mock("@/lib/utils/message-redaction", () => ({
+  redactMessages: vi.fn((value: unknown) => value),
+  redactRequestBody: vi.fn((value: unknown) => value),
+  redactResponseBody: vi.fn((value: unknown) => value),
+}));
+
+vi.mock("@/lib/utils/request-sequence", () => ({
+  normalizeRequestSequence: vi.fn((value: unknown) => value),
+}));
+
+vi.mock("@/lib/redis", () => ({
+  getRedisClient: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/redis/active-session-keys", () => ({
+  getGlobalActiveSessionsKey: vi.fn(() => "global"),
+  getKeyActiveSessionsKey: vi.fn((keyId: number) => `key:${keyId}`),
+  getUserActiveSessionsKey: vi.fn((userId: number) => `user:${userId}`),
+}));
+
+vi.mock("@/lib/session-tracker", () => ({
+  SessionTracker: class MockSessionTracker {},
+}));
 
 describe("SessionManager 辅助函数", () => {
-  test("parseHeaderRecord：有效 JSON 对象应解析为记录", async () => {
-    vi.clearAllMocks();
-    const { parseHeaderRecord } = await loadHelpers();
+  let headersToSanitizedObject: typeof import("@/lib/session-manager").headersToSanitizedObject;
+  let parseHeaderRecord: typeof import("@/lib/session-manager").parseHeaderRecord;
+  let extractClientSessionId: typeof import("@/lib/session-manager").SessionManager.extractClientSessionId;
 
+  beforeAll(async () => {
+    const mod = await import("@/lib/session-manager");
+    headersToSanitizedObject = mod.headersToSanitizedObject;
+    parseHeaderRecord = mod.parseHeaderRecord;
+    extractClientSessionId = mod.SessionManager.extractClientSessionId;
+  }, 20_000);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("parseHeaderRecord：有效 JSON 对象应解析为记录", async () => {
     expect(parseHeaderRecord('{"a":"1","b":"2"}')).toEqual({ a: "1", b: "2" });
     expect(getParseHeaderRecordWarnCalls()).toHaveLength(0);
   });
 
   test("parseHeaderRecord：空对象应返回空记录", async () => {
-    vi.clearAllMocks();
-    const { parseHeaderRecord } = await loadHelpers();
-
     expect(parseHeaderRecord("{}")).toEqual({});
     expect(getParseHeaderRecordWarnCalls()).toHaveLength(0);
   });
 
   test("parseHeaderRecord：只保留字符串值", async () => {
-    vi.clearAllMocks();
-    const { parseHeaderRecord } = await loadHelpers();
-
     expect(parseHeaderRecord('{"a":"1","b":2,"c":true,"d":null,"e":{},"f":[]}')).toEqual({
       a: "1",
     });
@@ -61,9 +112,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("parseHeaderRecord：无效 JSON 应返回 null 并记录 warn", async () => {
-    vi.clearAllMocks();
-    const { parseHeaderRecord } = await loadHelpers();
-
     expect(parseHeaderRecord("{bad json")).toBe(null);
     const calls = getParseHeaderRecordWarnCalls();
     expect(calls).toHaveLength(1);
@@ -74,9 +122,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("parseHeaderRecord：JSON 数组/null/原始值应返回 null", async () => {
-    vi.clearAllMocks();
-    const { parseHeaderRecord } = await loadHelpers();
-
     expect(parseHeaderRecord('["a"]')).toBe(null);
     expect(parseHeaderRecord("null")).toBe(null);
     expect(parseHeaderRecord("1")).toBe(null);
@@ -84,9 +129,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("headersToSanitizedObject：单个 header 应正确转换", async () => {
-    vi.clearAllMocks();
-    const { headersToSanitizedObject } = await loadHelpers();
-
     const headers = new Headers({ "x-test": "1" });
     sanitizeHeadersMock.mockReturnValueOnce("x-test: 1");
 
@@ -95,9 +137,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("headersToSanitizedObject：多个 header 应正确转换", async () => {
-    vi.clearAllMocks();
-    const { headersToSanitizedObject } = await loadHelpers();
-
     const headers = new Headers({ a: "1", b: "2" });
     sanitizeHeadersMock.mockReturnValueOnce("a: 1\nb: 2");
 
@@ -106,9 +145,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("headersToSanitizedObject：空 Headers 应返回空对象", async () => {
-    vi.clearAllMocks();
-    const { headersToSanitizedObject } = await loadHelpers();
-
     const headers = new Headers();
     sanitizeHeadersMock.mockReturnValueOnce("(empty)");
 
@@ -117,9 +153,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("headersToSanitizedObject：值包含冒号时应保留完整值", async () => {
-    vi.clearAllMocks();
-    const { headersToSanitizedObject } = await loadHelpers();
-
     const headers = new Headers({ "x-test": "a:b:c" });
     sanitizeHeadersMock.mockReturnValueOnce("x-test: a:b:c");
 
@@ -128,9 +161,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("extractClientSessionId：应兼容旧格式 metadata.user_id", async () => {
-    vi.clearAllMocks();
-    const { extractClientSessionId } = await loadHelpers();
-
     expect(
       extractClientSessionId({
         metadata: {
@@ -142,9 +172,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("extractClientSessionId：应兼容 JSON 字符串 metadata.user_id", async () => {
-    vi.clearAllMocks();
-    const { extractClientSessionId } = await loadHelpers();
-
     expect(
       extractClientSessionId({
         metadata: {
@@ -159,9 +186,6 @@ describe("SessionManager 辅助函数", () => {
   });
 
   test("extractClientSessionId：无效 user_id 时应回退到 metadata.session_id", async () => {
-    vi.clearAllMocks();
-    const { extractClientSessionId } = await loadHelpers();
-
     expect(
       extractClientSessionId({
         metadata: {

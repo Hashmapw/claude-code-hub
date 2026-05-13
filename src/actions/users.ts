@@ -15,6 +15,7 @@ import { getUnauthorizedFields } from "@/lib/permissions/user-field-permissions"
 import { clipStartByResetAt, resolveUser5hCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
 import { getRedisClient } from "@/lib/redis";
 import { invalidateCachedUser } from "@/lib/security/api-key-auth-cache";
+import { resolveLegacySearchTerm } from "@/lib/users/legacy-search-term";
 import { parseDateInputAsTimezone } from "@/lib/utils/date-input";
 import { ERROR_CODES } from "@/lib/utils/error-messages";
 import { normalizeProviderGroup, parseProviderGroups } from "@/lib/utils/provider-group";
@@ -96,17 +97,6 @@ type UserActionSession = {
   key: { canLoginWebUi: boolean };
 };
 
-function normalizeLegacySearchTerm(params?: GetUsersBatchParams): string | undefined {
-  for (const candidate of [params?.searchTerm, params?.query, params?.keyword]) {
-    const trimmed = candidate?.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-  }
-
-  return undefined;
-}
-
 function normalizeUserListParams(params?: GetUsersBatchParams): GetUsersBatchParams {
   const limit =
     typeof params?.limit === "number" && Number.isFinite(params.limit) && params.limit > 0
@@ -135,7 +125,7 @@ function normalizeUserListParams(params?: GetUsersBatchParams): GetUsersBatchPar
   return {
     cursor,
     limit,
-    searchTerm: normalizeLegacySearchTerm(params),
+    searchTerm: resolveLegacySearchTerm(params),
     tagFilters: params?.tagFilters,
     keyGroupFilters: params?.keyGroupFilters,
     statusFilter: params?.statusFilter,

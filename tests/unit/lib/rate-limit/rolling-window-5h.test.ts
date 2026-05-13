@@ -12,46 +12,37 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock resolveSystemTimezone before importing modules
-vi.mock("@/lib/utils/timezone", () => ({
-  resolveSystemTimezone: vi.fn(async () => "Asia/Shanghai"),
-}));
+const { pipelineCommands, pipeline, redisClient, statisticsMock } = vi.hoisted(() => {
+  const pipelineCommands: Array<unknown[]> = [];
+  const pipeline = {
+    zadd: vi.fn((...args: unknown[]) => {
+      pipelineCommands.push(["zadd", ...args]);
+      return pipeline;
+    }),
+    expire: vi.fn((...args: unknown[]) => {
+      pipelineCommands.push(["expire", ...args]);
+      return pipeline;
+    }),
+    exec: vi.fn(async () => {
+      pipelineCommands.push(["exec"]);
+      return [];
+    }),
+    incrbyfloat: vi.fn(() => pipeline),
+    zremrangebyscore: vi.fn(() => pipeline),
+    zcard: vi.fn(() => pipeline),
+  };
 
-const pipelineCommands: Array<unknown[]> = [];
+  const redisClient = {
+    status: "ready",
+    eval: vi.fn(async () => "0"),
+    exists: vi.fn(async () => 1),
+    get: vi.fn(async () => null),
+    set: vi.fn(async () => "OK"),
+    setex: vi.fn(async () => "OK"),
+    pipeline: vi.fn(() => pipeline),
+  };
 
-const pipeline = {
-  zadd: vi.fn((...args: unknown[]) => {
-    pipelineCommands.push(["zadd", ...args]);
-    return pipeline;
-  }),
-  expire: vi.fn((...args: unknown[]) => {
-    pipelineCommands.push(["expire", ...args]);
-    return pipeline;
-  }),
-  exec: vi.fn(async () => {
-    pipelineCommands.push(["exec"]);
-    return [];
-  }),
-  incrbyfloat: vi.fn(() => pipeline),
-  zremrangebyscore: vi.fn(() => pipeline),
-  zcard: vi.fn(() => pipeline),
-};
-
-const redisClient = {
-  status: "ready",
-  eval: vi.fn(async () => "0"),
-  exists: vi.fn(async () => 1),
-  get: vi.fn(async () => null),
-  set: vi.fn(async () => "OK"),
-  setex: vi.fn(async () => "OK"),
-  pipeline: vi.fn(() => pipeline),
-};
-
-vi.mock("@/lib/redis", () => ({
-  getRedisClient: () => redisClient,
-}));
-
-const statisticsMock = {
+  const statisticsMock = {
   // total cost
   sumKeyTotalCost: vi.fn(async () => 0),
   sumUserTotalCost: vi.fn(async () => 0),
@@ -66,16 +57,31 @@ const statisticsMock = {
   findKeyCostEntriesInTimeRange: vi.fn(async () => []),
   findProviderCostEntriesInTimeRange: vi.fn(async () => []),
   findUserCostEntriesInTimeRange: vi.fn(async () => []),
-};
+  };
+
+  return { pipelineCommands, pipeline, redisClient, statisticsMock };
+});
+
+// Mock resolveSystemTimezone before importing modules
+vi.mock("@/lib/utils/timezone", () => ({
+  resolveSystemTimezone: vi.fn(async () => "Asia/Shanghai"),
+}));
+
+vi.mock("@/lib/redis", () => ({
+  getRedisClient: () => redisClient,
+}));
 
 vi.mock("@/repository/statistics", () => statisticsMock);
+
+import { RateLimitService } from "@/lib/rate-limit";
+import { getResetInfo, getTimeRangeForPeriod } from "@/lib/rate-limit/time-utils";
 
 describe("RateLimitService - 5h rolling window behavior", () => {
   const baseTime = 1700000000000; // Base timestamp
 
   beforeEach(() => {
     pipelineCommands.length = 0;
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date(baseTime));
   });
@@ -86,8 +92,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Scenario 1: Basic rolling window - entries expire after 5h", () => {
     it("T0: consume $10, window should be $10", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // trackCost calls eval twice (key + provider)
       redisClient.eval.mockResolvedValueOnce("10"); // TRACK key
       redisClient.eval.mockResolvedValueOnce("10"); // TRACK provider
@@ -103,8 +107,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
     });
 
     it("T1 (3h later): consume $20, window should be $30", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: Track $10 (2 evals: key + provider)
       redisClient.eval.mockResolvedValueOnce("10");
       redisClient.eval.mockResolvedValueOnce("10");
@@ -128,8 +130,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
     });
 
     it("T2 (6h later): query cost, should only include T1 ($20) as T0 expired", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: Track $10 (2 evals)
       redisClient.eval.mockResolvedValueOnce("10");
       redisClient.eval.mockResolvedValueOnce("10");
@@ -162,8 +162,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Scenario 2: Window boundary - 4h59m vs 5h01m", () => {
     it("T0: consume $5, T1 (4h59m later): consume $10, window = $15", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: Track $5 (2 evals)
       redisClient.eval.mockResolvedValueOnce("5");
       redisClient.eval.mockResolvedValueOnce("5");
@@ -185,8 +183,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
     });
 
     it("T2 (5h01m after T0): query, window = $10 (T0 expired)", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: Track $5 (2 evals)
       redisClient.eval.mockResolvedValueOnce("5");
       redisClient.eval.mockResolvedValueOnce("5");
@@ -214,8 +210,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Scenario 3: Multiple entries rolling out", () => {
     it("should correctly calculate window with multiple entries at different times", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: $10 (2 evals)
       redisClient.eval.mockResolvedValueOnce("10");
       redisClient.eval.mockResolvedValueOnce("10");
@@ -262,8 +256,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Scenario 4: Limit check with rolling window", () => {
     it("should reject request when rolling window exceeds limit", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: consume $40 (2 evals for trackCost)
       redisClient.eval.mockResolvedValueOnce("40");
       redisClient.eval.mockResolvedValueOnce("40");
@@ -327,8 +319,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Scenario 5: Cross-day rolling window", () => {
     it("should handle entries across day boundary correctly", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // Day1 22:00 UTC
       const day1_22h = new Date("2024-01-15T22:00:00.000Z").getTime();
       vi.setSystemTime(new Date(day1_22h));
@@ -367,8 +357,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Verify no fixed reset time exists for 5h window", () => {
     it("should not have any fixed reset time concept", async () => {
-      const { getResetInfo } = await import("@/lib/rate-limit/time-utils");
-
       const info = await getResetInfo("5h");
 
       // 5h window is rolling type, no resetAt timestamp
@@ -378,8 +366,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
     });
 
     it("should always calculate window as (now - 5h) to now", async () => {
-      const { getTimeRangeForPeriod } = await import("@/lib/rate-limit/time-utils");
-
       const now1 = new Date("2024-01-15T10:00:00.000Z").getTime();
       vi.setSystemTime(new Date(now1));
 
@@ -399,8 +385,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Provider 5h rolling window", () => {
     it("should work identically for provider entities", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // T0: provider consumes $15 (2 evals)
       redisClient.eval.mockResolvedValueOnce("15");
       redisClient.eval.mockResolvedValueOnce("15");
@@ -433,8 +417,6 @@ describe("RateLimitService - 5h rolling window behavior", () => {
 
   describe("Cache miss and DB recovery", () => {
     it("should restore from DB entries with correct time range on cache miss", async () => {
-      const { RateLimitService } = await import("@/lib/rate-limit");
-
       // Simulate cache miss: eval returns 0 and key doesn't exist
       redisClient.eval.mockResolvedValueOnce("0");
       redisClient.exists.mockResolvedValueOnce(0);
@@ -498,8 +480,6 @@ describe("5h limit exceeded - error message and resetTime", () => {
 
   describe("resetTime semantics for rolling window", () => {
     it("5h window getResetInfo should return rolling type without resetAt", async () => {
-      const { getResetInfo } = await import("@/lib/rate-limit/time-utils");
-
       const info = await getResetInfo("5h");
 
       // Rolling windows have no fixed reset time
@@ -515,8 +495,6 @@ describe("5h limit exceeded - error message and resetTime", () => {
       //
       // WRONG: resetTime = now + 5h (implies "start counting from trigger")
       // RIGHT: No fixed reset time, or show when earliest entry expires
-
-      const { getResetInfo } = await import("@/lib/rate-limit/time-utils");
 
       const t1 = baseTime;
       vi.setSystemTime(new Date(t1));
@@ -535,8 +513,6 @@ describe("5h limit exceeded - error message and resetTime", () => {
     });
 
     it("time range should always be (now - 5h, now), not anchored to trigger time", async () => {
-      const { getTimeRangeForPeriod } = await import("@/lib/rate-limit/time-utils");
-
       // T1: Check time range
       const t1 = baseTime;
       vi.setSystemTime(new Date(t1));
@@ -646,8 +622,6 @@ describe("5h limit exceeded - full flow integration", () => {
   });
 
   it("checkCostLimits should return appropriate failure info for 5h exceeded", async () => {
-    const { RateLimitService } = await import("@/lib/rate-limit");
-
     // Mock current usage: $60 (exceeds $50 limit)
     redisClient.eval.mockResolvedValueOnce("60");
     redisClient.exists.mockResolvedValueOnce(1);

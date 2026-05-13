@@ -4,7 +4,6 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { GeminiAuth } from "@/app/v1/_lib/gemini/auth";
 import { resolveAnthropicAuthHeaders as resolveAnthropicAuthHeaderSet } from "@/app/v1/_lib/headers";
-import { isClientAbortError } from "@/app/v1/_lib/proxy/errors";
 import { buildProxyUrl } from "@/app/v1/_lib/url";
 import { db } from "@/drizzle/db";
 import { providers as providersTable } from "@/drizzle/schema";
@@ -49,7 +48,6 @@ import {
   saveProviderCircuitConfig,
 } from "@/lib/redis/circuit-breaker-config";
 import { RedisKVStore } from "@/lib/redis/redis-kv-store";
-import { SessionManager } from "@/lib/session-manager";
 import {
   normalizeProviderGroupTag,
   parseProviderGroups,
@@ -866,6 +864,7 @@ export async function editProvider(
     }
 
     if (shouldInvalidateStickySessionsOnProviderEdit(preimageFields)) {
+      const { SessionManager } = await import("@/lib/session-manager");
       await SessionManager.terminateStickySessionsForProviders([providerId], "editProvider");
     }
 
@@ -973,6 +972,7 @@ export async function removeProvider(
     const provider = await findProviderById(providerId);
     await deleteProvider(providerId);
 
+    const { SessionManager } = await import("@/lib/session-manager");
     await SessionManager.terminateStickySessionsForProviders([providerId], "removeProvider");
 
     const undoToken = createProviderPatchUndoToken();
@@ -2487,6 +2487,7 @@ export async function batchUpdateProviders(
       updates.blocked_clients !== undefined;
 
     if (shouldInvalidateStickySessions) {
+      const { SessionManager } = await import("@/lib/session-manager");
       await SessionManager.terminateStickySessionsForProviders(providerIds, "batchUpdateProviders");
     }
 
@@ -3053,6 +3054,7 @@ export async function testProviderProxy(data: {
         err.message.includes("ECONNREFUSED") ||
         err.message.includes("ENOTFOUND") ||
         err.message.includes("ETIMEDOUT");
+      const { isClientAbortError } = await import("@/app/v1/_lib/proxy/errors");
 
       const errorType = isClientAbortError(err)
         ? "Timeout"

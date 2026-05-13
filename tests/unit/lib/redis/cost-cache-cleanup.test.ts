@@ -36,6 +36,8 @@ vi.mock("@/lib/redis/active-session-keys", () => ({
   getUserActiveSessionsKey: (userId: number) => `{active_sessions}:user:${userId}:active_sessions`,
 }));
 
+const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
+
 describe("clearUserCostCache", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -51,7 +53,6 @@ describe("clearUserCostCache", () => {
   test("scans correct Redis patterns for keyIds, userId, keyHashes", async () => {
     scanPatternMock.mockResolvedValue([]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     await clearUserCostCache({
       userId: 10,
       keyIds: [1, 2],
@@ -90,7 +91,6 @@ describe("clearUserCostCache", () => {
       [null, 1],
     ]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -116,7 +116,6 @@ describe("clearUserCostCache", () => {
       [null, 1],
     ]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -135,7 +134,6 @@ describe("clearUserCostCache", () => {
   test("returns null when Redis not ready", async () => {
     redisMock.status = "connecting";
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -149,7 +147,6 @@ describe("clearUserCostCache", () => {
   test("returns null when Redis client is null", async () => {
     getRedisClientMock.mockReturnValue(null);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -162,7 +159,6 @@ describe("clearUserCostCache", () => {
   test("includeActiveSessions=true adds session key DELs", async () => {
     scanPatternMock.mockResolvedValue([]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1, 2],
@@ -184,7 +180,6 @@ describe("clearUserCostCache", () => {
       return [];
     });
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -203,7 +198,6 @@ describe("clearUserCostCache", () => {
   test("empty scan results -- no pipeline created, returns zeros", async () => {
     scanPatternMock.mockResolvedValue([]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -228,7 +222,6 @@ describe("clearUserCostCache", () => {
       [new Error("Connection reset"), null],
     ]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     const result = await clearUserCostCache({
       userId: 10,
       keyIds: [1],
@@ -246,7 +239,6 @@ describe("clearUserCostCache", () => {
   test("no keys (empty keyIds/keyHashes) -- only user patterns scanned", async () => {
     scanPatternMock.mockResolvedValue([]);
 
-    const { clearUserCostCache } = await import("@/lib/redis/cost-cache-cleanup");
     await clearUserCostCache({
       userId: 10,
       keyIds: [],

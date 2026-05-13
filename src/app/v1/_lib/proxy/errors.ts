@@ -8,6 +8,7 @@
  */
 import { getEnvConfig } from "@/lib/config/env.schema";
 import { type ErrorDetectionResult, errorRuleDetector } from "@/lib/error-rule-detector";
+import type { ResolvedStreamPrefixBlockRule } from "@/lib/stream-prefix-block-rule";
 import { redactJsonString } from "@/lib/utils/message-redaction";
 import { sanitizeErrorTextForDetail } from "@/lib/utils/upstream-error-detection";
 import type { ErrorOverrideResponse } from "@/repository/error-rules";
@@ -545,6 +546,43 @@ export class ProxyError extends Error {
   }
 }
 
+export class StreamPrefixBlockError extends ProxyError {
+  public readonly ruleId: number;
+  public readonly matchedKeyword: string;
+  public readonly scanLimitBytes: number;
+  public readonly overrideResponse: ErrorOverrideResponse | null;
+  public readonly overrideStatusCode: number | null;
+
+  constructor(params: {
+    rule: ResolvedStreamPrefixBlockRule;
+    matchedKeyword: string;
+    providerId?: number | null;
+    providerName?: string | null;
+  }) {
+    const { rule, matchedKeyword, providerId, providerName } = params;
+    const sanitizedKeyword = sanitizeErrorTextForDetail(matchedKeyword).slice(0, 200);
+    const statusCode = rule.overrideStatusCode ?? rule.statusCode;
+
+    super(rule.message, statusCode, {
+      body: `stream_prefix_block matched keyword "${sanitizedKeyword}" (ruleId=${rule.id})`,
+      providerId: providerId ?? undefined,
+      providerName: providerName ?? undefined,
+      safeClientMessageCandidate: rule.message,
+    });
+
+    this.name = "StreamPrefixBlockError";
+    this.ruleId = rule.id;
+    this.matchedKeyword = matchedKeyword;
+    this.scanLimitBytes = rule.scanLimitBytes;
+    this.overrideResponse = rule.overrideResponse;
+    this.overrideStatusCode = rule.overrideStatusCode;
+  }
+}
+
+export function isStreamPrefixBlockError(error: unknown): error is StreamPrefixBlockError {
+  return error instanceof StreamPrefixBlockError;
+}
+
 /**
  * 错误分类：区分供应商错误和系统错误
  */
@@ -554,6 +592,7 @@ export enum ErrorCategory {
   CLIENT_ABORT, // 客户端主动中断 → 不计入熔断器 + 不重试 + 直接返回
   NON_RETRYABLE_CLIENT_ERROR, // 客户端输入错误（Prompt 超限、内容过滤、PDF 限制、Thinking 格式、参数缺失/额外参数、非法请求）→ 不计入熔断器 + 不重试 + 直接返回
   RESOURCE_NOT_FOUND, // 上游 404 错误 → 不计入熔断器 + 直接切换供应商
+  STREAM_PREFIX_BLOCK, // 流前缀拦截 → 不计入熔断器 + 直接切换供应商；若全部命中则返回规则错误
 }
 
 /**
@@ -937,6 +976,10 @@ export async function categorizeErrorAsync(error: Error): Promise<ErrorCategory>
   // These are always SYSTEM_ERROR regardless of message content
   if (isTransportError(error)) {
     return ErrorCategory.SYSTEM_ERROR;
+  }
+
+  if (error instanceof StreamPrefixBlockError) {
+    return ErrorCategory.STREAM_PREFIX_BLOCK;
   }
 
   // 优先级 2: 不可重试的客户端输入错误检测（白名单模式）

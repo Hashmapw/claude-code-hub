@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ProxyForwarder } from "@/app/v1/_lib/proxy/forwarder";
 import type { ProxySession } from "@/app/v1/_lib/proxy/session";
 
 const mocks = vi.hoisted(() => ({
@@ -17,13 +18,54 @@ vi.mock("@/lib/rate-limit", () => ({
   },
 }));
 
+vi.mock("@/lib/session-manager", () => ({
+  SessionManager: {
+    clearSessionProvider: vi.fn(async () => undefined),
+  },
+}));
+
+vi.mock("@/lib/proxy-agent", () => ({
+  getGlobalAgentPool: vi.fn(() => undefined),
+  getProxyAgentForProvider: vi.fn(() => undefined),
+}));
+
+vi.mock("@/repository/message", () => ({
+  updateMessageRequestDetails: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/app/v1/_lib/proxy/provider-selector", () => ({
+  ProxyProviderResolver: class ProxyProviderResolver {},
+}));
+
+vi.mock("@/app/v1/_lib/proxy/errors", () => ({
+  ALL_PROVIDERS_UNAVAILABLE_MESSAGE: "all providers unavailable",
+  buildRequestDetails: vi.fn(() => ({})),
+  categorizeErrorAsync: vi.fn(async () => "unknown"),
+  EmptyResponseError: class EmptyResponseError extends Error {},
+  ErrorCategory: {
+    UNKNOWN: "unknown",
+  },
+  getErrorDetectionResultAsync: vi.fn(async () => null),
+  isClientAbortError: vi.fn(() => false),
+  isEmptyResponseError: vi.fn(() => false),
+  isHttp2Error: vi.fn(() => false),
+  isSSLCertificateError: vi.fn(() => false),
+  ProxyError: class ProxyError extends Error {},
+  StreamPrefixBlockError: class StreamPrefixBlockError extends Error {},
+  sanitizeUrl: vi.fn((value: string) => value),
+}));
+
+vi.mock("@/app/v1/_lib/proxy/stream-prefix-block-gate", () => ({
+  markStreamPrefixBlockGateHandled: vi.fn(),
+  scanStreamPrefixBlockResponse: vi.fn(async () => null),
+}));
+
 describe("ProxyForwarder provider failure session release", () => {
   beforeEach(() => {
     mocks.releaseProviderSession.mockClear();
   });
 
   it("标记供应商失败时仅释放本请求已获取的 provider session ref", async () => {
-    const { ProxyForwarder } = await import("@/app/v1/_lib/proxy/forwarder");
     const forwarderInternals = ProxyForwarder as unknown as {
       markProviderFailed: (
         session: ProxySession,
@@ -46,7 +88,6 @@ describe("ProxyForwarder provider failure session release", () => {
   });
 
   it("未获取 provider session ref 的 fallback/hedge provider 不应释放 Redis membership", async () => {
-    const { ProxyForwarder } = await import("@/app/v1/_lib/proxy/forwarder");
     const forwarderInternals = ProxyForwarder as unknown as {
       markProviderFailed: (
         session: ProxySession,
@@ -69,7 +110,6 @@ describe("ProxyForwarder provider failure session release", () => {
   });
 
   it("重复标记同一供应商时只释放一次，避免 hedge 路径重复 ZREM", async () => {
-    const { ProxyForwarder } = await import("@/app/v1/_lib/proxy/forwarder");
     const forwarderInternals = ProxyForwarder as unknown as {
       markProviderFailed: (
         session: ProxySession,
@@ -93,7 +133,6 @@ describe("ProxyForwarder provider failure session release", () => {
   });
 
   it("没有 sessionId 时只记录失败供应商，不触发 Redis 释放", async () => {
-    const { ProxyForwarder } = await import("@/app/v1/_lib/proxy/forwarder");
     const forwarderInternals = ProxyForwarder as unknown as {
       markProviderFailed: (
         session: ProxySession,
