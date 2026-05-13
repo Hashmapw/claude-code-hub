@@ -43,20 +43,20 @@ const { pipelineCommands, pipeline, redisClient, statisticsMock } = vi.hoisted((
   };
 
   const statisticsMock = {
-  // total cost
-  sumKeyTotalCost: vi.fn(async () => 0),
-  sumUserTotalCost: vi.fn(async () => 0),
-  sumProviderTotalCost: vi.fn(async () => 0),
+    // total cost
+    sumKeyTotalCost: vi.fn(async () => 0),
+    sumUserTotalCost: vi.fn(async () => 0),
+    sumProviderTotalCost: vi.fn(async () => 0),
 
-  // fixed-window sums
-  sumKeyCostInTimeRange: vi.fn(async () => 0),
-  sumProviderCostInTimeRange: vi.fn(async () => 0),
-  sumUserCostInTimeRange: vi.fn(async () => 0),
+    // fixed-window sums
+    sumKeyCostInTimeRange: vi.fn(async () => 0),
+    sumProviderCostInTimeRange: vi.fn(async () => 0),
+    sumUserCostInTimeRange: vi.fn(async () => 0),
 
-  // rolling-window entries
-  findKeyCostEntriesInTimeRange: vi.fn(async () => []),
-  findProviderCostEntriesInTimeRange: vi.fn(async () => []),
-  findUserCostEntriesInTimeRange: vi.fn(async () => []),
+    // rolling-window entries
+    findKeyCostEntriesInTimeRange: vi.fn(async () => []),
+    findProviderCostEntriesInTimeRange: vi.fn(async () => []),
+    findUserCostEntriesInTimeRange: vi.fn(async () => []),
   };
 
   return { pipelineCommands, pipeline, redisClient, statisticsMock };
