@@ -245,8 +245,9 @@ jobs:
         if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && success()
         run: |
           NEW_TAG="${{ steps.next_version.outputs.new_tag }}"
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin HEAD:main "$NEW_TAG"
+          git push origin "HEAD:refs/heads/$BRANCH_NAME" "$NEW_TAG"
 
       - name: Prepare image names
         id: image_names
@@ -418,7 +419,7 @@ jobs:
 
       # 同步 main 分支到 dev 分支 (rebase dev onto main) - 仅正式版本触发
       - name: Sync main to dev branch
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && github.ref == 'refs/heads/main' && success()
         id: sync_dev
         continue-on-error: true
         env:
@@ -496,7 +497,7 @@ jobs:
 
       # 如果同步失败(冲突)，触发 autofix workflow
       - name: Trigger autofix for sync conflicts
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.sync_dev.outputs.sync_status == 'conflict' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.sync_dev.outputs.sync_status == 'conflict' && github.ref == 'refs/heads/main' && success()
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
@@ -517,7 +518,7 @@ jobs:
 
       # 同步结果汇总 - 仅正式版本显示
       - name: Sync summary
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && always()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && github.ref == 'refs/heads/main' && always()
         run: |
           echo "=========================================="
           echo "Dev Branch Sync Summary"
