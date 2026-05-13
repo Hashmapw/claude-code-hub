@@ -21,7 +21,8 @@
     "parameter_error": "Parameter Validation Failed",
     "pdf_limit": "PDF Page Limit",
     "prompt_limit": "Prompt Length Limit",
-    "thinking_error": "Thinking Format Error"
+    "thinking_error": "Thinking Format Error",
+    "stream_prefix_block": "Stream Prefix Block"
   },
   "confirmDelete": "Are you sure you want to delete error rule \"{pattern}\"?",
   "defaultRules": {
@@ -43,6 +44,7 @@
     "defaultRuleHint": "Default rule pattern cannot be modified",
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "Optional: Add description...",
+    "streamPrefixDescriptionHint": "Example: {\"scanLimitBytes\":4096,\"keywords\":[\"175877552\"],\"providerIds\":[1,2,3],\"statusCode\":403,\"message\":\"Response blocked by stream prefix policy\"}",
     "editDescription": "Modify error rule configuration. Changes will automatically refresh the cache.",
     "editTitle": "Edit Error Rule",
     "enableOverride": "Enable Error Override",
@@ -61,6 +63,7 @@
     "overrideStatusCodeLabel": "Override Status Code (Optional)",
     "overrideStatusCodePlaceholder": "e.g. 400",
     "patternHint": "Supports JavaScript regex syntax, e.g.: prompt is too long|invalid.*request",
+    "streamPrefixPatternHint": "For stream_prefix_block rules, pattern is used as the fallback keyword. Put the actual scan config in the description JSON below. scanLimitBytes accepts any positive integer in bytes.",
     "patternLabel": "Regex Pattern *",
     "patternPlaceholder": "Enter regular expression...",
     "patternRequired": "Please enter regex pattern",

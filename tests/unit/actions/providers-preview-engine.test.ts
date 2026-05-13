@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { previewProviderBatchPatch } from "@/actions/providers";
 import type { Provider } from "@/types/provider";
 
-const getSessionMock = vi.fn();
-const findAllProvidersFreshMock = vi.fn();
+const getSessionMock = vi.hoisted(() => vi.fn());
+const findAllProvidersFreshMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({
   getSession: getSessionMock,
@@ -97,7 +98,6 @@ function buildTestProvider(overrides: Partial<Provider> = {}): Provider {
 describe("Provider Batch Preview Engine - Row Generation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     getSessionMock.mockResolvedValue({ user: { id: 1, role: "admin" } });
   });
 
@@ -109,7 +109,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [5],
       patch: { group_tag: { set: "new-group" } },
@@ -144,7 +143,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([providerA, providerB]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [1, 2],
       patch: {
@@ -202,7 +200,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [10],
       patch: {
@@ -254,7 +251,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [20],
       patch: { anthropic_thinking_budget_preference: { set: "16000" } },
@@ -283,7 +279,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [21],
       patch: {
@@ -318,7 +313,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [30],
       patch: {
@@ -377,7 +371,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [40],
       patch: { allowed_models: { set: [] } },
@@ -409,7 +402,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([claudeProvider, openaiProvider, geminiProvider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [50, 51, 52],
       patch: {
@@ -437,7 +429,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([provider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [60],
       patch: { is_enabled: { set: false } },
@@ -464,7 +455,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     const providerB = buildTestProvider({ id: 200, name: "No Match" });
     findAllProvidersFreshMock.mockResolvedValue([providerA, providerB]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [100],
       patch: { priority: { set: 99 } },
@@ -490,7 +480,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([codexProvider, geminiCliProvider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [70, 71],
       patch: {
@@ -525,7 +514,6 @@ describe("Provider Batch Preview Engine - Row Generation", () => {
     });
     findAllProvidersFreshMock.mockResolvedValue([claudeProvider, openaiProvider]);
 
-    const { previewProviderBatchPatch } = await import("@/actions/providers");
     const result = await previewProviderBatchPatch({
       providerIds: [80, 81],
       patch: {

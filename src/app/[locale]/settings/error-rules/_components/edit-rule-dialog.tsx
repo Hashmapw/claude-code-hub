@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { STREAM_PREFIX_BLOCK_CATEGORY } from "@/lib/stream-prefix-block-rule";
 import { cn } from "@/lib/utils";
 import type { ErrorOverrideResponse, ErrorRule } from "@/repository/error-rules";
 import { OverrideSection } from "./override-section";
@@ -41,6 +42,7 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
   const [enableOverride, setEnableOverride] = useState(false);
   const [overrideResponse, setOverrideResponse] = useState("");
   const [overrideStatusCode, setOverrideStatusCode] = useState<string>("");
+  const isStreamPrefixBlock = category === STREAM_PREFIX_BLOCK_CATEGORY;
 
   // Update form when rule changes
   useEffect(() => {
@@ -72,7 +74,7 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
     }
 
     // Validate regex pattern (only for regex match type)
-    if (rule.matchType === "regex") {
+    if (!isStreamPrefixBlock && rule.matchType === "regex") {
       try {
         new RegExp(pattern.trim());
       } catch {
@@ -118,7 +120,8 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
           | "thinking_error"
           | "parameter_error"
           | "invalid_request"
-          | "cache_limit",
+          | "cache_limit"
+          | "stream_prefix_block",
         description: description.trim() || undefined,
         overrideResponse: parsedOverrideResponse,
         overrideStatusCode: parsedStatusCode,
@@ -178,6 +181,11 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
                   {t("errorRules.dialog.patternHint")}
                 </p>
               )}
+              {isStreamPrefixBlock && (
+                <p className="text-xs text-muted-foreground">
+                  {t("errorRules.dialog.streamPrefixPatternHint")}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -211,6 +219,9 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
                   <SelectItem value="cache_limit">
                     {t("errorRules.categories.cache_limit")}
                   </SelectItem>
+                  <SelectItem value="stream_prefix_block">
+                    {t("errorRules.categories.stream_prefix_block")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">{t("errorRules.dialog.categoryHint")}</p>
@@ -235,6 +246,11 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
                   "focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                 )}
               />
+              {isStreamPrefixBlock && (
+                <p className="text-xs text-muted-foreground">
+                  {t("errorRules.dialog.streamPrefixDescriptionHint")}
+                </p>
+              )}
             </div>
 
             <OverrideSection
@@ -247,7 +263,7 @@ export function EditRuleDialog({ rule, open, onOpenChange }: EditRuleDialogProps
               onOverrideStatusCodeChange={setOverrideStatusCode}
             />
 
-            {pattern && (
+            {pattern && !isStreamPrefixBlock && (
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   {t("errorRules.dialog.regexTester")}

@@ -11,7 +11,7 @@
  *   bun run tests/e2e-error-rules.test.ts
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   createErrorRuleAction,
   deleteErrorRuleAction,
@@ -19,6 +19,7 @@ import {
 } from "@/actions/error-rules";
 import { isNonRetryableClientError } from "@/app/v1/_lib/proxy/errors";
 import { errorRuleDetector } from "@/lib/error-rule-detector";
+import { syncDefaultErrorRules } from "@/repository/error-rules";
 
 // Mock session for Server Actions (requires admin role)
 const _mockAdminSession = {
@@ -29,12 +30,22 @@ const _mockAdminSession = {
   },
 };
 
+vi.mock("@/lib/auth", () => ({
+  getSession: vi.fn(async () => _mockAdminSession),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 let createdRuleId: number | null = null;
 
 beforeAll(async () => {
+  await syncDefaultErrorRules();
+  await errorRuleDetector.reload();
   // Wait for initial cache load
   await new Promise((resolve) => setTimeout(resolve, 1000));
-});
+}, 20_000);
 
 afterAll(async () => {
   // Cleanup: Delete test rule if it exists
@@ -47,7 +58,7 @@ describe("End-to-End Error Rules Workflow", () => {
   test("Step 1: Create new error rule via Server Action", async () => {
     const result = await createErrorRuleAction({
       pattern: "test.*custom.*error",
-      category: "client_error",
+      category: "parameter_error",
       matchType: "regex",
       description: "E2E Test Rule - Safe to delete",
     });
@@ -59,7 +70,7 @@ describe("End-to-End Error Rules Workflow", () => {
       createdRuleId = result.data.id;
       expect(createdRuleId).toBeGreaterThan(0);
       expect(result.data.pattern).toBe("test.*custom.*error");
-      expect(result.data.category).toBe("client_error");
+      expect(result.data.category).toBe("parameter_error");
       expect(result.data.isEnabled).toBe(true);
     }
   });
@@ -84,7 +95,7 @@ describe("End-to-End Error Rules Workflow", () => {
     const result = errorRuleDetector.detect("This is a test custom error message");
 
     expect(result.matched).toBe(true);
-    expect(result.category).toBe("client_error");
+    expect(result.category).toBe("parameter_error");
     expect(result.matchType).toBe("regex");
     expect(result.pattern).toBe("test.*custom.*error");
   });
@@ -145,7 +156,7 @@ describe("ReDoS Protection E2E", () => {
   test("Should reject dangerous regex pattern", async () => {
     const result = await createErrorRuleAction({
       pattern: "(a+)+",
-      category: "client_error",
+      category: "parameter_error",
       matchType: "regex",
       description: "Dangerous ReDoS pattern - should be rejected",
     });
@@ -159,7 +170,7 @@ describe("ReDoS Protection E2E", () => {
   test("Should reject nested quantifiers", async () => {
     const result = await createErrorRuleAction({
       pattern: "(x+)*",
-      category: "client_error",
+      category: "parameter_error",
       matchType: "regex",
       description: "Another dangerous pattern",
     });
@@ -173,7 +184,7 @@ describe("ReDoS Protection E2E", () => {
   test("Should accept safe regex pattern", async () => {
     const result = await createErrorRuleAction({
       pattern: "safe.*pattern.*test",
-      category: "client_error",
+      category: "parameter_error",
       matchType: "regex",
       description: "Safe pattern - should be accepted",
     });
@@ -223,7 +234,7 @@ describe("Performance Under Load", () => {
     for (let i = 0; i < 5; i++) {
       const result = await createErrorRuleAction({
         pattern: `load.*test.*${i}`,
-        category: "client_error",
+        category: "parameter_error",
         matchType: "regex",
         description: `Load test rule ${i}`,
       });

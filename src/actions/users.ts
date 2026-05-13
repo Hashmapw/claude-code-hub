@@ -347,7 +347,7 @@ export async function syncUserProviderGroupFromKeys(userId: number): Promise<voi
 // 获取用户数据
 export async function getUsers(params?: GetUsersBatchParams): Promise<UserDisplay[]> {
   try {
-    const session = await getSession();
+    const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) {
       return [];
     }

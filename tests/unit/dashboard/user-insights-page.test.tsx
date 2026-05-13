@@ -12,6 +12,10 @@ import dashboardMessages from "@messages/en/dashboard.json";
 import myUsageMessages from "@messages/en/myUsage.json";
 import commonMessages from "@messages/en/common.json";
 import { resolveTimePresetDates } from "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/filters/types";
+import { UserInsightsView } from "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-insights-view";
+import { UserKeyTrendChart } from "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-key-trend-chart";
+import { UserModelBreakdown } from "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-model-breakdown";
+import { UserOverviewCards } from "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-overview-cards";
 
 // --- Hoisted mocks ---
 
@@ -19,6 +23,9 @@ const mockGetUserInsightsOverview = vi.hoisted(() => vi.fn());
 const mockGetUserInsightsKeyTrend = vi.hoisted(() => vi.fn());
 const mockGetUserInsightsModelBreakdown = vi.hoisted(() => vi.fn());
 const mockGetUserInsightsProviderBreakdown = vi.hoisted(() => vi.fn());
+const mockGetKeys = vi.hoisted(() => vi.fn());
+const mockGetProviders = vi.hoisted(() => vi.fn());
+const mockUseLazyModels = vi.hoisted(() => vi.fn());
 
 vi.mock("@/actions/admin-user-insights", () => ({
   getUserInsightsOverview: mockGetUserInsightsOverview,
@@ -27,7 +34,19 @@ vi.mock("@/actions/admin-user-insights", () => ({
   getUserInsightsProviderBreakdown: mockGetUserInsightsProviderBreakdown,
 }));
 
-const routerPushMock = vi.fn();
+vi.mock("@/actions/keys", () => ({
+  getKeys: mockGetKeys,
+}));
+
+vi.mock("@/actions/providers", () => ({
+  getProviders: mockGetProviders,
+}));
+
+vi.mock("@/app/[locale]/dashboard/logs/_hooks/use-lazy-filter-options", () => ({
+  useLazyModels: mockUseLazyModels,
+}));
+
+const routerPushMock = vi.hoisted(() => vi.fn());
 vi.mock("@/i18n/routing", () => ({
   useRouter: () => ({
     push: routerPushMock,
@@ -188,6 +207,13 @@ describe("UserInsightsView", () => {
         currencyCode: "USD",
       },
     });
+
+    mockGetKeys.mockResolvedValue({ ok: true, data: [] });
+    mockGetProviders.mockResolvedValue([]);
+    mockUseLazyModels.mockReturnValue({
+      data: [],
+      onOpenChange: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -195,10 +221,6 @@ describe("UserInsightsView", () => {
   });
 
   it("renders page title with userName", async () => {
-    const { UserInsightsView } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-insights-view"
-    );
-
     const { container, unmount } = renderWithProviders(
       <UserInsightsView userId={10} userName="TestUser" />
     );
@@ -222,10 +244,6 @@ describe("UserInsightsView", () => {
   });
 
   it("renders back button", async () => {
-    const { UserInsightsView } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-insights-view"
-    );
-
     const { container, unmount } = renderWithProviders(
       <UserInsightsView userId={10} userName="TestUser" />
     );
@@ -246,10 +264,6 @@ describe("UserInsightsView", () => {
   });
 
   it("refetches overview with resolved 30-day range when timeRange changes", async () => {
-    const { UserInsightsView } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-insights-view"
-    );
-
     const { container, unmount } = renderWithProviders(
       <UserInsightsView userId={10} userName="TestUser" />
     );
@@ -301,10 +315,6 @@ describe("UserOverviewCards", () => {
       },
     });
 
-    const { UserOverviewCards } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-overview-cards"
-    );
-
     const { container, unmount } = renderWithProviders(
       <UserOverviewCards userId={10} startDate="2026-03-01" endDate="2026-03-09" />
     );
@@ -338,10 +348,6 @@ describe("UserOverviewCards", () => {
     // Never resolves to keep loading state
     mockGetUserInsightsOverview.mockReturnValue(new Promise(() => {}));
 
-    const { UserOverviewCards } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-overview-cards"
-    );
-
     const { container, unmount } = renderWithProviders(
       <UserOverviewCards userId={10} startDate="2026-03-01" endDate="2026-03-09" />
     );
@@ -374,10 +380,6 @@ describe("UserKeyTrendChart", () => {
       ok: true,
       data: [],
     });
-
-    const { UserKeyTrendChart } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-key-trend-chart"
-    );
 
     const { container, unmount } = renderWithProviders(
       <UserKeyTrendChart userId={10} timeRange="7days" />
@@ -434,10 +436,6 @@ describe("UserModelBreakdown", () => {
         currencyCode: "USD",
       },
     });
-
-    const { UserModelBreakdown } = await import(
-      "@/app/[locale]/dashboard/leaderboard/user/[userId]/_components/user-model-breakdown"
-    );
 
     const { container, unmount } = renderWithProviders(<UserModelBreakdown userId={10} />);
 

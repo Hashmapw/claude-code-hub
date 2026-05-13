@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  formatStreamPrefixBlockRuleSummary,
+  STREAM_PREFIX_BLOCK_CATEGORY,
+} from "@/lib/stream-prefix-block-rule";
 import { cn } from "@/lib/utils";
 import type { ErrorRule } from "@/repository/error-rules";
 import { EditRuleDialog } from "./edit-rule-dialog";
@@ -26,6 +30,7 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
   parameter_error: { bg: "bg-orange-500/10", text: "text-orange-400" },
   invalid_request: { bg: "bg-pink-500/10", text: "text-pink-400" },
   cache_limit: { bg: "bg-cyan-500/10", text: "text-cyan-400" },
+  stream_prefix_block: { bg: "bg-emerald-500/10", text: "text-emerald-400" },
 };
 
 export function RuleListTable({ rules }: RuleListTableProps) {
@@ -87,6 +92,10 @@ export function RuleListTable({ rules }: RuleListTableProps) {
             bg: "bg-gray-500/10",
             text: "text-gray-400",
           };
+          const displayDescription =
+            rule.category === STREAM_PREFIX_BLOCK_CATEGORY
+              ? (formatStreamPrefixBlockRuleSummary(rule) ?? rule.description)
+              : rule.description;
 
           return (
             <div
@@ -136,9 +145,9 @@ export function RuleListTable({ rules }: RuleListTableProps) {
                       </Badge>
                     )}
                   </div>
-                  {rule.description && (
+                  {displayDescription && (
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {rule.description}
+                      {displayDescription}
                     </p>
                   )}
                   <p className="text-[10px] text-muted-foreground mt-1">

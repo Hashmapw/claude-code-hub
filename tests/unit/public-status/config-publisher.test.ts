@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { publishCurrentPublicStatusConfigProjection } from "@/lib/public-status/config-publisher";
 
 const mockGetSystemSettings = vi.hoisted(() => vi.fn());
 const mockFindAllProviderGroups = vi.hoisted(() => vi.fn());
@@ -86,8 +87,7 @@ describe("public-status config publisher", () => {
       },
     ]);
 
-    const mod = await import("@/lib/public-status/config-publisher");
-    const result = await mod.publishCurrentPublicStatusConfigProjection({
+    const result = await publishCurrentPublicStatusConfigProjection({
       reason: "test",
       configVersion: "cfg-test",
     });
@@ -137,8 +137,7 @@ describe("public-status config publisher", () => {
       },
     ]);
 
-    const mod = await import("@/lib/public-status/config-publisher");
-    await mod.publishCurrentPublicStatusConfigProjection({
+    await publishCurrentPublicStatusConfigProjection({
       reason: "test",
       configVersion: "cfg-test",
     });
@@ -200,8 +199,7 @@ describe("public-status config publisher", () => {
       ])
     );
 
-    const mod = await import("@/lib/public-status/config-publisher");
-    await mod.publishCurrentPublicStatusConfigProjection({
+    await publishCurrentPublicStatusConfigProjection({
       reason: "test",
       configVersion: "cfg-test",
     });
@@ -244,8 +242,7 @@ describe("public-status config publisher", () => {
       },
     ]);
 
-    const mod = await import("@/lib/public-status/config-publisher");
-    await mod.publishCurrentPublicStatusConfigProjection({
+    await publishCurrentPublicStatusConfigProjection({
       reason: "test",
       configVersion: "cfg-test",
     });
@@ -305,8 +302,7 @@ describe("public-status config publisher", () => {
       },
     ]);
 
-    const mod = await import("@/lib/public-status/config-publisher");
-    const result = await mod.publishCurrentPublicStatusConfigProjection({
+    const result = await publishCurrentPublicStatusConfigProjection({
       reason: "test",
       configVersion: "cfg-test",
     });

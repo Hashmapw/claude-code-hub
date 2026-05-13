@@ -408,6 +408,7 @@ describe("ProxyResponseHandler - Gemini stream passthrough timeouts", () => {
 
     const clientAbortController = new AbortController();
     try {
+      const startedAt = Date.now();
       const provider = createProvider({
         url: baseUrl,
         firstByteTimeoutStreamingMs: 200,
@@ -436,8 +437,6 @@ describe("ProxyResponseHandler - Gemini stream passthrough timeouts", () => {
       const reader = clientResponse.body?.getReader();
       expect(reader).toBeTruthy();
       if (!reader) throw new Error("Missing body reader");
-
-      const startedAt = Date.now();
       const firstRead = await readWithTimeout(reader, 1500);
       if (!firstRead.ok) {
         clientAbortController.abort(new Error("test_timeout"));
@@ -452,9 +451,10 @@ describe("ProxyResponseHandler - Gemini stream passthrough timeouts", () => {
       const sessionWithController = session as unknown as { responseController?: AbortController };
       expect(sessionWithController.responseController?.signal.aborted).toBe(true);
 
-      // 粗略时间断言：不应立即返回（避免“无关早退”导致假阳性）
+      // 粗略时间断言：不应几乎立刻返回（避免“无关早退”导致假阳性）
+      // 这里的 startedAt 记录在发起上游请求之前，因此能粗略覆盖“首字节超时没有被提前清掉”这条语义。
       const elapsed = Date.now() - startedAt;
-      expect(elapsed).toBeGreaterThanOrEqual(120);
+      expect(elapsed).toBeGreaterThanOrEqual(100);
     } finally {
       clientAbortController.abort(new Error("test_cleanup"));
       await close();

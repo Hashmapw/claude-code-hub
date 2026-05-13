@@ -21,7 +21,8 @@
     "parameter_error": "Ошибка валидации параметров",
     "pdf_limit": "Ограничение страниц PDF",
     "prompt_limit": "Ограничение длины промпта",
-    "thinking_error": "Ошибка формата Thinking"
+    "thinking_error": "Ошибка формата Thinking",
+    "stream_prefix_block": "Блокировка префикса потока"
   },
   "confirmDelete": "Вы уверены, что хотите удалить правило ошибки \"{pattern}\"?",
   "defaultRules": {
@@ -43,6 +44,7 @@
     "defaultRuleHint": "Шаблон правила по умолчанию не может быть изменен",
     "descriptionLabel": "Описание",
     "descriptionPlaceholder": "Необязательно: Добавить описание...",
+    "streamPrefixDescriptionHint": "Пример: {\"scanLimitBytes\":4096,\"keywords\":[\"175877552\"],\"providerIds\":[1,2,3],\"statusCode\":403,\"message\":\"Response blocked by stream prefix policy\"}",
     "editDescription": "Измените конфигурацию правила ошибки. Изменения автоматически обновят кэш.",
     "editTitle": "Редактировать правило ошибки",
     "enableOverride": "Включить переопределение ошибки",
@@ -61,6 +63,7 @@
     "overrideStatusCodeLabel": "Код статуса замены (Необязательно)",
     "overrideStatusCodePlaceholder": "например, 400",
     "patternHint": "Поддерживает синтаксис регулярных выражений JavaScript, например: prompt is too long|invalid.*request",
+    "streamPrefixPatternHint": "Для правил stream_prefix_block поле pattern используется как запасное ключевое слово. Основную конфигурацию сканирования укажите в JSON поля description ниже. scanLimitBytes поддерживает любое положительное целое число в байтах.",
     "patternLabel": "Регулярное выражение *",
     "patternPlaceholder": "Введите регулярное выражение...",
     "patternRequired": "Пожалуйста, введите регулярное выражение",

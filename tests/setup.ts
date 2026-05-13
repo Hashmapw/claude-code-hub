@@ -4,6 +4,7 @@
  * 在所有测试运行前执行的全局配置
  */
 
+import net from "node:net";
 import { config } from "dotenv";
 import { afterAll, beforeAll } from "vitest";
 
@@ -14,6 +15,108 @@ config({ path: ".env.test", quiet: true });
 
 // 降级加载 .env
 config({ path: ".env", quiet: true });
+
+type SetupGlobals = typeof globalThis & {
+  __VITEST_DSN_REACHABLE_CACHE__?: Record<string, boolean>;
+  __VITEST_DEFAULT_ERROR_RULES_SYNCED__?: Record<string, boolean>;
+};
+
+type RedisCleanupCoordinatorClient = {
+  status: string;
+  once: (event: string, listener: () => void) => unknown;
+  incr?: (key: string) => Promise<number>;
+  expire?: (key: string, seconds: number) => Promise<number>;
+  decr?: (key: string) => Promise<number>;
+  del?: (key: string) => Promise<number>;
+};
+
+function getSetupGlobals(): SetupGlobals {
+  return globalThis as SetupGlobals;
+}
+
+function parseDsnHostPort(dsn: string): { host: string; port: number } | null {
+  try {
+    const url = new URL(dsn);
+    const host = url.hostname;
+    const port = Number(url.port || "5432");
+
+    if (!host || !Number.isFinite(port) || port <= 0) {
+      return null;
+    }
+
+    return { host, port };
+  } catch {
+    return null;
+  }
+}
+
+async function isTcpReachable(host: string, port: number, timeoutMs = 300): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    const socket = net.createConnection({ host, port });
+
+    const finish = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(result);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+  });
+}
+
+async function shouldSyncDefaultErrorRules(dsn: string): Promise<boolean> {
+  if (!dsn || process.env.SYNC_DEFAULT_ERROR_RULES_IN_TESTS !== "true") {
+    return false;
+  }
+
+  try {
+    const { db } = await import("@/drizzle/db");
+    const maybeDb = db as {
+      transaction?: unknown;
+      query?: { errorRules?: { findMany?: unknown } };
+    };
+
+    if (typeof maybeDb.transaction !== "function") {
+      return false;
+    }
+
+    if (typeof maybeDb.query?.errorRules?.findMany !== "function") {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  const globals = getSetupGlobals();
+  const reachableCache = (globals.__VITEST_DSN_REACHABLE_CACHE__ ??= {});
+
+  if (dsn in reachableCache) {
+    return reachableCache[dsn];
+  }
+
+  const target = parseDsnHostPort(dsn);
+  if (!target) {
+    reachableCache[dsn] = false;
+    return false;
+  }
+
+  const reachable = await isTcpReachable(target.host, target.port);
+  reachableCache[dsn] = reachable;
+  return reachable;
+}
+
+function isRedisCleanupCoordinatorClient(redis: unknown): redis is RedisCleanupCoordinatorClient {
+  const maybeRedis = redis as Partial<RedisCleanupCoordinatorClient> | null;
+
+  return Boolean(
+    maybeRedis && typeof maybeRedis.status === "string" && typeof maybeRedis.once === "function"
+  );
+}
 
 // ==================== 全局前置钩子 ====================
 
@@ -56,9 +159,15 @@ beforeAll(async () => {
   // 初始化默认错误规则（如果数据库可用）
   if (dsn) {
     try {
-      const { syncDefaultErrorRules } = await import("@/repository/error-rules");
-      await syncDefaultErrorRules();
-      console.log("默认错误规则已同步\n");
+      const globals = getSetupGlobals();
+      const syncCache = (globals.__VITEST_DEFAULT_ERROR_RULES_SYNCED__ ??= {});
+
+      if (!syncCache[dsn] && (await shouldSyncDefaultErrorRules(dsn))) {
+        const { syncDefaultErrorRules } = await import("@/repository/error-rules");
+        await syncDefaultErrorRules();
+        syncCache[dsn] = true;
+        console.log("默认错误规则已同步\n");
+      }
     } catch (error) {
       console.warn("无法同步默认错误规则:", error);
     }
@@ -68,14 +177,17 @@ beforeAll(async () => {
   // setupFiles 会在每个 worker 中执行；如果每个 worker 都在 afterAll 清理数据库，会出现“互相清理”的竞态。
   // 这里用 Redis 计数器实现：只有最后一个结束的 worker 才执行 cleanup。
   try {
-    const shouldCleanup = Boolean(dsn) && process.env.AUTO_CLEANUP_TEST_DATA !== "false";
+    const shouldCleanup =
+      Boolean(dsn) &&
+      (process.env.AUTO_CLEANUP_TEST_DATA === "true" ||
+        (dbName.includes("test") && process.env.AUTO_CLEANUP_TEST_DATA !== "false"));
     if (!shouldCleanup) return;
 
     const dbNameForKey = dbName || "unknown";
     const counterKey = `cch:vitest:cleanup_workers:${dbNameForKey}`;
     const { getRedisClient } = await import("@/lib/redis");
     const redis = getRedisClient();
-    if (!redis) return;
+    if (!isRedisCleanupCoordinatorClient(redis)) return;
 
     // 等待连接就绪（enableOfflineQueue=false，未 ready 时发命令会直接报错）
     if (redis.status !== "ready") {
@@ -90,6 +202,10 @@ beforeAll(async () => {
 
     if (redis.status !== "ready") {
       console.warn("Redis 未就绪，跳过并行清理协调（不影响测试结果）");
+      return;
+    }
+
+    if (typeof redis.incr !== "function" || typeof redis.expire !== "function") {
       return;
     }
 
@@ -111,14 +227,19 @@ afterAll(async () => {
 
   // 清理测试期间创建的用户（仅清理最近 10 分钟内的）
   const dsn = process.env.DSN || "";
-  if (dsn && process.env.AUTO_CLEANUP_TEST_DATA !== "false") {
+  const dbName = dsn.split("/").pop() || "";
+  const shouldCleanup =
+    Boolean(dsn) &&
+    (process.env.AUTO_CLEANUP_TEST_DATA === "true" ||
+      (dbName.includes("test") && process.env.AUTO_CLEANUP_TEST_DATA !== "false"));
+  if (shouldCleanup) {
     try {
       // 仅最后一个 worker 执行清理，避免并发互相删除
       const counterKey = process.env.__VITEST_CLEANUP_COUNTER_KEY__;
       const { getRedisClient } = await import("@/lib/redis");
       const redis = counterKey ? getRedisClient() : null;
 
-      if (counterKey && redis) {
+      if (counterKey && isRedisCleanupCoordinatorClient(redis)) {
         if (redis.status !== "ready") {
           await new Promise<void>((resolve) => {
             const timeout = setTimeout(resolve, 2000);
@@ -130,6 +251,10 @@ afterAll(async () => {
         }
 
         if (redis.status === "ready") {
+          if (typeof redis.decr !== "function" || typeof redis.del !== "function") {
+            console.warn("Redis 协调方法缺失，跳过自动清理（不影响测试结果）");
+            return;
+          }
           const remaining = await redis.decr(counterKey);
           if (remaining <= 0) {
             const { cleanupRecentTestData } = await import("./cleanup-utils");

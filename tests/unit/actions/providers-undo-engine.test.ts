@@ -1,13 +1,51 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  applyProviderBatchPatch,
+  previewProviderBatchPatch,
+  undoProviderPatch,
+} from "@/actions/providers";
 import { PROVIDER_BATCH_PATCH_ERROR_CODES } from "@/lib/provider-batch-patch-error-codes";
-import { buildRedisMock, createRedisStore } from "./redis-mock-utils";
 
-const getSessionMock = vi.fn();
-const findAllProvidersFreshMock = vi.fn();
-const updateProvidersBatchMock = vi.fn();
-const publishCacheInvalidationMock = vi.fn();
-const { store: redisStore, mocks: redisMocks } = createRedisStore();
+const getSessionMock = vi.hoisted(() => vi.fn());
+const findAllProvidersFreshMock = vi.hoisted(() => vi.fn());
+const updateProvidersBatchMock = vi.hoisted(() => vi.fn());
+const publishCacheInvalidationMock = vi.hoisted(() => vi.fn());
+const redisState = vi.hoisted(() => {
+  const store = new Map<string, { value: string; expiresAt: number }>();
+
+  function readValue(key: string): string | null {
+    const entry = store.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) {
+      store.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  const mocks = {
+    setex: vi.fn(async (key: string, ttlSeconds: number, value: string) => {
+      store.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+      return "OK";
+    }),
+    get: vi.fn(async (key: string) => readValue(key)),
+    del: vi.fn(async (key: string) => {
+      const existed = store.delete(key);
+      return existed ? 1 : 0;
+    }),
+    eval: vi.fn(async (_script: string, _numKeys: number, key: string) => {
+      const value = readValue(key);
+      if (value === null) return null;
+      store.delete(key);
+      return value;
+    }),
+  };
+
+  return { store, mocks };
+});
+const redisStore = redisState.store;
+const redisMocks = redisState.mocks;
 
 vi.mock("@/lib/auth", () => ({
   getSession: getSessionMock,
@@ -23,7 +61,15 @@ vi.mock("@/lib/cache/provider-cache", () => ({
   publishProviderCacheInvalidation: publishCacheInvalidationMock,
 }));
 
-vi.mock("@/lib/redis/client", () => buildRedisMock(redisMocks));
+vi.mock("@/lib/redis/client", () => ({
+  getRedisClient: () => ({
+    status: "ready",
+    setex: redisMocks.setex,
+    get: redisMocks.get,
+    del: redisMocks.del,
+    eval: redisMocks.eval,
+  }),
+}));
 
 vi.mock("@/lib/circuit-breaker", () => ({
   clearProviderState: vi.fn(),
@@ -106,7 +152,6 @@ function makeProvider(id: number, overrides: Record<string, unknown> = {}) {
 describe("Undo Provider Batch Patch Engine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     redisStore.clear();
     getSessionMock.mockResolvedValue({ user: { id: 1, role: "admin" } });
     findAllProvidersFreshMock.mockResolvedValue([]);
@@ -123,10 +168,6 @@ describe("Undo Provider Batch Patch Engine", () => {
   ) {
     findAllProvidersFreshMock.mockResolvedValue(providers);
     updateProvidersBatchMock.mockResolvedValue(providers.length);
-
-    const { previewProviderBatchPatch, applyProviderBatchPatch, undoProviderPatch } = await import(
-      "@/actions/providers"
-    );
 
     const preview = await previewProviderBatchPatch({ providerIds, patch });
     if (!preview.ok) throw new Error(`Preview failed: ${preview.error}`);
@@ -248,8 +289,6 @@ describe("Undo Provider Batch Patch Engine", () => {
   });
 
   it("should return UNDO_EXPIRED for missing token", async () => {
-    const { undoProviderPatch } = await import("@/actions/providers");
-
     const result = await undoProviderPatch({
       undoToken: "nonexistent_token",
       operationId: "op_123",
@@ -355,10 +394,6 @@ describe("Undo Provider Batch Patch Engine", () => {
     const providers = [makeProvider(1, { groupTag: "old" })];
     findAllProvidersFreshMock.mockResolvedValue(providers);
     updateProvidersBatchMock.mockResolvedValue(1);
-
-    const { previewProviderBatchPatch, applyProviderBatchPatch, undoProviderPatch } = await import(
-      "@/actions/providers"
-    );
 
     const preview = await previewProviderBatchPatch({
       providerIds: [1, 999],

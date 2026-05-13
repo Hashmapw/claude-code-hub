@@ -14,6 +14,12 @@
 import safeRegex from "safe-regex";
 import { isValidErrorOverrideResponse } from "@/lib/error-override-validator";
 import { logger } from "@/lib/logger";
+import {
+  type ResolvedStreamPrefixBlockRule,
+  resolveStreamPrefixBlockRule,
+  ruleAppliesToProvider,
+  STREAM_PREFIX_BLOCK_CATEGORY,
+} from "@/lib/stream-prefix-block-rule";
 import { type ErrorOverrideResponse, getActiveErrorRules } from "@/repository/error-rules";
 
 /**
@@ -78,6 +84,7 @@ class ErrorRuleDetector {
   private regexPatterns: RegexPattern[] = [];
   private containsPatterns: ContainsPattern[] = [];
   private exactPatterns: Map<string, ExactPattern> = new Map();
+  private streamPrefixBlockRules: ResolvedStreamPrefixBlockRule[] = [];
   private lastReloadTime: number = 0;
   private isLoading: boolean = false;
   private isInitialized: boolean = false; // 跟踪初始化状态
@@ -220,6 +227,7 @@ class ErrorRuleDetector {
           const newRegexPatterns: RegexPattern[] = [];
           const newContainsPatterns: ContainsPattern[] = [];
           const newExactPatterns = new Map<string, ExactPattern>();
+          const newStreamPrefixBlockRules: ResolvedStreamPrefixBlockRule[] = [];
 
           // 按类型分组加载规则
           let validRegexCount = 0;
@@ -227,6 +235,18 @@ class ErrorRuleDetector {
           let skippedInvalidResponseCount = 0;
 
           for (const rule of rules) {
+            if (rule.category === STREAM_PREFIX_BLOCK_CATEGORY) {
+              const resolved = resolveStreamPrefixBlockRule(rule);
+              if (resolved) {
+                newStreamPrefixBlockRules.push(resolved);
+              } else {
+                logger.warn(
+                  `[ErrorRuleDetector] Invalid stream prefix block rule ignored: id=${rule.id}, pattern=${rule.pattern}`
+                );
+              }
+              continue;
+            }
+
             // 在加载阶段验证 overrideResponse 格式，过滤畸形数据
             let validatedOverrideResponse: ErrorOverrideResponse | undefined;
             if (rule.overrideResponse) {
@@ -306,6 +326,7 @@ class ErrorRuleDetector {
           this.regexPatterns = newRegexPatterns;
           this.containsPatterns = newContainsPatterns;
           this.exactPatterns = newExactPatterns;
+          this.streamPrefixBlockRules = newStreamPrefixBlockRules;
 
           this.lastReloadTime = Date.now();
           this.isInitialized = true; // 标记为已初始化
@@ -322,7 +343,8 @@ class ErrorRuleDetector {
           logger.info(
             `[ErrorRuleDetector] Loaded ${rules.length} error rules: ` +
               `contains=${newContainsPatterns.length}, exact=${newExactPatterns.size}, ` +
-              `regex=${validRegexCount}${skippedInfo ? ` (skipped: ${skippedInfo})` : ""}`
+              `regex=${validRegexCount}, stream_prefix_block=${newStreamPrefixBlockRules.length}` +
+              `${skippedInfo ? ` (skipped: ${skippedInfo})` : ""}`
           );
         } catch (error) {
           logger.error("[ErrorRuleDetector] Failed to reload error rules:", error);
@@ -456,11 +478,19 @@ class ErrorRuleDetector {
       regexCount: this.regexPatterns.length,
       containsCount: this.containsPatterns.length,
       exactCount: this.exactPatterns.size,
+      streamPrefixBlockCount: this.streamPrefixBlockRules.length,
       totalCount:
-        this.regexPatterns.length + this.containsPatterns.length + this.exactPatterns.size,
+        this.regexPatterns.length +
+        this.containsPatterns.length +
+        this.exactPatterns.size +
+        this.streamPrefixBlockRules.length,
       lastReloadTime: this.lastReloadTime,
       isLoading: this.isLoading,
     };
+  }
+
+  getStreamPrefixBlockRulesForProvider(providerId: number | null | undefined) {
+    return this.streamPrefixBlockRules.filter((rule) => ruleAppliesToProvider(rule, providerId));
   }
 
   /**
@@ -479,7 +509,8 @@ class ErrorRuleDetector {
     return (
       this.regexPatterns.length === 0 &&
       this.containsPatterns.length === 0 &&
-      this.exactPatterns.size === 0
+      this.exactPatterns.size === 0 &&
+      this.streamPrefixBlockRules.length === 0
     );
   }
 }

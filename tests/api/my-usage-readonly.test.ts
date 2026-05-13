@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { inArray } from "drizzle-orm";
 import { db } from "@/drizzle/db";
 import { keys, messageRequest, usageLedger, users } from "@/drizzle/schema";
@@ -211,6 +211,10 @@ describe.skipIf(!process.env.DSN)("my-usage API：只读 Key 自助查询", () =
   const createdKeyIds: number[] = [];
   const createdMessageIds: number[] = [];
   const createdLedgerRequestIds: number[] = [];
+
+  beforeAll(async () => {
+    await ensureLegacyApiRuntime();
+  }, 20_000);
 
   afterAll(async () => {
     if (originalSessionTokenMode === undefined) {

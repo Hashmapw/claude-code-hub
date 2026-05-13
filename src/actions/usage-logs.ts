@@ -70,6 +70,10 @@ const CSV_HEADERS = [
 
 type UsageLogsSession = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
+async function getUsageLogsSession(): Promise<UsageLogsSession | null> {
+  return await getSession({ allowReadOnlyAccess: true });
+}
+
 export interface UsageLogsExportStatus {
   jobId: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -300,7 +304,7 @@ export async function getUsageLogs(
   filters: Omit<UsageLogFilters, "userId">
 ): Promise<ActionResult<UsageLogsResult>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -330,7 +334,7 @@ export async function exportUsageLogs(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Promise<ActionResult<string>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -354,7 +358,7 @@ export async function startUsageLogsExport(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Promise<ActionResult<{ jobId: string }>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -397,7 +401,7 @@ export async function getUsageLogsExportStatus(
   jobId: string
 ): Promise<ActionResult<UsageLogsExportStatus>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -417,7 +421,7 @@ export async function getUsageLogsExportStatus(
 
 export async function downloadUsageLogsExport(jobId: string): Promise<ActionResult<string>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -475,7 +479,7 @@ function escapeCsvField(field: string): string {
  */
 export async function getModelList(): Promise<ActionResult<string[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -494,7 +498,7 @@ export async function getModelList(): Promise<ActionResult<string[]>> {
  */
 export async function getStatusCodeList(): Promise<ActionResult<number[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -512,7 +516,7 @@ export async function getStatusCodeList(): Promise<ActionResult<number[]>> {
  */
 export async function getEndpointList(): Promise<ActionResult<string[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -544,7 +548,7 @@ export interface FilterOptions {
  */
 export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -608,7 +612,7 @@ export async function getUsageLogSessionIdSuggestions(
   input: UsageLogSessionIdSuggestionInput
 ): Promise<ActionResult<string[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -655,7 +659,7 @@ export async function getUsageLogsStats(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Promise<ActionResult<UsageLogSummary>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -690,7 +694,7 @@ export async function getUsageLogsBatch(
   filters: Omit<UsageLogBatchFilters, "userId">
 ): Promise<ActionResult<UsageLogsBatchResult>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }

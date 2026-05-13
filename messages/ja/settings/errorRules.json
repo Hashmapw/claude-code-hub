@@ -21,7 +21,8 @@
     "parameter_error": "パラメータ検証失敗",
     "pdf_limit": "PDF ページ制限",
     "prompt_limit": "プロンプト長制限",
-    "thinking_error": "Thinking フォーマットエラー"
+    "thinking_error": "Thinking フォーマットエラー",
+    "stream_prefix_block": "ストリーム前方ブロック"
   },
   "confirmDelete": "エラールール \"{pattern}\" を削除してもよろしいですか？",
   "defaultRules": {
@@ -43,6 +44,7 @@
     "defaultRuleHint": "デフォルトルールのパターンは変更できません",
     "descriptionLabel": "説明",
     "descriptionPlaceholder": "オプション: 説明を追加...",
+    "streamPrefixDescriptionHint": "例：{\"scanLimitBytes\":4096,\"keywords\":[\"175877552\"],\"providerIds\":[1,2,3],\"statusCode\":403,\"message\":\"Response blocked by stream prefix policy\"}",
     "editDescription": "エラールール設定を変更します。変更後、キャッシュが自動的に更新されます。",
     "editTitle": "エラールールを編集",
     "enableOverride": "エラーオーバーライドを有効にする",
@@ -61,6 +63,7 @@
     "overrideStatusCodeLabel": "オーバーライドステータスコード（オプション）",
     "overrideStatusCodePlaceholder": "例: 400",
     "patternHint": "JavaScript正規表現構文をサポート、例：prompt is too long|invalid.*request",
+    "streamPrefixPatternHint": "stream_prefix_block ルールでは、pattern は予備キーワードとして使われます。実際のスキャン設定は下の description JSON に記入してください。scanLimitBytes にはバイト単位の任意の正整数を指定できます。",
     "patternLabel": "正規表現パターン *",
     "patternPlaceholder": "正規表現を入力...",
     "patternRequired": "正規表現パターンを入力してください",

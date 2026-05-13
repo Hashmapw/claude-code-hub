@@ -54,12 +54,14 @@
     "patternPlaceholder": "输入正则表达式...",
     "patternRequired": "请输入正则模式",
     "patternHint": "支持 JavaScript 正则表达式语法，例如：prompt is too long|invalid.*request",
+    "streamPrefixPatternHint": "stream_prefix_block 规则下，pattern 会作为兜底关键词；实际扫描配置请写在下方 description JSON 中。scanLimitBytes 支持任意正整数，单位是字节。",
     "categoryLabel": "规则类别 *",
     "categoryPlaceholder": "选择规则类别",
     "categoryRequired": "请选择规则类别",
     "categoryHint": "选择规则所属的错误类别，用于分类管理和统计",
     "descriptionLabel": "说明",
     "descriptionPlaceholder": "可选：添加说明...",
+    "streamPrefixDescriptionHint": "示例：{\"scanLimitBytes\":4096,\"keywords\":[\"175877552\"],\"providerIds\":[1,2,3],\"statusCode\":403,\"message\":\"Response blocked by stream prefix policy\"}",
     "invalidRegex": "正则表达式语法错误",
     "regexTester": "正则测试器",
     "testMessageLabel": "测试消息",
@@ -142,7 +144,8 @@
     "thinking_error": "Thinking 格式错误",
     "parameter_error": "参数验证失败",
     "invalid_request": "非法请求",
-    "cache_limit": "缓存控制限制"
+    "cache_limit": "缓存控制限制",
+    "stream_prefix_block": "流前缀拦截"
   },
   "regexTester": {
     "title": "正则测试器",

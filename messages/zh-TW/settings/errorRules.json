@@ -21,7 +21,8 @@
     "parameter_error": "參數驗證失敗",
     "pdf_limit": "PDF 頁數限制",
     "prompt_limit": "Prompt 長度限制",
-    "thinking_error": "Thinking 格式錯誤"
+    "thinking_error": "Thinking 格式錯誤",
+    "stream_prefix_block": "串流前綴攔截"
   },
   "confirmDelete": "確定要刪除錯誤規則「{pattern}」嗎？",
   "defaultRules": {
@@ -43,6 +44,7 @@
     "defaultRuleHint": "預設規則的模式無法修改",
     "descriptionLabel": "說明",
     "descriptionPlaceholder": "選填：新增說明...",
+    "streamPrefixDescriptionHint": "範例：{\"scanLimitBytes\":4096,\"keywords\":[\"175877552\"],\"providerIds\":[1,2,3],\"statusCode\":403,\"message\":\"Response blocked by stream prefix policy\"}",
     "editDescription": "修改錯誤規則設定，更改後將自動重新整理快取。",
     "editTitle": "編輯錯誤規則",
     "enableOverride": "啟用錯誤覆寫",
@@ -61,6 +63,7 @@
     "overrideStatusCodeLabel": "覆寫狀態碼（選填）",
     "overrideStatusCodePlaceholder": "例如：400",
     "patternHint": "支援 JavaScript 正則表達式語法，例如：prompt is too long|invalid.*request",
+    "streamPrefixPatternHint": "在 stream_prefix_block 規則下，pattern 會作為後備關鍵字；實際掃描設定請寫在下方 description JSON 中。scanLimitBytes 支援任意正整數，單位為位元組。",
     "patternLabel": "正則表達式模式 *",
     "patternPlaceholder": "輸入正則表達式...",
     "patternRequired": "請輸入正則表達式模式",

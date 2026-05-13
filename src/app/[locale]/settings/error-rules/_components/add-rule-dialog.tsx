@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { STREAM_PREFIX_BLOCK_CATEGORY } from "@/lib/stream-prefix-block-rule";
 import { cn } from "@/lib/utils";
 import type { ErrorOverrideResponse } from "@/repository/error-rules";
 import { OverrideSection } from "./override-section";
@@ -38,6 +39,7 @@ export function AddRuleDialog() {
   const [enableOverride, setEnableOverride] = useState(false);
   const [overrideResponse, setOverrideResponse] = useState("");
   const [overrideStatusCode, setOverrideStatusCode] = useState<string>("");
+  const isStreamPrefixBlock = category === STREAM_PREFIX_BLOCK_CATEGORY;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,12 +54,13 @@ export function AddRuleDialog() {
       return;
     }
 
-    // Validate regex pattern
-    try {
-      new RegExp(pattern.trim());
-    } catch {
-      toast.error(t("errorRules.dialog.invalidRegex"));
-      return;
+    if (!isStreamPrefixBlock) {
+      try {
+        new RegExp(pattern.trim());
+      } catch {
+        toast.error(t("errorRules.dialog.invalidRegex"));
+        return;
+      }
     }
 
     // Parse and validate override response JSON (only when override is enabled)
@@ -97,7 +100,8 @@ export function AddRuleDialog() {
           | "thinking_error"
           | "parameter_error"
           | "invalid_request"
-          | "cache_limit",
+          | "cache_limit"
+          | "stream_prefix_block",
         description: description.trim() || undefined,
         overrideResponse: parsedOverrideResponse ?? null,
         overrideStatusCode: parsedStatusCode ?? null,
@@ -159,6 +163,11 @@ export function AddRuleDialog() {
                 )}
               />
               <p className="text-xs text-muted-foreground">{t("errorRules.dialog.patternHint")}</p>
+              {isStreamPrefixBlock && (
+                <p className="text-xs text-muted-foreground">
+                  {t("errorRules.dialog.streamPrefixPatternHint")}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -192,6 +201,9 @@ export function AddRuleDialog() {
                   <SelectItem value="cache_limit">
                     {t("errorRules.categories.cache_limit")}
                   </SelectItem>
+                  <SelectItem value="stream_prefix_block">
+                    {t("errorRules.categories.stream_prefix_block")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">{t("errorRules.dialog.categoryHint")}</p>
@@ -216,6 +228,11 @@ export function AddRuleDialog() {
                   "focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                 )}
               />
+              {isStreamPrefixBlock && (
+                <p className="text-xs text-muted-foreground">
+                  {t("errorRules.dialog.streamPrefixDescriptionHint")}
+                </p>
+              )}
             </div>
 
             <OverrideSection
@@ -228,7 +245,7 @@ export function AddRuleDialog() {
               onOverrideStatusCodeChange={setOverrideStatusCode}
             />
 
-            {pattern && (
+            {pattern && !isStreamPrefixBlock && (
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   {t("errorRules.dialog.regexTester")}

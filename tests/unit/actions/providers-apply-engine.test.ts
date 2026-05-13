@@ -1,11 +1,59 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { applyProviderBatchPatch, previewProviderBatchPatch } from "@/actions/providers";
 import { PROVIDER_BATCH_PATCH_ERROR_CODES } from "@/lib/provider-batch-patch-error-codes";
 
-const getSessionMock = vi.fn();
-const findAllProvidersFreshMock = vi.fn();
-const updateProvidersBatchMock = vi.fn();
-const publishCacheInvalidationMock = vi.fn();
-const redisStore = new Map<string, { value: string; expiresAt: number }>();
+const getSessionMock = vi.hoisted(() => vi.fn());
+const findAllProvidersFreshMock = vi.hoisted(() => vi.fn());
+const updateProvidersBatchMock = vi.hoisted(() => vi.fn());
+const publishCacheInvalidationMock = vi.hoisted(() => vi.fn());
+const redisState = vi.hoisted(() => {
+  const store = new Map<string, { value: string; expiresAt: number }>();
+
+  function readValue(key: string): string | null {
+    const entry = store.get(key);
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt <= Date.now()) {
+      store.delete(key);
+      return null;
+    }
+
+    return entry.value;
+  }
+
+  const setex = vi.fn(async (key: string, ttlSeconds: number, value: string) => {
+    store.set(key, {
+      value,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
+    return "OK";
+  });
+
+  const get = vi.fn(async (key: string) => readValue(key));
+
+  const del = vi.fn(async (key: string) => {
+    const existed = store.delete(key);
+    return existed ? 1 : 0;
+  });
+
+  const evalScript = vi.fn(async (_script: string, _numKeys: number, key: string) => {
+    const value = readValue(key);
+    if (value === null) {
+      return null;
+    }
+    store.delete(key);
+    return value;
+  });
+
+  return { store, setex, get, del, evalScript };
+});
+const redisStore = redisState.store;
+const redisSetexMock = redisState.setex;
+const redisGetMock = redisState.get;
+const redisDelMock = redisState.del;
+const redisEvalMock = redisState.evalScript;
 
 function readRedisValue(key: string): string | null {
   const entry = redisStore.get(key);
@@ -20,31 +68,6 @@ function readRedisValue(key: string): string | null {
 
   return entry.value;
 }
-
-const redisSetexMock = vi.fn(async (key: string, ttlSeconds: number, value: string) => {
-  redisStore.set(key, {
-    value,
-    expiresAt: Date.now() + ttlSeconds * 1000,
-  });
-  return "OK";
-});
-
-const redisGetMock = vi.fn(async (key: string) => readRedisValue(key));
-
-const redisDelMock = vi.fn(async (key: string) => {
-  const existed = redisStore.delete(key);
-  return existed ? 1 : 0;
-});
-
-const redisEvalMock = vi.fn(async (_script: string, _numKeys: number, key: string) => {
-  const value = readRedisValue(key);
-  if (value === null) {
-    return null;
-  }
-  redisStore.delete(key);
-  return value;
-});
-
 vi.mock("@/lib/auth", () => ({
   getSession: getSessionMock,
 }));
@@ -150,7 +173,6 @@ function makeProvider(id: number, overrides: Record<string, unknown> = {}) {
 describe("Apply Provider Batch Patch Engine", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     redisStore.clear();
     redisSetexMock.mockClear();
     redisGetMock.mockClear();
@@ -168,10 +190,6 @@ describe("Apply Provider Batch Patch Engine", () => {
     patch: Record<string, unknown>,
     applyOverrides: Record<string, unknown> = {}
   ) {
-    const { previewProviderBatchPatch, applyProviderBatchPatch } = await import(
-      "@/actions/providers"
-    );
-
     const preview = await previewProviderBatchPatch({ providerIds, patch });
     if (!preview.ok) throw new Error(`Preview failed: ${preview.error}`);
 
@@ -299,8 +317,6 @@ describe("Apply Provider Batch Patch Engine", () => {
   });
 
   it("should return PREVIEW_EXPIRED for unknown preview token", async () => {
-    const { applyProviderBatchPatch } = await import("@/actions/providers");
-
     const result = await applyProviderBatchPatch({
       previewToken: "provider_patch_preview_nonexistent",
       previewRevision: "rev",
@@ -315,10 +331,6 @@ describe("Apply Provider Batch Patch Engine", () => {
 
   it("should return PREVIEW_STALE for mismatched patch", async () => {
     findAllProvidersFreshMock.mockResolvedValue([makeProvider(1)]);
-
-    const { previewProviderBatchPatch, applyProviderBatchPatch } = await import(
-      "@/actions/providers"
-    );
 
     const preview = await previewProviderBatchPatch({
       providerIds: [1],
@@ -341,10 +353,6 @@ describe("Apply Provider Batch Patch Engine", () => {
   it("should return cached result for same idempotencyKey without re-writing to DB", async () => {
     findAllProvidersFreshMock.mockResolvedValue([makeProvider(1), makeProvider(2)]);
     updateProvidersBatchMock.mockResolvedValue(2);
-
-    const { previewProviderBatchPatch, applyProviderBatchPatch } = await import(
-      "@/actions/providers"
-    );
 
     const preview = await previewProviderBatchPatch({
       providerIds: [1, 2],
@@ -374,10 +382,6 @@ describe("Apply Provider Batch Patch Engine", () => {
   it("should prevent double-apply by marking snapshot as applied", async () => {
     findAllProvidersFreshMock.mockResolvedValue([makeProvider(1)]);
     updateProvidersBatchMock.mockResolvedValue(1);
-
-    const { previewProviderBatchPatch, applyProviderBatchPatch } = await import(
-      "@/actions/providers"
-    );
 
     const preview = await previewProviderBatchPatch({
       providerIds: [1],

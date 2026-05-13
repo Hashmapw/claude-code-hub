@@ -13,6 +13,7 @@
 5. VIP 高成本分组提醒 `vip_group_usage` 全链路接入
 6. Key Soft Block 的 Redis 写入、Redis 回读、代理拦截与编辑回填闭环
 7. opencode 调用 Claude `/v1/messages` 时自动追加 `beta=true`
+8. 基于错误规则的流式前缀拦截 `stream_prefix_block`
 
 ## 1. SII Notebook / VSCode 深层代理前缀
 
@@ -185,27 +186,117 @@ beta=true
 - 仅作用于 Claude Messages。
 - 调用方已经显式传入 `beta=...` 时保持原值。
 
-## 7. 验证结果
+## 7. 基于错误规则的流式前缀拦截
 
-本次 v0.7.3 回补后的本地验证命令：
+当前 `main` / `0.7.3` 还额外补了一条**不增加数据库字段**的运行时能力：
+
+- 目标：对于流式 SSE 响应，如果前缀扫描窗口内命中指定关键词，则**整条流不再下发给客户端**。
+- 配置载体：继续复用现有 error rules，不新增 schema / migration。
+- 规则类别：`stream_prefix_block`。
+
+相关文件：
+
+- `src/lib/stream-prefix-block-rule.ts`
+- `src/lib/error-rule-detector.ts`
+- `src/app/v1/_lib/proxy/response-handler.ts`
+- `src/actions/error-rules.ts`
+- `src/app/[locale]/settings/error-rules/_components/add-rule-dialog.tsx`
+- `src/app/[locale]/settings/error-rules/_components/edit-rule-dialog.tsx`
+- `src/app/[locale]/settings/error-rules/_components/rule-list-table.tsx`
+
+### 7.1 配置约定
+
+规则仍然通过 dashboard 的 Error Rules 页面录入，但字段语义有额外约定：
+
+- 界面“规则类别”显示名：`流前缀拦截`
+- `category = stream_prefix_block`
+- `pattern`：兜底关键词
+- `description`：JSON 配置
+- `matchType`：在 action 层会被强制收敛为 `contains` 语义，不走 regex 校验与测试器逻辑
+
+`description` JSON 示例：
+
+```json
+{
+  "scanLimitBytes": 4096,
+  "keywords": ["175877552", "公益token通知群"],
+  "providerIds": [12, 18, 33],
+  "statusCode": 403,
+  "message": "Response blocked by stream prefix policy"
+}
+```
+
+字段语义：
+
+- `scanLimitBytes`：支持任意正整数，单位是字节；默认 `65536`。
+- `keywords`：实际扫描关键词数组；若留空，则回退使用 `pattern`。
+- `providerIds`：仅对指定 provider 生效；缺省表示全局生效。
+- `statusCode`：命中后返回给客户端的状态码，默认 `403`。
+- `message`：命中后返回给客户端的错误文案。
+- 若同时配置了 rule 自带的 `overrideResponse` / `overrideStatusCode`，则仍按现有错误规则覆写机制生效；
+  其中 `overrideStatusCode` 优先级高于 `description.statusCode`。
+
+### 7.2 运行时行为
+
+当前实现走的是“严格版前缀门禁”，而不是命中后才中途掐断的普通流式模式：
+
+1. 仅当当前 provider 命中 `providerIds` 范围时才启用。
+2. 在把 SSE 响应发给客户端前，先读取 `scanLimitBytes` 指定的前缀窗口。
+3. 若命中关键词：
+   - 立即取消上游 reader
+   - 中止当前响应控制器
+   - 释放会话 / agent 占用
+   - 记录请求失败
+   - 直接返回 JSON 错误响应
+4. 若未命中：
+   - 将已读前缀 chunk 回吐
+   - 后续继续透传整条 SSE 流
+
+这保证了：**一旦命中，客户端看不到任何部分 SSE 内容**。
+
+补充说明：
+
+- 检查发生在前缀窗口读取完成、真正把响应继续透传给客户端之前，因此命中时会直接返回配置的非 2xx JSON 错误；
+  **不会出现“先给 200，再在 SSE 中途塞一个错误”** 的混合行为。
+- 单请求的额外内存开销只与前缀扫描窗口有关。当前默认窗口是 `64 KiB`，但可以改成更小的任意正整数；
+  也就是说，严格版前缀门禁的额外缓冲上限就是一个前缀窗口加对应的解码字符串开销，而不是把整条流完整读入内存。
+
+### 7.3 维护约束
+
+- 继续保持“错误规则 + description JSON”方案，不要偷偷引入新的 DB 字段。
+- provider 作用域、扫描窗口、关键词语义都必须在 UI / action / runtime 保持一致。
+- 该规则只作用于流式响应前缀门禁，不应污染普通 contains / exact / regex 错误匹配链。
+- 规则缓存 reload 时，如果 `description` 不是合法 JSON、`pattern` 与 `keywords` 最终都为空，运行时会忽略该规则并打 warning，
+  而不是让整套 error rules 加载失败。
+
+### 7.4 相关测试覆盖
+
+这轮为 `stream_prefix_block` 及其联动补了对应回归：
+
+- `tests/unit/lib/stream-prefix-block-rule.test.ts`
+- `tests/unit/proxy/response-handler-stream-prefix-block.test.ts`
+- `tests/integration/error-rule-detector.test.ts`
+- `tests/integration/proxy-errors.test.ts`
+- `tests/integration/e2e-error-rules.test.ts`
+
+## 8. 验证结果
+
+当前这轮文档同步时，实际重新执行并确认通过的是：
 
 ```bash
-bun run lint:fix
-bun run lint
-bun run typecheck
-bun run build
-DSN= bun run test
+ALLOW_NON_TEST_DB=true bun run test
 ```
 
 验证结果：
 
-- `bun run lint:fix` 通过。
-- `bun run lint` 通过。
-- `bun run typecheck` 通过。
-- `bun run build` 通过。
-- `DSN= bun run test` 全量通过：`560 passed | 2 skipped`，`5235 passed | 13 skipped`。
+- 全量 Vitest 通过：`563 passed | 1 skipped`，`5250 passed | 3 skipped`。
 
-## 8. 后续维护约束
+说明：
+
+- 本轮重点是把新增的 `stream_prefix_block` 与相关回归测试修齐，因此这里记录的是**这轮实际重跑并拿到结果**的命令。
+- `build / lint / typecheck` 如果后续需要做提交流水线闭环，应再单独重跑，并在文档里按最新结果更新。
+
+## 9. 后续维护约束
 
 后续修改时必须优先保持以下一致性：
 
