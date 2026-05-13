@@ -26,7 +26,9 @@ describe("stream-prefix-block-rule", () => {
     expect(validateStreamPrefixBlockDescription(JSON.stringify({ scanLimitBytes: 0 }))).toBe(
       "scanLimitBytes 必须是大于 0 的整数"
     );
-    expect(validateStreamPrefixBlockDescription(JSON.stringify({ scanLimitBytes: 12345 }))).toBeNull();
+    expect(
+      validateStreamPrefixBlockDescription(JSON.stringify({ scanLimitBytes: 12345 }))
+    ).toBeNull();
     expect(validateStreamPrefixBlockDescription(JSON.stringify({ keywords: [] }))).toBe(
       "keywords 必须是非空字符串数组"
     );
