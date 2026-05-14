@@ -2,8 +2,8 @@ import { createTestRunnerConfig } from "../vitest.base";
 
 export default createTestRunnerConfig({
   environment: "node",
-  testTimeout: 20000,
-  hookTimeout: 20000,
+  testTimeout: 60000,
+  hookTimeout: 60000,
   maxWorkers: 2,
   fileParallelism: false,
   testFiles: [

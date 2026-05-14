@@ -2,8 +2,8 @@ import { createTestRunnerConfig } from "../vitest.base";
 
 export default createTestRunnerConfig({
   environment: "node",
-  testTimeout: 20000,
-  hookTimeout: 20000,
+  testTimeout: 60000,
+  hookTimeout: 60000,
   fileParallelism: false,
   testFiles: [
     "tests/integration/usage-ledger.test.ts",

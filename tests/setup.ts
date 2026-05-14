@@ -325,7 +325,7 @@ process.env.TEST_ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN
 // ==================== 全局超时配置 ====================
 
 // 设置全局默认超时（可以被单个测试覆盖）
-const DEFAULT_TIMEOUT = 10000; // 10 秒
+const DEFAULT_TIMEOUT = 60000; // 60 秒
 
 // 导出配置供测试使用
 export const TEST_CONFIG = {

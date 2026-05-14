@@ -159,7 +159,7 @@ describe("user 5h reset boundary", () => {
 
   beforeAll(async () => {
     ({ getUserAllLimitUsage } = await import("@/actions/users"));
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

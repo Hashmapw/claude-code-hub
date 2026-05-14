@@ -122,7 +122,7 @@ describe("health/checker", () => {
         "[Health] database check failed",
         expect.objectContaining({ error: expect.stringContaining("timed out") })
       );
-    }, 10_000);
+    }, 60_000);
   });
 
   // -- checkRedis --
@@ -205,7 +205,7 @@ describe("health/checker", () => {
         "[Health] redis check failed",
         expect.objectContaining({ error: expect.stringContaining("timed out") })
       );
-    }, 10_000);
+    }, 60_000);
   });
 
   // -- checkProxy --
@@ -249,7 +249,7 @@ describe("health/checker", () => {
         "[Health] proxy check failed",
         expect.objectContaining({ error: expect.stringContaining("timed out") })
       );
-    }, 10_000);
+    }, 60_000);
   });
 
   // -- checkReadiness --

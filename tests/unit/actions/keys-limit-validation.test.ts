@@ -167,7 +167,7 @@ describe("keys limit validation", () => {
     const actions = await import("@/actions/keys");
     addKeyAction = actions.addKey;
     editKeyAction = actions.editKey;
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

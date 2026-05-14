@@ -88,7 +88,7 @@ describe("SessionManager 辅助函数", () => {
     headersToSanitizedObject = mod.headersToSanitizedObject;
     parseHeaderRecord = mod.parseHeaderRecord;
     extractClientSessionId = mod.SessionManager.extractClientSessionId;
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

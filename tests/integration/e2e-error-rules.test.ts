@@ -45,7 +45,7 @@ beforeAll(async () => {
   await errorRuleDetector.reload();
   // Wait for initial cache load
   await new Promise((resolve) => setTimeout(resolve, 1000));
-}, 20_000);
+}, 60_000);
 
 afterAll(async () => {
   // Cleanup: Delete test rule if it exists

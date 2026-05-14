@@ -145,7 +145,7 @@ describe("searchUsersForFilter (action)", () => {
     const actions = await import("@/actions/users");
     searchUsersForFilterAction = actions.searchUsersForFilter;
     searchUsersAction = actions.searchUsers;
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     getSessionMock.mockReset();

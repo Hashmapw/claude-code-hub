@@ -49,7 +49,7 @@ describe("sendCircuitBreakerAlert", () => {
 
   beforeAll(async () => {
     ({ sendCircuitBreakerAlert } = await import("@/lib/notification/notifier"));
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

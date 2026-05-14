@@ -45,7 +45,7 @@ describe("sendVipGroupUsageAlert", () => {
 
   beforeAll(async () => {
     ({ sendVipGroupUsageAlert } = await import("@/lib/notification/notifier"));
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

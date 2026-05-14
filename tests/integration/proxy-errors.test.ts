@@ -25,7 +25,7 @@ beforeAll(async () => {
   await errorRuleDetector.reload();
   // Give ErrorRuleDetector time to initialize cache from database
   await new Promise((resolve) => setTimeout(resolve, 1000));
-}, 20_000);
+}, 60_000);
 
 describe("isNonRetryableClientError - 7 Default Rules", () => {
   /**

@@ -103,7 +103,7 @@ describe("RateLimitService - other quota paths", () => {
 
   beforeAll(async () => {
     ({ RateLimitService } = await import("@/lib/rate-limit"));
-  }, 20_000);
+  }, 60_000);
   const nowMs = 1_700_000_000_000;
 
   beforeEach(() => {

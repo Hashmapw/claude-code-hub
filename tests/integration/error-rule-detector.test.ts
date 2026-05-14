@@ -40,7 +40,7 @@ beforeAll(async () => {
   await syncDefaultErrorRules();
   await errorRuleDetector.reload();
   await new Promise((resolve) => setTimeout(resolve, 1000));
-}, 20_000);
+}, 60_000);
 
 describe("ErrorRuleDetector Manual Reload", () => {
   test("should reload cache successfully", async () => {

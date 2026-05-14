@@ -86,11 +86,19 @@ COALESCE(originalModel, model)
 - summary / breakdown 聚合按 `COALESCE(originalModel, model)`。
 - usage logs 查询、筛选、统计与 distinct model 列表使用同一模型来源。
 - message_request 与 usage_ledger 两条路径保持同一语义。
+- 只读 my-usage API 的 `startDate` / `endDate` 继续按 **system timezone** 解释；测试与排障时不能直接拿 UTC
+  `toISOString().slice(0, 10)` 当成查询日历日，而应使用与 `resolveSystemTimezone()` 同口径的
+  `YYYY-MM-DD`。
+- 为避免跨日边界导致的伪失败，readonly my-usage 的 DB 集成测试时间戳固定会额外回退 10 分钟，
+  让“当天”用例稳定落在服务端时区同一天窗口内。
 
 维护约束：
 
 - 展示、筛选、聚合、模型下拉与统计摘要必须保持同一语义。
 - 如果 UI 选择原始模型优先，SQL 层也必须统一使用 `COALESCE(originalModel, model)`。
+- 若接口参数仍使用 `startDate` / `endDate` 字符串，则调用方、测试辅助函数与文档样例都必须和
+  `parseDateRangeInServerTimezone()` 保持同一时区口径；否则容易出现“full batch 有数据但 summary 为 0”
+  的假失败。
 
 ## 4. VIP 高成本分组提醒
 
@@ -303,6 +311,24 @@ DSN= AUTO_CLEANUP_TEST_DATA=false bunx vitest run \
 
 - `typecheck` 通过。
 - 上述 `stream_prefix_block` 相关定向回归通过：`3 files, 9 tests passed`。
+- readonly my-usage 这轮新增补充验证：
+
+  ```bash
+  ALLOW_NON_TEST_DB=true bunx vitest run -c tests/configs/my-usage.config.ts \
+    tests/api/my-usage-readonly.test.ts
+  ```
+
+  结果：`1 file, 10 tests passed`。
+- 在允许非 test DB 的现场约束下，已额外完成 full suite 验证：
+
+  ```bash
+  ALLOW_NON_TEST_DB=true bun run test
+  ```
+
+  结果：`564 passed | 1 skipped (565 files)`，`5257 passed | 3 skipped (5260 tests)`，
+  总耗时 `133.23s`（2026-05-14 现场实跑）。
+- 这轮 my-usage readonly 修复结论也一并记录：失败根因是**测试日期字符串与服务端时区口径不一致**，
+  不是 `getMyStatsSummary` 聚合 SQL 或 imported ledger 合并逻辑回退。
 
 说明：
 

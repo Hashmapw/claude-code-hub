@@ -116,7 +116,7 @@ describe("public-status config publisher", () => {
         }),
       })
     );
-  }, 120_000);
+  }, 60_000);
 
   it("uses shared model-prefix matching for vendor icons without changing request type badges", async () => {
     mockFindAllProviderGroups.mockResolvedValue([
@@ -169,7 +169,7 @@ describe("public-status config publisher", () => {
         }),
       })
     );
-  }, 120_000);
+  }, 60_000);
 
   it("uses model price metadata to derive public labels and vendor icons", async () => {
     mockFindAllProviderGroups.mockResolvedValue([
@@ -222,7 +222,7 @@ describe("public-status config publisher", () => {
         }),
       })
     );
-  }, 120_000);
+  }, 60_000);
 
   it("publishes internal snapshot sourceGroupName for default group while public snapshot keeps custom slug", async () => {
     mockFindAllProviderGroups.mockResolvedValue([
@@ -272,7 +272,7 @@ describe("public-status config publisher", () => {
         }),
       })
     );
-  }, 120_000);
+  }, 60_000);
 
   it("publishes a Redis config projection when stored legacy group slugs collide", async () => {
     mockFindAllProviderGroups.mockResolvedValue([
@@ -321,5 +321,5 @@ describe("public-status config publisher", () => {
         }),
       })
     );
-  }, 120_000);
+  }, 60_000);
 });

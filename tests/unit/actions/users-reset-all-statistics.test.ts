@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { ERROR_CODES } from "@/lib/utils/error-messages";
 
 // Mock getSession
@@ -100,13 +100,9 @@ vi.mock("@/lib/redis/cost-cache-cleanup", () => ({
   clearUserCostCache: clearUserCostCacheMock,
 }));
 
+const { resetUserAllStatistics } = await import("@/actions/users");
+
 describe("resetUserAllStatistics", () => {
-  let resetUserAllStatistics: typeof import("@/actions/users").resetUserAllStatistics;
-
-  beforeAll(async () => {
-    ({ resetUserAllStatistics } = await import("@/actions/users"));
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     redisMock.status = "ready";

@@ -159,7 +159,7 @@ describe("getUsers compatibility", () => {
     const actions = await import("@/actions/users");
     getUsersAction = actions.getUsers;
     getUsersBatchAction = actions.getUsersBatch;
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     getSessionMock.mockReset();

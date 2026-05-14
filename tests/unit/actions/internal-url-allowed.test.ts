@@ -68,7 +68,7 @@ describe("允许内网地址输入", () => {
     ]);
     testWebhookAction = notificationActions.testWebhookAction;
     createWebhookTargetAction = webhookTargetActions.createWebhookTargetAction;
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

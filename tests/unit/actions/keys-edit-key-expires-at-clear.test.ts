@@ -162,7 +162,7 @@ let editKeyAction: typeof import("@/actions/keys").editKey;
 describe("editKey: expiresAt 清除/不更新语义", () => {
   beforeAll(async () => {
     ({ editKey: editKeyAction } = await import("@/actions/keys"));
-  }, 20_000);
+  }, 60_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

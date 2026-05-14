@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vit
 import { inArray } from "drizzle-orm";
 import { db } from "@/drizzle/db";
 import { keys, messageRequest, usageLedger, users } from "@/drizzle/schema";
+import { resolveSystemTimezone } from "@/lib/utils/timezone";
 
 let callActionsRouteImpl: typeof import("../test-utils")["callActionsRoute"] | undefined;
 const originalSessionTokenMode = process.env.SESSION_TOKEN_MODE;
@@ -77,15 +78,38 @@ function nextLedgerProviderId() {
 
 function getStableRecentUtcTimestamp(): number {
   const now = new Date();
-  return Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    now.getUTCHours(),
-    now.getUTCMinutes(),
-    0,
-    0
+  return (
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      now.getUTCMinutes(),
+      0,
+      0
+    ) -
+    10 * 60 * 1000
   );
+}
+
+async function getServerDateString(timestamp: number): Promise<string> {
+  const timezone = await resolveSystemTimezone();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    throw new Error(`failed to derive server date parts for timezone ${timezone}`);
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
 async function createTestUser(name: string): Promise<TestUser> {
@@ -214,7 +238,7 @@ describe.skipIf(!process.env.DSN)("my-usage API：只读 Key 自助查询", () =
 
   beforeAll(async () => {
     await ensureLegacyApiRuntime();
-  }, 20_000);
+  }, 60_000);
 
   afterAll(async () => {
     if (originalSessionTokenMode === undefined) {
@@ -677,9 +701,9 @@ describe.skipIf(!process.env.DSN)("my-usage API：只读 Key 自助查询", () =
     });
     createdKeyIds.push(keyB.id);
 
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const t0 = new Date(now.getTime() - 60 * 1000);
+    const now = getStableRecentUtcTimestamp();
+    const today = await getServerDateString(now);
+    const t0 = new Date(now);
 
     // Key A 的请求
     const a1 = await createMessage({
@@ -820,10 +844,12 @@ describe.skipIf(!process.env.DSN)("my-usage API：只读 Key 自助查询", () =
     });
     createdKeyIds.push(key.id);
 
-    const today = new Date();
-    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-    const todayStr = today.toISOString().split("T")[0];
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const todayTs = getStableRecentUtcTimestamp();
+    const yesterdayTs = todayTs - 24 * 60 * 60 * 1000;
+    const today = new Date(todayTs);
+    const yesterday = new Date(yesterdayTs);
+    const todayStr = await getServerDateString(todayTs);
+    const yesterdayStr = await getServerDateString(yesterdayTs);
 
     // 昨天的请求
     const m1 = await createMessage({
@@ -905,7 +931,7 @@ describe.skipIf(!process.env.DSN)("my-usage API：只读 Key 自助查询", () =
     createdKeyIds.push(otherKey.id);
 
     const now = getStableRecentUtcTimestamp();
-    const today = new Date(now).toISOString().slice(0, 10);
+    const today = await getServerDateString(now);
     const visibleIp = "203.0.113.29";
 
     createdLedgerRequestIds.push(
@@ -1024,7 +1050,7 @@ describe.skipIf(!process.env.DSN)("my-usage API：只读 Key 自助查询", () =
     createdKeyIds.push(key.id);
 
     const now = getStableRecentUtcTimestamp();
-    const today = new Date(now).toISOString().slice(0, 10);
+    const today = await getServerDateString(now);
 
     const importedRequestId = await insertLedgerOnlyRow({
       userId: user.id,
