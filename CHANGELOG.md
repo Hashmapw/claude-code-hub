@@ -4,6 +4,31 @@
 
 ---
 
+## v0.8.1.1 (2026-05-18)
+
+### 新增
+
+- 回补 SII Notebook / VSCode 深层代理前缀支持，统一默认代理端口为 3000，并补齐登录跳转、前端 fetch/navigation、静态资源 `assetPrefix` 与 workspace-aware redirect 的 base path 处理。
+- 新增登录页公开 branding 接口 `/api/public/site-info`，登录页版本、站点标题和登录提交均走 base-path-aware `apiFetch`，并在登录页隐藏公共 footer 避免重复品牌信息。
+- 新增 Key Soft Block Redis-only 临时限制能力，支持新增/编辑 Key 时配置软封禁提示，Key 列表和编辑弹窗回填 Redis 状态，主请求与 `/v1/models` 命中后统一返回 `401 user_disabled`。
+- 新增 VIP 高成本分组使用提醒 `vip_group_usage`，接入 Redis 运行时配置、通知绑定、队列、Webhook 模板、测试消息与通知设置界面，默认启用且冷却窗口为 300 秒。
+- 新增 `stream_prefix_block` 错误规则类别，复用 error rules 的 `description` JSON 配置实现流式 SSE 前缀门禁、provider fallback 和最终 JSON 错误响应。
+- 为 opencode 访问 Claude Messages `/v1/messages` 自动追加 `beta=true`，仅对 `claude` / `claude-auth` provider 生效，且不覆盖调用方已有 `beta` 参数。
+
+### 优化
+
+- my-usage 与 usage logs 的模型展示、筛选、聚合和 distinct model 列表统一采用 `COALESCE(originalModel, model)` 的原始模型优先语义，并补齐 usage ledger-only 场景的模型筛选来源。
+- Error Rules 页面补齐 `stream_prefix_block` 的五语言显示、兜底关键词文案、JSON 配置摘要展示和非 regex 校验路径。
+- 0.8.1.1 发布准备中修复 release workflow 的版本文件更新脚本，并为四段 hotfix 版本保留 `workflow_dispatch` 的 `release` 发布路径。
+
+### 修复
+
+- 修复登录页 branding 仍访问旧 `/api/public-site-meta` 路径的问题，改为使用最小公开接口 `/api/public/site-info`。
+- 修复 stream prefix block 全部 provider 均失败时未应用规则 `overrideResponse`、缺少专用 JSON details 的问题。
+- 修复 footer wrapper 在 `/login/` 尾斜杠路径下仍显示公共 footer 的边界问题。
+
+---
+
 ## v0.7.4 (2026-04-28)
 
 ### 修复

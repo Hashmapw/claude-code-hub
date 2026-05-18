@@ -253,7 +253,7 @@
         "responseModelLabel": "Actual Response Model",
         "mismatchTooltip": "The upstream provider returned a different model than the one requested. Billing is still based on the requested model.",
         "secondaryLineAriaLabel": "Actual response model: {model}",
-        "arrowPrefix": "\u21b3"
+        "arrowPrefix": "↳"
       },
       "errorMessage": "Error Message",
       "fake200ForwardedNotice": "Note: For streaming requests, this failure may be detected only after the stream ends; the response content may already have been forwarded to the client.",
@@ -1936,7 +1936,9 @@
       "clickToDisableKey": "Click to disable key",
       "clickToEnableKey": "Click to enable key",
       "operationFailed": "Operation failed",
-      "clickToQuickRenew": "Click to quick renew"
+      "clickToQuickRenew": "Click to quick renew",
+      "softBlocked": "Soft blocked",
+      "softBlockedDescription": "This key is currently temporarily restricted"
     },
     "userStatus": {
       "enabled": "Enabled",
@@ -2081,6 +2083,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Temporarily block key usage",
+          "descriptionEnabled": "When enabled, all requests using this key will be intercepted immediately and return the custom message below.",
+          "descriptionDisabled": "When disabled, this key can continue sending requests normally.",
+          "messageLabel": "Block message",
+          "messagePlaceholder": "Enter the message returned to the user when requests are blocked",
+          "messageDescription": "Shown directly to the client when this key is temporarily blocked. Maximum 500 characters."
         }
       },
       "limitRules": {

@@ -1,29 +1,23 @@
 {
   "_comment": "Error messages for Japanese",
-
   "REQUIRED_FIELD": "{field}は必須です",
   "USER_NAME_REQUIRED": "ユーザー名は必須です",
   "API_KEY_REQUIRED": "APIキーは必須です",
   "PROVIDER_NAME_REQUIRED": "プロバイダー名は必須です",
   "PROVIDER_URL_REQUIRED": "プロバイダーURLは必須です",
-
   "MIN_LENGTH": "{field}は{min}文字以上である必要があります",
   "MAX_LENGTH": "{field}は{max}文字を超えることはできません",
   "INVALID_EMAIL": "有効なメールアドレスを入力してください",
   "INVALID_URL": "有効なURLを入力してください",
-
   "MIN_VALUE": "{field}は{min}以上である必要があります",
   "MAX_VALUE": "{field}は{max}を超えることはできません",
   "MUST_BE_INTEGER": "{field}は整数である必要があります",
   "MUST_BE_POSITIVE": "{field}は正の数である必要があります",
-
   "INVALID_TYPE": "{field}のタイプが無効です",
   "INVALID_FORMAT": "{field}の形式が無効です",
-
   "DUPLICATE_NAME": "名前'{name}'は既に存在します",
   "INVALID_RANGE": "{field}は{min}から{max}の間である必要があります",
   "EMPTY_UPDATE": "更新するフィールドがありません",
-
   "UNAUTHORIZED": "未承認です。ログインしてください",
   "INVALID_CREDENTIALS": "無効なユーザー名またはパスワード",
   "SESSION_EXPIRED": "セッションが期限切れです。再度ログインしてください",
@@ -33,7 +27,10 @@
   "PROXY_INVALID_API_KEY": "API キーが無効です。指定されたキーは存在しないか、削除されています。",
   "PROXY_API_KEY_DISABLED": "この API キーは無効化されています。管理者に再有効化を依頼するか、別のキーをご使用ください。",
   "PROXY_API_KEY_EXPIRED": "この API キーは期限切れです。管理者に更新を依頼するか、新しいキーへ切り替えてください。",
-
+  "PROXY_USER_DISABLED": "ユーザーアカウントは無効化されています。管理者にお問い合わせください。",
+  "PROXY_USER_EXPIRED": "ユーザーアカウントは {date} に期限切れになりました。サブスクリプションを更新してください。",
+  "PROXY_KEY_SOFT_BLOCKED": "このキーは一時的に利用が制限されています。管理者にお問い合わせください。",
+  "STREAM_PREFIX_BLOCKED": "レスポンスはストリームプレフィックスポリシーによりブロックされました",
   "INTERNAL_ERROR": "内部サーバーエラー、後でもう一度お試しください",
   "DATABASE_ERROR": "データベースエラー",
   "NOT_FOUND": "リソースが見つかりません",
@@ -48,11 +45,9 @@
   "CREATE_FAILED": "作成に失敗しました。後でもう一度お試しください",
   "UPDATE_FAILED": "更新に失敗しました。後でもう一度お試しください",
   "DELETE_FAILED": "削除に失敗しました。後でもう一度お試しください",
-
   "CONNECTION_FAILED": "接続に失敗しました",
   "TIMEOUT": "リクエストがタイムアウトしました",
   "NETWORK_ERROR": "ネットワークエラー",
-
   "QUOTA_EXCEEDED": "クォータを超過しました",
   "BATCH_SIZE_EXCEEDED": "一括操作は {max} 件を超えることはできません",
   "RATE_LIMIT_EXCEEDED": "リクエストが多すぎます。後でもう一度お試しください",
@@ -69,14 +64,12 @@
   "INVALID_STATE": "現在の状態では操作が許可されていません",
   "CONFLICT": "操作の競合",
   "ENDPOINT_REFERENCED_BY_ENABLED_PROVIDERS": "このエンドポイントは {count} 件の有効なプロバイダーから参照されています: {providers}",
-
   "USER_NOT_FOUND": "ユーザーが見つかりません",
   "USER_CANNOT_MODIFY_SENSITIVE_FIELDS": "一般ユーザーはクォータ制限とプロバイダーグループを変更できません",
   "CREATE_USER_FAILED": "ユーザーの作成に失敗しました。後でもう一度お試しください",
   "UPDATE_USER_FAILED": "ユーザーの更新に失敗しました。後でもう一度お試しください",
   "DELETE_USER_FAILED": "ユーザーの削除に失敗しました。後でもう一度お試しください",
   "GET_USER_QUOTA_FAILED": "ユーザークォータ情報の取得に失敗しました",
-
   "KEY_NOT_FOUND": "キーが見つかりません",
   "CREATE_KEY_FAILED": "キーの作成に失敗しました。後でもう一度お試しください",
   "UPDATE_KEY_FAILED": "キーの更新に失敗しました。後でもう一度お試しください",
@@ -94,5 +87,20 @@
   "EXPIRES_AT_TOO_FAR": "有効期限は10年を超えることはできません",
   "CANNOT_DISABLE_SELF": "自分のアカウントを無効にすることはできません",
   "NO_DEFAULT_GROUP_PERMISSION": "defaultグループを使用する権限がありません。defaultグループのキーを持っていません",
-  "NO_GROUP_PERMISSION": "以下のグループを使用する権限がありません: {groups}"
+  "NO_GROUP_PERMISSION": "以下のグループを使用する権限がありません: {groups}",
+  "STREAM_PREFIX_BLOCK_DESCRIPTION_OBJECT_REQUIRED": "ストリーム接頭辞ブロックの description は JSON オブジェクトである必要があります",
+  "STREAM_PREFIX_BLOCK_DESCRIPTION_INVALID_JSON": "ストリーム接頭辞ブロックの description は有効な JSON である必要があります",
+  "STREAM_PREFIX_BLOCK_SCAN_LIMIT_INVALID": "scanLimitBytes は 0 より大きい整数である必要があります",
+  "STREAM_PREFIX_BLOCK_KEYWORDS_INVALID": "keywords は空でない文字列配列である必要があります",
+  "STREAM_PREFIX_BLOCK_PROVIDER_IDS_INVALID": "providerIds は正の整数配列である必要があります",
+  "STREAM_PREFIX_BLOCK_STATUS_CODE_INVALID": "statusCode は 400 から 599 の整数である必要があります",
+  "STREAM_PREFIX_BLOCK_MESSAGE_INVALID": "message は空でない文字列である必要があります",
+  "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis が利用できないため、キーの一時ブロック設定を保存できません",
+  "KEY_SOFT_BLOCK_SAVE_FAILED": "キーの一時ブロック設定の保存に失敗しました",
+  "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "キーは保存されましたが、一時ブロック設定の保存に失敗しました。後でもう一度このキーを編集してください",
+  "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis が利用できないため、VIP グループ利用アラート設定を保存できません",
+  "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "VIP グループ利用アラート設定の保存に失敗しました",
+  "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "通知設定は一部保存されましたが、VIP グループ利用アラート設定の保存に失敗しました。後でもう一度お試しください",
+  "KEY_SOFT_BLOCK_MESSAGE_TOO_LONG": "ブロックメッセージは500文字以内で入力してください",
+  "KEY_SOFT_BLOCK_MESSAGE_REQUIRED": "一時ブロックを有効にする場合はブロックメッセージが必要です"
 }

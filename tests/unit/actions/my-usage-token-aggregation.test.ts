@@ -159,6 +159,9 @@ describe("my-usage token aggregation", () => {
     const capturedSelections: Array<Record<string, unknown>> = [];
     const selectQueue: any[] = [];
     selectQueue.push(createThenableQuery([]));
+    selectQueue.push(createThenableQuery([]));
+    selectQueue.push(createThenableQuery([]));
+    selectQueue.push(createThenableQuery([]));
 
     mocks.select.mockImplementation((selection: unknown) => {
       capturedSelections.push(selection as Record<string, unknown>);
@@ -193,26 +196,21 @@ describe("my-usage token aggregation", () => {
     const res = await getMyStatsSummary({ startDate: "2024-01-01", endDate: "2024-01-01" });
     expect(res.ok).toBe(true);
 
-    expect(capturedSelections).toHaveLength(1);
+    expect(capturedSelections).toHaveLength(4);
 
-    const selection = capturedSelections[0];
     const tokenFields = [
-      "userInputTokens",
-      "userOutputTokens",
-      "userCacheCreationTokens",
-      "userCacheReadTokens",
-      "userCacheCreation5mTokens",
-      "userCacheCreation1hTokens",
-      "keyInputTokens",
-      "keyOutputTokens",
-      "keyCacheCreationTokens",
-      "keyCacheReadTokens",
-      "keyCacheCreation5mTokens",
-      "keyCacheCreation1hTokens",
+      "inputTokens",
+      "outputTokens",
+      "cacheCreationTokens",
+      "cacheReadTokens",
+      "cacheCreation5mTokens",
+      "cacheCreation1hTokens",
     ];
 
-    for (const field of tokenFields) {
-      expectNoIntTokenSum(selection, field);
+    for (const selection of capturedSelections) {
+      for (const field of tokenFields) {
+        expectNoIntTokenSum(selection, field);
+      }
     }
   });
 });

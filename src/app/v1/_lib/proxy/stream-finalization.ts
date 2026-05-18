@@ -20,6 +20,7 @@ export type DeferredStreamingFinalization = {
   providerId: number;
   providerName: string;
   providerPriority: number;
+  providerGroupTag?: string | null;
   attemptNumber: number;
   totalProvidersAttempted: number;
   isFirstAttempt: boolean;

@@ -15,6 +15,16 @@ config({ path: ".env.test", quiet: true });
 // 降级加载 .env
 config({ path: ".env", quiet: true });
 
+// ==================== 环境变量默认值 ====================
+
+// 设置测试环境默认值。这里故意让测试进程使用固定 ADMIN_TOKEN，避免本地 .env
+// 中的真实 ADMIN_TOKEN 影响 v1 管理 API 的鉴权分类，导致硬编码测试凭据被误判为
+// header-sourced user API key。
+process.env.NODE_ENV = process.env.NODE_ENV || "test";
+process.env.API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
+process.env.ADMIN_TOKEN = "admin-token";
+process.env.TEST_ADMIN_TOKEN = "admin-token";
+
 // ==================== 全局前置钩子 ====================
 
 beforeAll(async () => {
@@ -350,15 +360,6 @@ global.console.error = (...args: unknown[]) => {
     originalConsoleError(...args);
   }
 };
-
-// ==================== 环境变量默认值 ====================
-
-// 设置测试环境默认值（如果未配置）
-process.env.NODE_ENV = process.env.NODE_ENV || "test";
-process.env.API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
-// 便于 API 测试复用 ADMIN_TOKEN（validateKey 支持该 token 直通管理员会话）
-process.env.ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-token";
-process.env.TEST_ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN_TOKEN;
 
 // ==================== React act 环境标记 ====================
 // React 18+ 在测试环境中会检查该标记，避免出现 “not configured to support act(...)” 的噪声警告。

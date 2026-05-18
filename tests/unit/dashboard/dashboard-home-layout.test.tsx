@@ -211,6 +211,7 @@ describe("DashboardBento admin layout", () => {
         currencyCode="USD"
         allowGlobalUsageView={false}
         enableHighConcurrencyMode={true}
+        initialOverview={mockOverviewData}
         initialStatistics={mockStatisticsData}
       />
     );

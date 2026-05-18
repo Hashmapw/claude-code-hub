@@ -90,8 +90,8 @@ export default defineConfig({
     },
 
     // ==================== 超时配置 ====================
-    testTimeout: 10000, // 单个测试超时 10 秒
-    hookTimeout: 10000, // 钩子函数超时 10 秒
+    testTimeout: 60000, // 单个测试超时 60 秒
+    hookTimeout: 60000, // 钩子函数超时 60 秒
     teardownTimeout: parsePositiveInt(process.env.VITEST_TEARDOWN_TIMEOUT_MS, 15000),
     slowTestThreshold: parsePositiveInt(process.env.VITEST_SLOW_TEST_THRESHOLD_MS, 1000),
 

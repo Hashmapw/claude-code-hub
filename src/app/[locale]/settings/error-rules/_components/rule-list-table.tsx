@@ -13,6 +13,7 @@ import {
   deleteErrorRuleAction,
   updateErrorRuleAction,
 } from "@/lib/api-client/v1/actions/error-rules";
+import { formatStreamPrefixBlockRuleSummary } from "@/lib/stream-prefix-block-rule";
 import { cn } from "@/lib/utils";
 import type { ErrorRule } from "@/repository/error-rules";
 import { EditRuleDialog } from "./edit-rule-dialog";
@@ -29,7 +30,19 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
   parameter_error: { bg: "bg-orange-500/10", text: "text-orange-400" },
   invalid_request: { bg: "bg-pink-500/10", text: "text-pink-400" },
   cache_limit: { bg: "bg-cyan-500/10", text: "text-cyan-400" },
+  stream_prefix_block: { bg: "bg-emerald-500/10", text: "text-emerald-400" },
 };
+
+const TRANSLATED_CATEGORIES = new Set([
+  "prompt_limit",
+  "content_filter",
+  "pdf_limit",
+  "thinking_error",
+  "parameter_error",
+  "invalid_request",
+  "cache_limit",
+  "stream_prefix_block",
+]);
 
 export function RuleListTable({ rules }: RuleListTableProps) {
   const t = useTranslations("settings");
@@ -90,6 +103,14 @@ export function RuleListTable({ rules }: RuleListTableProps) {
             bg: "bg-gray-500/10",
             text: "text-gray-400",
           };
+          const categoryLabel =
+            rule.category && TRANSLATED_CATEGORIES.has(rule.category)
+              ? t(`errorRules.categories.${rule.category}`)
+              : rule.category;
+          const ruleDescription =
+            rule.category === "stream_prefix_block"
+              ? formatStreamPrefixBlockRuleSummary(rule)
+              : rule.description;
 
           return (
             <div
@@ -135,13 +156,13 @@ export function RuleListTable({ rules }: RuleListTableProps) {
                         variant="outline"
                         className={cn("text-[10px] border-border", colors.text)}
                       >
-                        {rule.category}
+                        {categoryLabel}
                       </Badge>
                     )}
                   </div>
-                  {rule.description && (
+                  {ruleDescription && (
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {rule.description}
+                      {ruleDescription}
                     </p>
                   )}
                   <p className="text-[10px] text-muted-foreground mt-1">

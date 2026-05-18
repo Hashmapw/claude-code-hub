@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Provider } from "@/types/provider";
-import { DEFAULT_CODEX_USER_AGENT, ProxyForwarder } from "@/app/v1/_lib/proxy/forwarder";
+import {
+  appendOpenCodeClaudeMessagesBetaParamIfNeeded,
+  DEFAULT_CODEX_USER_AGENT,
+  ProxyForwarder,
+} from "@/app/v1/_lib/proxy/forwarder";
 import { ProxySession } from "@/app/v1/_lib/proxy/session";
 import {
   INTERNAL_SECRET_HEADER,
@@ -740,5 +744,94 @@ describe("ProxyForwarder - buildGeminiHeaders custom headers", () => {
     expect(resultHeaders.get("connection")).toBeNull();
     expect(resultHeaders.get("content-length")).toBeNull();
     expect(resultHeaders.get(INTERNAL_SECRET_HEADER)).toBeNull();
+  });
+});
+
+describe("ProxyForwarder - opencode Claude Messages beta query", () => {
+  function appendBetaUrl(options: {
+    userAgent: string | null;
+    headerUserAgent?: string;
+    provider: Provider;
+    requestUrl: string;
+    proxyUrl?: string;
+  }): string {
+    const headers = new Headers();
+    if (options.headerUserAgent !== undefined) {
+      headers.set("user-agent", options.headerUserAgent);
+    }
+    const session = createSession({
+      userAgent: options.userAgent,
+      headers,
+    });
+    session.requestUrl = new URL(options.requestUrl);
+    const proxyUrl =
+      options.proxyUrl ??
+      `https://upstream.example.com${session.requestUrl.pathname}${session.requestUrl.search}`;
+
+    return appendOpenCodeClaudeMessagesBetaParamIfNeeded({
+      proxyUrl,
+      session,
+      provider: options.provider,
+      requestPath: session.requestUrl.pathname,
+    });
+  }
+
+  it("adds beta=true for opencode Claude Messages requests", () => {
+    const result = appendBetaUrl({
+      userAgent: "OpenCode/1.0",
+      provider: createClaudeProvider("https://upstream.example.com/v1"),
+      requestUrl: "https://proxy.example.com/v1/messages",
+    });
+
+    const url = new URL(result);
+    expect(url.pathname).toBe("/v1/messages");
+    expect(url.searchParams.get("beta")).toBe("true");
+  });
+
+  it("adds beta=true for opencode claude-auth Messages requests", () => {
+    const result = appendBetaUrl({
+      userAgent: "opencode/0.1.0",
+      provider: createClaudeAuthProvider(),
+      requestUrl: "https://proxy.example.com/v1/messages",
+    });
+
+    expect(new URL(result).searchParams.get("beta")).toBe("true");
+  });
+
+  it("preserves existing query params and does not override explicit beta", () => {
+    const result = appendBetaUrl({
+      userAgent: "OpenCode/1.0",
+      provider: createClaudeProvider("https://upstream.example.com/v1"),
+      requestUrl: "https://proxy.example.com/v1/messages?foo=bar&beta=false",
+      proxyUrl: "https://upstream.example.com/v1/messages?foo=bar&beta=false",
+    });
+
+    const url = new URL(result);
+    expect(url.searchParams.get("foo")).toBe("bar");
+    expect(url.searchParams.get("beta")).toBe("false");
+    expect([...url.searchParams.keys()].filter((key) => key === "beta")).toHaveLength(1);
+  });
+
+  it("does not add beta for count_tokens, non-opencode, or non-Claude providers", () => {
+    const countTokens = appendBetaUrl({
+      userAgent: "OpenCode/1.0",
+      provider: createClaudeProvider("https://upstream.example.com/v1"),
+      requestUrl: "https://proxy.example.com/v1/messages/count_tokens",
+    });
+    expect(new URL(countTokens).searchParams.has("beta")).toBe(false);
+
+    const nonOpenCode = appendBetaUrl({
+      userAgent: "claude-cli/1.0",
+      provider: createClaudeProvider("https://upstream.example.com/v1"),
+      requestUrl: "https://proxy.example.com/v1/messages",
+    });
+    expect(new URL(nonOpenCode).searchParams.has("beta")).toBe(false);
+
+    const nonClaude = appendBetaUrl({
+      userAgent: "OpenCode/1.0",
+      provider: createOpenAIProvider(),
+      requestUrl: "https://proxy.example.com/v1/messages",
+    });
+    expect(new URL(nonClaude).searchParams.has("beta")).toBe(false);
   });
 });

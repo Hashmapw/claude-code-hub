@@ -15,11 +15,35 @@ export const KeyListQuerySchema = z.object({
   include: z.enum(["statistics"]).optional().describe("Optional statistics expansion."),
 });
 
+function requireSoftBlockMessageWhenEnabled(
+  data: { softBlockEnabled?: boolean; softBlockMessage?: string | null },
+  ctx: z.RefinementCtx
+): void {
+  if (data.softBlockEnabled === true && !data.softBlockMessage?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["softBlockMessage"],
+      message: "KEY_SOFT_BLOCK_MESSAGE_REQUIRED",
+    });
+  }
+}
+
 const KeyMutationFields = {
   name: z.string().trim().min(1).max(64).describe("Key name."),
   expiresAt: z.string().nullable().optional().describe("Expiration date or null."),
   isEnabled: z.boolean().optional().describe("Whether the key is enabled."),
   canLoginWebUi: z.boolean().optional().describe("Whether this key can login to the Web UI."),
+  softBlockEnabled: z
+    .boolean()
+    .optional()
+    .describe("Whether Redis-only temporary key soft block is enabled."),
+  softBlockMessage: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .describe("Message returned when the key soft block is hit."),
   limit5hUsd: z.number().min(0).max(10_000).nullable().optional().describe("Five-hour USD quota."),
   limit5hResetMode: ResetModeSchema.optional().describe("Five-hour reset mode."),
   limitDailyUsd: z.number().min(0).max(10_000).nullable().optional().describe("Daily USD quota."),
@@ -55,7 +79,10 @@ const KeyMutationFields = {
   cacheTtlPreference: CacheTtlPreferenceSchema.optional().describe("Cache TTL preference."),
 };
 
-export const KeyCreateSchema = z.object(KeyMutationFields).strict();
+export const KeyCreateSchema = z
+  .object(KeyMutationFields)
+  .strict()
+  .superRefine(requireSoftBlockMessageWhenEnabled);
 
 export const KeyUpdateSchema = z
   .object(KeyMutationFields)
@@ -63,7 +90,8 @@ export const KeyUpdateSchema = z
   .extend({
     name: z.string().trim().min(1).max(64).describe("Key name."),
   })
-  .strict();
+  .strict()
+  .superRefine(requireSoftBlockMessageWhenEnabled);
 
 export const KeyEnableSchema = z
   .object({

@@ -10,6 +10,7 @@ export const ErrorRuleCategorySchema = z
     "parameter_error",
     "invalid_request",
     "cache_limit",
+    "stream_prefix_block",
   ])
   .describe("Error rule category.");
 
@@ -51,7 +52,7 @@ export const ErrorRuleCreateSchema = z
     pattern: z.string().trim().min(1).max(1000).describe("Error message pattern."),
     category: ErrorRuleCategorySchema,
     matchType: ErrorRuleMatchTypeSchema.optional().describe("Match type."),
-    description: z.string().trim().max(500).optional().describe("Optional description."),
+    description: z.string().trim().optional().describe("Optional description."),
     overrideResponse: ErrorOverrideResponseSchema.nullable()
       .optional()
       .describe("Optional response override."),

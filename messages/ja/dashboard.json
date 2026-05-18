@@ -253,7 +253,7 @@
         "responseModelLabel": "実際の応答モデル",
         "mismatchTooltip": "上流プロバイダが返したモデルがリクエストされたモデルと異なります。課金は引き続きリクエストモデルを基準とします。",
         "secondaryLineAriaLabel": "実際の応答モデル: {model}",
-        "arrowPrefix": "\u21b3"
+        "arrowPrefix": "↳"
       },
       "errorMessage": "エラーメッセージ",
       "fake200ForwardedNotice": "注意：ストリーミング要求では、失敗判定がストリーム終了後になる場合があります。応答内容は既にクライアントへ転送されている可能性があります。",
@@ -1872,7 +1872,9 @@
       "clickToDisableKey": "クリックしてキーを無効化",
       "clickToEnableKey": "クリックしてキーを有効化",
       "operationFailed": "操作に失敗しました",
-      "clickToQuickRenew": "クリックして更新"
+      "clickToQuickRenew": "クリックして更新",
+      "softBlocked": "一時ブロック",
+      "softBlockedDescription": "このキーは現在一時的に制限されています"
     },
     "userStatus": {
       "enabled": "有効",
@@ -2017,6 +2019,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "キー利用を一時的にブロック",
+          "descriptionEnabled": "有効にすると、このキーを使うすべてのリクエストは直ちに遮断され、下記のカスタムメッセージを返します。",
+          "descriptionDisabled": "無効時は、このキーは通常どおりリクエストを送信できます。",
+          "messageLabel": "ブロックメッセージ",
+          "messagePlaceholder": "リクエストがブロックされた際にユーザーへ返すメッセージを入力",
+          "messageDescription": "このキーが一時的にブロックされたときにクライアントへ直接表示されます。最大500文字。"
         }
       },
       "limitRules": {

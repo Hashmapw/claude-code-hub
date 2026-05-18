@@ -17,12 +17,15 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { isNonRetryableClientError, ProxyError } from "@/app/v1/_lib/proxy/errors";
 import { errorRuleDetector } from "@/lib/error-rule-detector";
+import { syncDefaultErrorRules } from "@/repository/error-rules";
 
 // Wait for initial cache load
 beforeAll(async () => {
+  await syncDefaultErrorRules();
+  await errorRuleDetector.reload();
   // Give ErrorRuleDetector time to initialize cache from database
   await new Promise((resolve) => setTimeout(resolve, 1000));
-});
+}, 60_000);
 
 describe("isNonRetryableClientError - 7 Default Rules", () => {
   /**

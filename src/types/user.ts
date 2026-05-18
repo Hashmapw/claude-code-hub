@@ -128,6 +128,8 @@ export interface UserKeyDisplay {
   createdAtFormatted: string; // 格式化后的具体时间
   // Web UI 登录权限控制
   canLoginWebUi: boolean; // 是否允许使用该 Key 登录 Web UI
+  softBlockEnabled?: boolean; // Redis-only 临时限制开关
+  softBlockMessage?: string | null; // Redis-only 临时限制提示词
   // 限额配置
   limit5hUsd: number | null; // 5小时消费上限（美元）
   limit5hResetMode: "fixed" | "rolling"; // 5小时重置模式

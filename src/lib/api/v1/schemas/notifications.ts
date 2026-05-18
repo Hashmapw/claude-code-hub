@@ -3,7 +3,13 @@ import { IsoDateTimeStringSchema } from "./_common";
 import { WebhookTargetSchema } from "./webhook-targets";
 
 export const NotificationTypeSchema = z
-  .enum(["circuit_breaker", "daily_leaderboard", "cost_alert", "cache_hit_rate_alert"])
+  .enum([
+    "circuit_breaker",
+    "daily_leaderboard",
+    "cost_alert",
+    "cache_hit_rate_alert",
+    "vip_group_usage",
+  ])
   .describe("Notification job type.");
 
 export const NotificationTypeParamSchema = z.object({
@@ -74,6 +80,13 @@ export const NotificationSettingsSchema = z
       .nullable()
       .describe("Alert cooldown in minutes."),
     cacheHitRateAlertTopN: z.number().int().nullable().describe("Top N cache hit-rate alerts."),
+    vipGroupUsageEnabled: z.boolean().describe("Whether VIP group usage alerts are enabled."),
+    vipGroupUsageCooldownSeconds: z
+      .number()
+      .int()
+      .min(1)
+      .max(86400)
+      .describe("VIP group usage alert cooldown in seconds."),
     createdAt: IsoDateTimeStringSchema.nullable().describe("Creation time."),
     updatedAt: IsoDateTimeStringSchema.nullable().describe("Last update time."),
   })

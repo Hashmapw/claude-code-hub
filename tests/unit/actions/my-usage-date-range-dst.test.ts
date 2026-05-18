@@ -151,6 +151,10 @@ describe("my-usage date range parsing", () => {
       key: { id: 1, key: "k" },
       user: { id: 1 },
     });
+    mocks.getSystemSettings.mockResolvedValue({
+      currencyDisplay: "USD",
+      billingModelSource: "original",
+    });
 
     mocks.findReadonlyUsageLogsBatchForKey.mockResolvedValue({
       logs: [],

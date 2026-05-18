@@ -21,7 +21,8 @@
     "parameter_error": "Parameter Validation Failed",
     "pdf_limit": "PDF Page Limit",
     "prompt_limit": "Prompt Length Limit",
-    "thinking_error": "Thinking Format Error"
+    "thinking_error": "Thinking Format Error",
+    "stream_prefix_block": "Stream Prefix Block"
   },
   "confirmDelete": "Are you sure you want to delete error rule \"{pattern}\"?",
   "defaultRules": {
@@ -64,6 +65,8 @@
     "patternLabel": "Regex Pattern *",
     "patternPlaceholder": "Enter regular expression...",
     "patternRequired": "Please enter regex pattern",
+    "streamPrefixPatternLabel": "Fallback Keyword *",
+    "streamPrefixPatternRequired": "Please enter fallback keyword",
     "regexTester": "Regex Tester",
     "saving": "Saving...",
     "testMessageLabel": "Test Message",
@@ -73,7 +76,11 @@
     "templateOpenaiApi": "OpenAI API",
     "useTemplate": "Claude Error Template",
     "useTemplateConfirm": "Existing content will be replaced by the template. Continue?",
-    "validJson": "JSON format is valid"
+    "validJson": "JSON format is valid",
+    "streamPrefixPatternPlaceholder": "Enter fallback keyword, e.g. public token notice group",
+    "streamPrefixPatternHint": "This category does not use regex; pattern is only the fallback keyword when keywords is empty.",
+    "streamPrefixDescriptionPlaceholder": "{\n  \"scanLimitBytes\": 4096,\n  \"keywords\": [\"175877552\", \"public token notice group\"],\n  \"providerIds\": [12, 18, 33],\n  \"statusCode\": 403,\n  \"message\": \"Response blocked by stream prefix policy\"\n}",
+    "streamPrefixDescriptionHint": "Enter JSON config: scanLimitBytes controls the prefix window; keywords falls back to pattern when empty; omitted providerIds means global; overrideStatusCode has priority over statusCode."
   },
   "disable": "Error rule disabled",
   "edit": "Edit Error Rule",

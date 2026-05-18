@@ -7,6 +7,11 @@ import { emitErrorRulesUpdated } from "@/lib/emit-event";
 import { validateErrorOverrideResponse } from "@/lib/error-override-validator";
 import { errorRuleDetector } from "@/lib/error-rule-detector";
 import { logger } from "@/lib/logger";
+import {
+  getStreamPrefixBlockErrorMessage,
+  STREAM_PREFIX_BLOCK_CATEGORY,
+  validateStreamPrefixBlockDescriptionCode,
+} from "@/lib/stream-prefix-block-rule";
 import * as repo from "@/repository/error-rules";
 import type { ActionResult } from "./types";
 
@@ -14,6 +19,39 @@ import type { ActionResult } from "./types";
 const OVERRIDE_STATUS_CODE_MIN = 400;
 /** 覆写状态码最大值 */
 const OVERRIDE_STATUS_CODE_MAX = 599;
+
+type ErrorRuleCategory =
+  | "prompt_limit"
+  | "content_filter"
+  | "pdf_limit"
+  | "thinking_error"
+  | "parameter_error"
+  | "invalid_request"
+  | "cache_limit"
+  | typeof STREAM_PREFIX_BLOCK_CATEGORY;
+
+type ErrorRuleMatchType = "contains" | "exact" | "regex";
+
+const VALID_ERROR_RULE_CATEGORIES: ErrorRuleCategory[] = [
+  "prompt_limit",
+  "content_filter",
+  "pdf_limit",
+  "thinking_error",
+  "parameter_error",
+  "invalid_request",
+  "cache_limit",
+  STREAM_PREFIX_BLOCK_CATEGORY,
+];
+
+const VALID_ERROR_RULE_MATCH_TYPES: ErrorRuleMatchType[] = ["contains", "exact", "regex"];
+
+function isErrorRuleCategory(value: string): value is ErrorRuleCategory {
+  return VALID_ERROR_RULE_CATEGORIES.includes(value as ErrorRuleCategory);
+}
+
+function isErrorRuleMatchType(value: string): value is ErrorRuleMatchType {
+  return VALID_ERROR_RULE_MATCH_TYPES.includes(value as ErrorRuleMatchType);
+}
 
 /**
  * 验证覆写状态码范围
@@ -60,15 +98,8 @@ export async function listErrorRules(): Promise<repo.ErrorRule[]> {
  */
 export async function createErrorRuleAction(data: {
   pattern: string;
-  category:
-    | "prompt_limit"
-    | "content_filter"
-    | "pdf_limit"
-    | "thinking_error"
-    | "parameter_error"
-    | "invalid_request"
-    | "cache_limit";
-  matchType?: "contains" | "exact" | "regex";
+  category: ErrorRuleCategory;
+  matchType?: ErrorRuleMatchType;
   description?: string;
   /** 覆写响应体（JSON 格式，符合 Claude API 错误格式） */
   overrideResponse?: repo.ErrorOverrideResponse | null;
@@ -100,35 +131,41 @@ export async function createErrorRuleAction(data: {
     }
 
     // 验证类别
-    const validCategories = [
-      "prompt_limit",
-      "content_filter",
-      "pdf_limit",
-      "thinking_error",
-      "parameter_error",
-      "invalid_request",
-      "cache_limit",
-    ];
-    if (!validCategories.includes(data.category)) {
+    if (!isErrorRuleCategory(data.category)) {
       return {
         ok: false,
         error: "无效的错误类别",
       };
     }
 
-    // 默认 matchType 为 regex
-    const matchType = data.matchType || "regex";
+    const isStreamPrefixBlock = data.category === STREAM_PREFIX_BLOCK_CATEGORY;
+
+    // stream_prefix_block 复用错误规则承载配置，但运行时只按 contains 语义扫描前缀。
+    const matchType: ErrorRuleMatchType = isStreamPrefixBlock
+      ? "contains"
+      : data.matchType || "regex";
 
     // 验证匹配类型
-    if (!["contains", "exact", "regex"].includes(matchType)) {
+    if (!isErrorRuleMatchType(matchType)) {
       return {
         ok: false,
         error: "无效的匹配类型",
       };
     }
 
+    if (isStreamPrefixBlock) {
+      const descriptionErrorCode = validateStreamPrefixBlockDescriptionCode(data.description);
+      if (descriptionErrorCode) {
+        return {
+          ok: false,
+          error: getStreamPrefixBlockErrorMessage(descriptionErrorCode),
+          errorCode: descriptionErrorCode,
+        };
+      }
+    }
+
     // ReDoS (Regular Expression Denial of Service) 风险检测
-    if (matchType === "regex") {
+    if (!isStreamPrefixBlock && matchType === "regex") {
       if (!safeRegex(data.pattern)) {
         return {
           ok: false,
@@ -209,7 +246,7 @@ export async function updateErrorRuleAction(
   updates: Partial<{
     pattern: string;
     category: string;
-    matchType: "regex" | "contains" | "exact";
+    matchType: ErrorRuleMatchType;
     description: string;
     /** 覆写响应体（JSON 格式），设为 null 可清除 */
     overrideResponse: repo.ErrorOverrideResponse | null;
@@ -237,16 +274,48 @@ export async function updateErrorRuleAction(
       };
     }
 
-    // 计算最终的 pattern 和 matchType
+    // 计算最终的 pattern、category 和 matchType
     const finalPattern = updates.pattern ?? currentRule.pattern;
-    const finalMatchType = updates.matchType ?? currentRule.matchType;
+    const finalCategory = updates.category ?? currentRule.category;
+
+    if (!isErrorRuleCategory(finalCategory)) {
+      return {
+        ok: false,
+        error: "无效的错误类别",
+      };
+    }
+
+    const isStreamPrefixBlock = finalCategory === STREAM_PREFIX_BLOCK_CATEGORY;
+    const finalMatchType: ErrorRuleMatchType = isStreamPrefixBlock
+      ? "contains"
+      : (updates.matchType ?? currentRule.matchType);
+
+    if (!isErrorRuleMatchType(finalMatchType)) {
+      return {
+        ok: false,
+        error: "无效的匹配类型",
+      };
+    }
+
+    if (isStreamPrefixBlock) {
+      const descriptionErrorCode = validateStreamPrefixBlockDescriptionCode(
+        updates.description ?? currentRule.description
+      );
+      if (descriptionErrorCode) {
+        return {
+          ok: false,
+          error: getStreamPrefixBlockErrorMessage(descriptionErrorCode),
+          errorCode: descriptionErrorCode,
+        };
+      }
+    }
 
     // ReDoS (Regular Expression Denial of Service) 风险检测
     // 当最终结果是 regex 类型时，需要检查 pattern 安全性
     // 这覆盖了两种情况：
     // 1. 更新 pattern 到一个 regex 规则
     // 2. 将 matchType 从 contains/exact 改为 regex
-    if (finalMatchType === "regex") {
+    if (!isStreamPrefixBlock && finalMatchType === "regex") {
       if (!safeRegex(finalPattern)) {
         return {
           ok: false,
@@ -288,6 +357,8 @@ export async function updateErrorRuleAction(
     // 复制 updates，以便在需要时调整 isDefault 字段
     const processedUpdates: typeof updates & { isDefault?: boolean } = {
       ...updates,
+      category: finalCategory,
+      matchType: finalMatchType,
     };
 
     // 如果是默认规则，编辑时自动转换为自定义规则

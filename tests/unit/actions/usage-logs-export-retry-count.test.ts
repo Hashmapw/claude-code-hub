@@ -69,6 +69,10 @@ vi.mock("@/repository/usage-logs", () => {
   };
 });
 
+vi.mock("@/lib/config/system-settings-cache", () => ({
+  getCachedSystemSettings: vi.fn(async () => ({ billingModelSource: "redirected" })),
+}));
+
 function createSummary(totalRequests = 0) {
   return {
     totalRequests,

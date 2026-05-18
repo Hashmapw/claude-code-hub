@@ -76,6 +76,7 @@ import {
   isHttp2Error,
   isSSLCertificateError,
   ProxyError,
+  StreamPrefixBlockError,
   sanitizeUrl,
 } from "./errors";
 import { ModelRedirector } from "./model-redirector";
@@ -92,6 +93,10 @@ import { ProxyProviderResolver } from "./provider-selector";
 import type { ProxySession } from "./session";
 import { setDeferredStreamingFinalization } from "./stream-finalization";
 import {
+  markStreamPrefixBlockGateHandled,
+  scanStreamPrefixBlockResponse,
+} from "./stream-prefix-block-gate";
+import {
   detectThinkingBudgetRectifierTrigger,
   rectifyThinkingBudget,
 } from "./thinking-budget-rectifier";
@@ -99,6 +104,7 @@ import {
   detectThinkingSignatureRectifierTrigger,
   rectifyAnthropicRequestMessage,
 } from "./thinking-signature-rectifier";
+import { maybeSendVipGroupUsageAlert } from "./vip-group-usage";
 
 /** Default User-Agent for Codex CLI requests when none is provided */
 export const DEFAULT_CODEX_USER_AGENT =
@@ -178,6 +184,59 @@ type ProxySessionWithAttemptRuntime = ProxySession & {
   responseController?: AbortController;
   releaseAgent?: () => void;
 };
+
+function cleanupForwarderOwnedResponseRuntime(session: ProxySession): void {
+  const runtime = session as ProxySessionWithAttemptRuntime;
+  try {
+    runtime.clearResponseTimeout?.();
+  } catch {
+    // ignore
+  }
+  runtime.clearResponseTimeout = undefined;
+
+  try {
+    runtime.releaseAgent?.();
+  } catch {
+    // ignore
+  }
+  runtime.releaseAgent = undefined;
+}
+
+function isOpenCodeClient(session: ProxySession): boolean {
+  const userAgent = `${session.userAgent ?? ""} ${session.headers.get("user-agent") ?? ""}`;
+  return userAgent.toLowerCase().includes("opencode");
+}
+
+export function appendOpenCodeClaudeMessagesBetaParamIfNeeded(options: {
+  proxyUrl: string;
+  session: ProxySession;
+  provider: Pick<Provider, "providerType">;
+  requestPath: string;
+}): string {
+  const { proxyUrl, session, provider, requestPath } = options;
+  if (provider.providerType !== "claude" && provider.providerType !== "claude-auth") {
+    return proxyUrl;
+  }
+
+  if (requestPath !== "/v1/messages") {
+    return proxyUrl;
+  }
+
+  if (!isOpenCodeClient(session)) {
+    return proxyUrl;
+  }
+
+  try {
+    const url = new URL(proxyUrl);
+    if (url.searchParams.has("beta")) {
+      return proxyUrl;
+    }
+    url.searchParams.set("beta", "true");
+    return url.toString();
+  } catch {
+    return proxyUrl;
+  }
+}
 
 type StreamingHedgeAttempt = {
   provider: Provider;
@@ -736,6 +795,51 @@ function buildRetryFailedChainEntry(
         errorStack: error.stack?.split("\n").slice(0, 3).join("\n"),
       },
       request: requestDetailsBeforeRectify,
+    },
+  };
+}
+
+function buildStreamPrefixBlockChainEntry(
+  provider: Provider,
+  endpointAudit: { endpointId: number | null; endpointUrl: string },
+  attemptNumber: number,
+  error: StreamPrefixBlockError,
+  errorMessage: string,
+  requestDetails: ReturnType<typeof buildRequestDetails>,
+  rawCrossProviderFallbackEnabled: boolean
+): NonNullable<Parameters<ProxySession["addProviderToChain"]>[1]> {
+  const providerDetails = rawCrossProviderFallbackEnabled
+    ? {
+        id: provider.id,
+        name: provider.name,
+        statusCode: error.statusCode,
+        statusText: error.message,
+      }
+    : {
+        id: provider.id,
+        name: provider.name,
+        statusCode: error.statusCode,
+        statusText: error.message,
+        upstreamBody: error.upstreamError?.body,
+        upstreamParsed: error.upstreamError?.parsed,
+      };
+
+  return {
+    ...endpointAudit,
+    reason: "stream_prefix_block",
+    circuitState: getCircuitState(provider.id),
+    attemptNumber,
+    rawCrossProviderFallbackEnabled: rawCrossProviderFallbackEnabled || undefined,
+    errorMessage,
+    statusCode: error.statusCode,
+    errorDetails: {
+      provider: providerDetails,
+      streamPrefixBlock: {
+        ruleId: error.ruleId,
+        matchedKeyword: error.matchedKeyword,
+        scanLimitBytes: error.scanLimitBytes,
+      },
+      request: requestDetails,
     },
   };
 }
@@ -1301,17 +1405,33 @@ export class ProxyForwarder {
           // 解决：Forwarder 只负责尽快把 Response 返回给下游开始透传，
           // 把最终成功/失败结算延迟到 ResponseHandler：等 SSE 正常结束后再基于最终 body 补充检查并更新内部状态。
           if (isSSE) {
+            let streamResponse: Response;
+            try {
+              streamResponse = await scanStreamPrefixBlockResponse({
+                response,
+                providerId: currentProvider.id,
+                providerName: currentProvider.name,
+                sessionId: session.sessionId,
+                messageRequestId: session.messageContext?.id,
+              });
+              markStreamPrefixBlockGateHandled(session);
+            } catch (scanError) {
+              cleanupForwarderOwnedResponseRuntime(session);
+              throw scanError;
+            }
+
             setDeferredStreamingFinalization(session, {
               providerId: currentProvider.id,
               providerName: currentProvider.name,
               providerPriority: currentProvider.priority || 0,
+              providerGroupTag: currentProvider.groupTag,
               attemptNumber: attemptCount,
               totalProvidersAttempted,
               isFirstAttempt: totalProvidersAttempted === 1 && attemptCount === 1,
               isFailoverSuccess: totalProvidersAttempted > 1,
               endpointId: activeEndpoint.endpointId,
               endpointUrl: endpointAudit.endpointUrl,
-              upstreamStatusCode: response.status,
+              upstreamStatusCode: streamResponse.status,
             });
 
             logger.info("ProxyForwarder: Streaming response received, deferring finalization", {
@@ -1319,10 +1439,10 @@ export class ProxyForwarder {
               providerName: currentProvider.name,
               attemptNumber: attemptCount,
               totalProvidersAttempted,
-              statusCode: response.status,
+              statusCode: streamResponse.status,
             });
 
-            return response;
+            return streamResponse;
           }
 
           // 非流式响应：检测空响应
@@ -1546,6 +1666,8 @@ export class ProxyForwarder {
             }
           }
 
+          await maybeSendVipGroupUsageAlert(session, currentProvider);
+
           // 记录到决策链
           session.addProviderToChain(currentProvider, {
             ...endpointAudit,
@@ -1621,6 +1743,37 @@ export class ProxyForwarder {
             });
 
             throw lastError;
+          }
+
+          if (
+            errorCategory === ErrorCategory.STREAM_PREFIX_BLOCK &&
+            lastError instanceof StreamPrefixBlockError
+          ) {
+            logger.warn("ProxyForwarder: Stream prefix block matched, switching provider", {
+              providerId: currentProvider.id,
+              providerName: currentProvider.name,
+              statusCode: lastError.statusCode,
+              ruleId: lastError.ruleId,
+              matchedKeyword: lastError.matchedKeyword,
+              attemptNumber: attemptCount,
+              totalProvidersAttempted,
+            });
+
+            session.addProviderToChain(
+              currentProvider,
+              buildStreamPrefixBlockChainEntry(
+                currentProvider,
+                endpointAudit,
+                attemptCount,
+                lastError,
+                errorMessage,
+                buildRequestDetails(session),
+                rawCrossProviderFallbackEnabled
+              )
+            );
+
+            ProxyForwarder.markProviderFailed(session, failedProviderIds, currentProvider.id);
+            break;
           }
 
           // 2.5 Reactive rectifier：命中后对同供应商“整流 + 重试一次”
@@ -2179,6 +2332,9 @@ export class ProxyForwarder {
 
     // ⭐ 不暴露供应商详情，仅返回简单错误
     await ProxyForwarder.clearSessionProviderBinding(session);
+    if (lastError instanceof StreamPrefixBlockError) {
+      throw lastError;
+    }
     throw ProxyForwarder.buildAllProvidersUnavailableError(lastError); // Service Unavailable
   }
 
@@ -2567,6 +2723,12 @@ export class ProxyForwarder {
       // 移除了强制 /v1/responses 路径重写，解决 Issue #139
       // buildProxyUrl() 会检测 base_url 是否已包含完整路径，避免重复拼接
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = appendOpenCodeClaudeMessagesBetaParamIfNeeded({
+        proxyUrl,
+        session,
+        provider,
+        requestPath,
+      });
 
       // Host header must match actual request target for undici TLS cert validation
       // When provider has multiple endpoints, provider.url and proxyUrl hosts may differ
@@ -3851,9 +4013,25 @@ export class ProxyForwarder {
           attempt.clearResponseTimeout = attemptRuntime.clearResponseTimeout ?? null;
           attempt.releaseAgent = attemptRuntime.releaseAgent ?? null;
           attempt.clearResponseTimeout?.();
-          attempt.response = response;
 
-          if (!response.body) {
+          let streamResponse: Response;
+          try {
+            streamResponse = await scanStreamPrefixBlockResponse({
+              response,
+              providerId: attempt.provider.id,
+              providerName: attempt.provider.name,
+              sessionId: session.sessionId,
+              messageRequestId: session.messageContext?.id,
+            });
+            markStreamPrefixBlockGateHandled(attempt.session);
+          } catch (scanError) {
+            releaseAttemptAgent(attempt);
+            throw scanError;
+          }
+
+          attempt.response = streamResponse;
+
+          if (!streamResponse.body) {
             await handleAttemptFailure(
               attempt,
               new EmptyResponseError(attempt.provider.id, attempt.provider.name, "empty_body")
@@ -3861,7 +4039,7 @@ export class ProxyForwarder {
             return;
           }
 
-          attempt.reader = response.body.getReader();
+          attempt.reader = streamResponse.body.getReader();
 
           try {
             const firstChunk = await ProxyForwarder.readFirstReadableChunk(attempt.reader);
@@ -3933,6 +4111,47 @@ export class ProxyForwarder {
             ? error
             : new ProxyError("Request aborted by client", 499, undefined, true)
         );
+        return;
+      }
+
+      if (
+        errorCategory === ErrorCategory.STREAM_PREFIX_BLOCK &&
+        error instanceof StreamPrefixBlockError
+      ) {
+        logger.warn("ProxyForwarder: Stream prefix block matched in hedge attempt", {
+          providerId: attempt.provider.id,
+          providerName: attempt.provider.name,
+          statusCode: error.statusCode,
+          ruleId: error.ruleId,
+          matchedKeyword: error.matchedKeyword,
+          participantSequence: attempt.sequence,
+          attemptNumber: attempt.requestAttemptCount,
+        });
+
+        attempt.settled = true;
+        if (attempt.thresholdTimer) {
+          clearTimeout(attempt.thresholdTimer);
+          attempt.thresholdTimer = null;
+        }
+        attempts.delete(attempt);
+
+        session.addProviderToChain(attempt.provider, {
+          ...buildStreamPrefixBlockChainEntry(
+            attempt.provider,
+            attempt.endpointAudit,
+            attempt.sequence,
+            error,
+            errorMessage,
+            buildRequestDetails(attempt.session),
+            rawCrossProviderFallbackEnabled
+          ),
+          modelRedirect: getAttemptModelRedirect(attempt),
+        });
+
+        ProxyForwarder.markProviderFailed(session, failedProviderIds, attempt.provider.id);
+        releaseAttemptAgent(attempt);
+        await launchAlternative();
+        await finishIfExhausted();
         return;
       }
 
@@ -4153,6 +4372,7 @@ export class ProxyForwarder {
         providerId: attempt.provider.id,
         providerName: attempt.provider.name,
         providerPriority: attempt.provider.priority || 0,
+        providerGroupTag: attempt.provider.groupTag,
         attemptNumber: attempt.sequence,
         totalProvidersAttempted: launchedProviderCount,
         isFirstAttempt: launchedProviderCount === 1 && attempt.provider.id === initialProvider.id,
@@ -4599,7 +4819,9 @@ export class ProxyForwarder {
     if (
       lastError &&
       (lastErrorCategory === ErrorCategory.CLIENT_ABORT ||
-        lastErrorCategory === ErrorCategory.NON_RETRYABLE_CLIENT_ERROR)
+        lastErrorCategory === ErrorCategory.NON_RETRYABLE_CLIENT_ERROR ||
+        lastErrorCategory === ErrorCategory.STREAM_PREFIX_BLOCK ||
+        lastError instanceof StreamPrefixBlockError)
     ) {
       return lastError;
     }

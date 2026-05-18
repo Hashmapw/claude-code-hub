@@ -17,7 +17,25 @@ import {
   NotificationSettingsUpdateSchema,
   NotificationTestWebhookRequestSchema,
 } from "@/lib/api/v1/schemas/notifications";
+import type { NotificationJobType } from "@/lib/constants/notification.constants";
 import type { WebhookTarget } from "@/repository/webhook-targets";
+
+function toNotificationJobType(type: string): NotificationJobType {
+  switch (type) {
+    case "circuit_breaker":
+      return "circuit-breaker";
+    case "daily_leaderboard":
+      return "daily-leaderboard";
+    case "cost_alert":
+      return "cost-alert";
+    case "cache_hit_rate_alert":
+      return "cache-hit-rate-alert";
+    case "vip_group_usage":
+      return "vip-group-usage";
+    default:
+      throw new Error(`Unsupported notification type: ${type}`);
+  }
+}
 
 export async function getNotificationSettings(c: Context): Promise<Response> {
   const actions = await import("@/actions/notifications");
@@ -48,7 +66,7 @@ export async function testNotificationWebhook(c: Context): Promise<Response> {
   const result = await callAction(
     c,
     actions.testWebhookAction,
-    [body.data.webhookUrl, body.data.type] as never[],
+    [body.data.webhookUrl, toNotificationJobType(body.data.type)] as never[],
     c.get("auth")
   );
   if (!result.ok) return actionError(c, result);
@@ -100,11 +118,14 @@ function sanitizeBinding<T extends { target: WebhookTarget }>(binding: T) {
 function actionError(c: Context, result: Extract<ActionResult<unknown>, { ok: false }>): Response {
   const detail = result.error || "Request failed.";
   const status = detail.includes("权限") || detail.includes("无权限") ? 403 : 400;
+  const isExplicitRuntimeConfigFailure =
+    result.errorCode === "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE" ||
+    result.errorCode === "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED";
   return createProblemResponse({
     status,
     instance: new URL(c.req.url).pathname,
     errorCode: result.errorCode ?? "notification.action_failed",
     errorParams: result.errorParams,
-    detail: publicActionErrorDetail(status),
+    detail: isExplicitRuntimeConfigFailure ? detail : publicActionErrorDetail(status),
   });
 }

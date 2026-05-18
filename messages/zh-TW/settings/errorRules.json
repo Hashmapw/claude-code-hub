@@ -21,7 +21,8 @@
     "parameter_error": "參數驗證失敗",
     "pdf_limit": "PDF 頁數限制",
     "prompt_limit": "Prompt 長度限制",
-    "thinking_error": "Thinking 格式錯誤"
+    "thinking_error": "Thinking 格式錯誤",
+    "stream_prefix_block": "串流前綴攔截"
   },
   "confirmDelete": "確定要刪除錯誤規則「{pattern}」嗎？",
   "defaultRules": {
@@ -64,6 +65,8 @@
     "patternLabel": "正則表達式模式 *",
     "patternPlaceholder": "輸入正則表達式...",
     "patternRequired": "請輸入正則表達式模式",
+    "streamPrefixPatternLabel": "備用關鍵字 *",
+    "streamPrefixPatternRequired": "請輸入備用關鍵字",
     "regexTester": "正則表達式測試器",
     "saving": "儲存中...",
     "testMessageLabel": "測試訊息",
@@ -73,7 +76,11 @@
     "templateOpenaiApi": "OpenAI API",
     "useTemplate": "Claude Error 範本",
     "useTemplateConfirm": "輸入框已有內容，確定以範本覆蓋？",
-    "validJson": "JSON 格式正確"
+    "validJson": "JSON 格式正確",
+    "streamPrefixPatternPlaceholder": "輸入備用關鍵字，例如：公益 token 通知群",
+    "streamPrefixPatternHint": "此類別不使用正則表達式；pattern 只在 keywords 為空時作為備用關鍵字。",
+    "streamPrefixDescriptionPlaceholder": "{\n  \"scanLimitBytes\": 4096,\n  \"keywords\": [\"175877552\", \"公益 token 通知群\"],\n  \"providerIds\": [12, 18, 33],\n  \"statusCode\": 403,\n  \"message\": \"回應已被串流前綴策略攔截\"\n}",
+    "streamPrefixDescriptionHint": "填寫 JSON 設定：scanLimitBytes 是前綴掃描位元組數；keywords 為空時回退使用 pattern；providerIds 缺省代表全域生效；overrideStatusCode 優先於 statusCode。"
   },
   "disable": "錯誤規則已停用",
   "edit": "編輯錯誤規則",

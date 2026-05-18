@@ -43,9 +43,16 @@ import { GeminiAdapter } from "../gemini/adapter";
 import type { GeminiResponse } from "../gemini/types";
 import { extractActualResponseModelForProvider } from "./actual-response-model";
 import { bindClientAbortListener } from "./client-abort-listener";
-import { isClientAbortError, isTransportError } from "./errors";
+import { isClientAbortError, isTransportError, StreamPrefixBlockError } from "./errors";
 import type { ProxySession } from "./session";
 import { consumeDeferredStreamingFinalization } from "./stream-finalization";
+import {
+  buildStreamPrefixBlockProxyResponse,
+  hasStreamPrefixBlockGateHandled,
+  markStreamPrefixBlockGateHandled,
+  scanStreamPrefixBlockResponse,
+} from "./stream-prefix-block-gate";
+import { maybeSendVipGroupUsageAlert } from "./vip-group-usage";
 
 /**
  * Idempotent helper to release the agent pool reference count attached to a session.
@@ -99,6 +106,47 @@ function discardBeforeResponseBodySnapshot(session: ProxySession): void {
       error,
     });
   });
+}
+
+export async function applyStreamPrefixBlockGate(
+  session: ProxySession,
+  response: Response
+): Promise<Response> {
+  if (hasStreamPrefixBlockGateHandled(session)) {
+    return response;
+  }
+
+  try {
+    const scannedResponse = await scanStreamPrefixBlockResponse({
+      response,
+      providerId: session.provider?.id,
+      providerName: session.provider?.name,
+      sessionId: session.sessionId,
+      messageRequestId: session.messageContext?.id,
+    });
+    markStreamPrefixBlockGateHandled(session);
+    return scannedResponse;
+  } catch (error) {
+    if (!(error instanceof StreamPrefixBlockError)) {
+      throw error;
+    }
+
+    const messageContext = session.messageContext;
+    if (messageContext) {
+      const duration = Date.now() - session.startTime;
+      const statusCode = error.overrideStatusCode ?? error.statusCode;
+      await updateMessageRequestDuration(messageContext.id, duration);
+      await updateMessageRequestDetails(messageContext.id, {
+        statusCode,
+        providerId: session.provider?.id,
+        providerChain: session.getProviderChain(),
+        errorMessage: error.message,
+      });
+      ProxyStatusTracker.getInstance().endRequest(messageContext.user.id, messageContext.id);
+    }
+
+    return buildStreamPrefixBlockProxyResponse(error);
+  }
 }
 
 export type UsageMetrics = {
@@ -792,6 +840,8 @@ async function finalizeDeferredStreamingFinalizationIfNeeded(
       error: cbError,
     });
   }
+
+  await maybeSendVipGroupUsageAlert(session, providerForChain, meta.providerGroupTag);
 
   // Hedge winner: commitWinner() already performed session binding and chain logging.
   // Skip duplicate operations to avoid double entries in the provider chain.

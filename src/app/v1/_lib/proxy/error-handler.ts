@@ -20,9 +20,11 @@ import {
   isRateLimitError,
   ProxyError,
   type RateLimitError,
+  StreamPrefixBlockError,
 } from "./errors";
 import { ProxyResponses } from "./responses";
 import type { ProxySession } from "./session";
+import { buildStreamPrefixBlockProxyResponse } from "./stream-prefix-block-gate";
 
 /** 覆写状态码最小值 */
 const OVERRIDE_STATUS_CODE_MIN = 400;
@@ -519,6 +521,13 @@ export class ProxyErrorHandler {
       settings,
       override: null,
     });
+
+    if (error instanceof StreamPrefixBlockError) {
+      return await finalizeErrorResponse(
+        buildStreamPrefixBlockProxyResponse(error),
+        logErrorMessage
+      );
+    }
 
     return await finalizeErrorResponse(
       ProxyResponses.buildError(

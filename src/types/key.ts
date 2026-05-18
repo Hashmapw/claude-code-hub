@@ -32,6 +32,10 @@ export interface Key {
   // Cache TTL override (inherit -> follow provider/client)
   cacheTtlPreference: CacheTtlPreference | null;
 
+  // Redis-only temporary key soft block runtime state.
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
+
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;

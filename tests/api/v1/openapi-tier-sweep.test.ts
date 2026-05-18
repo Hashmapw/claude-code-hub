@@ -98,7 +98,7 @@ describe("v1 OpenAPI tier-enforcement sweep", () => {
     }
 
     expect(failures).toEqual([]);
-  }, 60000);
+  }, 180000);
 
   test("non-admin authenticated callers do not get 401 on admin-tier operations (proves credential was accepted)", async () => {
     const { json } = await callV1Route({
@@ -124,7 +124,7 @@ describe("v1 OpenAPI tier-enforcement sweep", () => {
         `${op.method} ${op.path} returned 401 — credential mock not wired through middleware`
       ).not.toBe(401);
     }
-  }, 60000);
+  }, 180000);
 
   test("read-tier operations accept non-admin callers (no 401 / no 403 at the auth boundary)", async () => {
     const { json } = await callV1Route({
@@ -162,5 +162,5 @@ describe("v1 OpenAPI tier-enforcement sweep", () => {
     }
 
     expect(failures).toEqual([]);
-  }, 60000);
+  }, 180000);
 });

@@ -21,7 +21,8 @@
     "parameter_error": "パラメータ検証失敗",
     "pdf_limit": "PDF ページ制限",
     "prompt_limit": "プロンプト長制限",
-    "thinking_error": "Thinking フォーマットエラー"
+    "thinking_error": "Thinking フォーマットエラー",
+    "stream_prefix_block": "ストリーム接頭辞ブロック"
   },
   "confirmDelete": "エラールール \"{pattern}\" を削除してもよろしいですか？",
   "defaultRules": {
@@ -64,6 +65,8 @@
     "patternLabel": "正規表現パターン *",
     "patternPlaceholder": "正規表現を入力...",
     "patternRequired": "正規表現パターンを入力してください",
+    "streamPrefixPatternLabel": "フォールバックキーワード *",
+    "streamPrefixPatternRequired": "フォールバックキーワードを入力してください",
     "regexTester": "正規表現テスター",
     "saving": "保存しています...",
     "testMessageLabel": "テストメッセージ",
@@ -73,7 +76,11 @@
     "templateOpenaiApi": "OpenAI API",
     "useTemplate": "Claude Error テンプレート",
     "useTemplateConfirm": "入力済みの内容をテンプレートで上書きしますか？",
-    "validJson": "JSON 形式は有効です"
+    "validJson": "JSON 形式は有効です",
+    "streamPrefixPatternPlaceholder": "フォールバックキーワードを入力（例：公開 token 通知グループ）",
+    "streamPrefixPatternHint": "このカテゴリは正規表現を使いません。pattern は keywords が空の場合のフォールバックキーワードです。",
+    "streamPrefixDescriptionPlaceholder": "{\n  \"scanLimitBytes\": 4096,\n  \"keywords\": [\"175877552\", \"パブリック token 通知グループ\"],\n  \"providerIds\": [12, 18, 33],\n  \"statusCode\": 403,\n  \"message\": \"レスポンスはストリームプレフィックスポリシーによりブロックされました\"\n}",
+    "streamPrefixDescriptionHint": "JSON 設定を入力します。scanLimitBytes は接頭辞のスキャンバイト数、keywords が空の場合は pattern にフォールバック、providerIds 省略時は全体適用、overrideStatusCode は statusCode より優先されます。"
   },
   "disable": "エラールールが無効になりました",
   "edit": "エラールールを編集",

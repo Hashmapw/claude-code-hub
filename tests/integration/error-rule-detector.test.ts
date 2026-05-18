@@ -19,11 +19,28 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { errorRuleDetector } from "@/lib/error-rule-detector";
 import { eventEmitter } from "@/lib/event-emitter";
+import { syncDefaultErrorRules } from "@/repository/error-rules";
+
+async function waitForDetectorIdle(timeoutMs = 3_000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const stats = errorRuleDetector.getStats();
+    if (!stats.isLoading) {
+      return stats;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  return errorRuleDetector.getStats();
+}
 
 // Wait for initial cache load
 beforeAll(async () => {
+  await syncDefaultErrorRules();
+  await errorRuleDetector.reload();
   await new Promise((resolve) => setTimeout(resolve, 1000));
-});
+}, 60_000);
 
 describe("ErrorRuleDetector Manual Reload", () => {
   test("should reload cache successfully", async () => {
@@ -74,8 +91,7 @@ describe("EventEmitter Integration", () => {
 
     // Wait for async reload to complete
     await new Promise((resolve) => setTimeout(resolve, 200));
-
-    const statsAfter = errorRuleDetector.getStats();
+    const statsAfter = await waitForDetectorIdle();
 
     // Verify cache was refreshed
     expect(statsAfter.lastReloadTime).toBeGreaterThanOrEqual(statsBefore.lastReloadTime);
@@ -87,10 +103,8 @@ describe("EventEmitter Integration", () => {
       eventEmitter.emit("errorRulesUpdated");
     }
 
-    // Wait for all reloads to complete
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const stats = errorRuleDetector.getStats();
+    await errorRuleDetector.reload();
+    const stats = await waitForDetectorIdle(5_000);
     expect(stats.isLoading).toBe(false);
     expect(stats.totalCount).toBeGreaterThanOrEqual(7);
   });
@@ -104,6 +118,7 @@ describe("Cache Statistics and State", () => {
     expect(stats).toHaveProperty("regexCount");
     expect(stats).toHaveProperty("containsCount");
     expect(stats).toHaveProperty("exactCount");
+    expect(stats).toHaveProperty("streamPrefixBlockCount");
     expect(stats).toHaveProperty("totalCount");
     expect(stats).toHaveProperty("lastReloadTime");
     expect(stats).toHaveProperty("isLoading");
@@ -112,7 +127,10 @@ describe("Cache Statistics and State", () => {
     expect(typeof stats.regexCount).toBe("number");
     expect(typeof stats.containsCount).toBe("number");
     expect(typeof stats.exactCount).toBe("number");
-    expect(stats.totalCount).toBe(stats.regexCount + stats.containsCount + stats.exactCount);
+    expect(typeof stats.streamPrefixBlockCount).toBe("number");
+    expect(stats.totalCount).toBe(
+      stats.regexCount + stats.containsCount + stats.exactCount + stats.streamPrefixBlockCount
+    );
     expect(stats.totalCount).toBeGreaterThanOrEqual(7); // At least 7 default rules
   });
 

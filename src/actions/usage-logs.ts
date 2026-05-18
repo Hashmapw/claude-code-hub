@@ -1,6 +1,7 @@
 "use server";
 
 import { getSession } from "@/lib/auth";
+import { getCachedSystemSettings } from "@/lib/config/system-settings-cache";
 import {
   SESSION_ID_SUGGESTION_LIMIT,
   SESSION_ID_SUGGESTION_MAX_LEN,
@@ -26,6 +27,7 @@ import {
   type UsageLogsBatchResult,
   type UsageLogsResult,
 } from "@/repository/usage-logs";
+import type { BillingModelSource } from "@/types/system-config";
 import type { ActionResult } from "./types";
 
 /**
@@ -34,6 +36,7 @@ import type { ActionResult } from "./types";
  */
 const FILTER_OPTIONS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 let filterOptionsCache: {
+  billingModelSource: BillingModelSource;
   models: string[];
   statusCodes: number[];
   endpoints: string[];
@@ -66,6 +69,10 @@ const CSV_HEADERS = [
 ] as const;
 
 type UsageLogsSession = NonNullable<Awaited<ReturnType<typeof getSession>>>;
+
+async function getUsageLogsSession(): Promise<UsageLogsSession | null> {
+  return await getSession({ allowReadOnlyAccess: true });
+}
 
 export interface UsageLogsExportStatus {
   jobId: string;
@@ -123,7 +130,14 @@ function getUsageLogsExportJob(
   return job;
 }
 
-function buildCsvRows(logs: UsageLogRow[]): string[] {
+function resolveCsvDisplayModel(log: UsageLogRow, billingModelSource?: BillingModelSource): string {
+  if (billingModelSource === "original") {
+    return log.originalModel?.trim() || log.model || "";
+  }
+  return log.model || "";
+}
+
+function buildCsvRows(logs: UsageLogRow[], billingModelSource?: BillingModelSource): string[] {
   return logs.map((log) => {
     const retryCount = log.providerChain ? getRetryCount(log.providerChain) : 0;
     return [
@@ -131,7 +145,7 @@ function buildCsvRows(logs: UsageLogRow[]): string[] {
       escapeCsvField(log.userName),
       escapeCsvField(log.keyName),
       escapeCsvField(log.providerName ?? ""),
-      escapeCsvField(log.model ?? ""),
+      escapeCsvField(resolveCsvDisplayModel(log, billingModelSource)),
       escapeCsvField(log.originalModel ?? ""),
       escapeCsvField(log.endpoint ?? ""),
       log.statusCode?.toString() ?? "",
@@ -195,7 +209,7 @@ async function buildUsageLogsExportCsv(
     });
 
     if (batch.logs.length > 0) {
-      csvLines.push(...buildCsvRows(batch.logs));
+      csvLines.push(...buildCsvRows(batch.logs, filters.billingModelSource));
       processedRows += batch.logs.length;
     }
 
@@ -297,7 +311,7 @@ export async function getUsageLogs(
   filters: Omit<UsageLogFilters, "userId">
 ): Promise<ActionResult<UsageLogsResult>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -306,7 +320,11 @@ export async function getUsageLogs(
     const finalFilters: UsageLogFilters =
       session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
 
-    const result = await findUsageLogsWithDetails(finalFilters);
+    const settings = await getCachedSystemSettings();
+    const result = await findUsageLogsWithDetails({
+      ...finalFilters,
+      billingModelSource: settings.billingModelSource,
+    });
 
     return { ok: true, data: result };
   } catch (error) {
@@ -323,12 +341,16 @@ export async function exportUsageLogs(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Promise<ActionResult<string>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
 
-    const finalFilters = resolveUsageLogFiltersForSession(session, filters);
+    const settings = await getCachedSystemSettings();
+    const finalFilters = {
+      ...resolveUsageLogFiltersForSession(session, filters),
+      billingModelSource: settings.billingModelSource,
+    };
     const csv = await buildUsageLogsExportCsv(finalFilters);
 
     return { ok: true, data: csv };
@@ -343,13 +365,17 @@ export async function startUsageLogsExport(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Promise<ActionResult<{ jobId: string }>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
 
     const jobId = crypto.randomUUID();
-    const finalFilters = resolveUsageLogFiltersForSession(session, filters);
+    const settings = await getCachedSystemSettings();
+    const finalFilters = {
+      ...resolveUsageLogFiltersForSession(session, filters),
+      billingModelSource: settings.billingModelSource,
+    };
 
     const stored = await usageLogsExportStatusStore.set(jobId, {
       jobId,
@@ -382,7 +408,7 @@ export async function getUsageLogsExportStatus(
   jobId: string
 ): Promise<ActionResult<UsageLogsExportStatus>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -402,7 +428,7 @@ export async function getUsageLogsExportStatus(
 
 export async function downloadUsageLogsExport(jobId: string): Promise<ActionResult<string>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -460,12 +486,13 @@ function escapeCsvField(field: string): string {
  */
 export async function getModelList(): Promise<ActionResult<string[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
 
-    const models = await getUsedModels();
+    const settings = await getCachedSystemSettings();
+    const models = await getUsedModels(settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("获取模型列表失败:", error);
@@ -478,7 +505,7 @@ export async function getModelList(): Promise<ActionResult<string[]>> {
  */
 export async function getStatusCodeList(): Promise<ActionResult<number[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -496,7 +523,7 @@ export async function getStatusCodeList(): Promise<ActionResult<number[]>> {
  */
 export async function getEndpointList(): Promise<ActionResult<string[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -528,15 +555,20 @@ export interface FilterOptions {
  */
 export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
 
     const now = Date.now();
+    const settings = await getCachedSystemSettings();
 
     // 检查缓存是否有效
-    if (filterOptionsCache && filterOptionsCache.expiresAt > now) {
+    if (
+      filterOptionsCache &&
+      filterOptionsCache.expiresAt > now &&
+      filterOptionsCache.billingModelSource === settings.billingModelSource
+    ) {
       logger.debug("筛选器选项命中缓存");
       return {
         ok: true,
@@ -551,13 +583,14 @@ export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
     // 缓存过期或不存在，重新查询
     logger.debug("筛选器选项缓存未命中，执行 DISTINCT 查询");
     const [models, statusCodes, endpoints] = await Promise.all([
-      getUsedModels(),
+      getUsedModels(settings.billingModelSource),
       getUsedStatusCodes(),
       getUsedEndpoints(),
     ]);
 
     // 更新缓存
     filterOptionsCache = {
+      billingModelSource: settings.billingModelSource,
       models,
       statusCodes,
       endpoints,
@@ -585,7 +618,7 @@ export async function getUsageLogSessionIdSuggestions(
   input: UsageLogSessionIdSuggestionInput
 ): Promise<ActionResult<string[]>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -632,7 +665,7 @@ export async function getUsageLogsStats(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Promise<ActionResult<UsageLogSummary>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -641,7 +674,11 @@ export async function getUsageLogsStats(
     const finalFilters: Omit<UsageLogFilters, "page" | "pageSize"> =
       session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
 
-    const stats = await findUsageLogsStats(finalFilters);
+    const settings = await getCachedSystemSettings();
+    const stats = await findUsageLogsStats({
+      ...finalFilters,
+      billingModelSource: settings.billingModelSource,
+    });
 
     return { ok: true, data: stats };
   } catch (error) {
@@ -663,7 +700,7 @@ export async function getUsageLogsBatch(
   filters: Omit<UsageLogBatchFilters, "userId">
 ): Promise<ActionResult<UsageLogsBatchResult>> {
   try {
-    const session = await getSession();
+    const session = await getUsageLogsSession();
     if (!session) {
       return { ok: false, error: "未登录" };
     }
@@ -672,7 +709,11 @@ export async function getUsageLogsBatch(
     const finalFilters: UsageLogBatchFilters =
       session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
 
-    const result = await findUsageLogsBatch(finalFilters);
+    const settings = await getCachedSystemSettings();
+    const result = await findUsageLogsBatch({
+      ...finalFilters,
+      billingModelSource: settings.billingModelSource,
+    });
 
     // Merge Redis live chain data for unfinalised rows
     const unfinalisedRows = result.logs.filter(

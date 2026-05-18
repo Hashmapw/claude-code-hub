@@ -2,6 +2,7 @@ import type { SQL, SQLWrapper } from "drizzle-orm";
 import { eq, gte, lt, sql } from "drizzle-orm";
 import { messageRequest } from "@/drizzle/schema";
 import { NON_BILLING_ENDPOINTS } from "@/lib/utils/performance-formatter";
+import type { BillingModelSource } from "@/types/system-config";
 
 export interface UsageLogFilterParams {
   sessionId?: string;
@@ -115,7 +116,16 @@ export const RETRY_COUNT_EXPR: SQL = sql`(
   FROM jsonb_array_elements(COALESCE(${messageRequest.providerChain}, '[]'::jsonb)) AS elem
 )`;
 
-export function buildUsageLogConditions(filters: UsageLogFilterParams): SQL[] {
+function getBillingModelExpr(billingModelSource: BillingModelSource): SQL {
+  return billingModelSource === "original"
+    ? sql`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`
+    : sql`${messageRequest.model}`;
+}
+
+export function buildUsageLogConditions(
+  filters: UsageLogFilterParams,
+  billingModelSource: BillingModelSource = "redirected"
+): SQL[] {
   const conditions: SQL[] = [];
 
   const trimmedSessionId = filters.sessionId?.trim();
@@ -142,7 +152,7 @@ export function buildUsageLogConditions(filters: UsageLogFilterParams): SQL[] {
   }
 
   if (filters.model) {
-    conditions.push(eq(messageRequest.model, filters.model));
+    conditions.push(sql`${getBillingModelExpr(billingModelSource)} = ${filters.model}`);
   }
 
   const hiddenEndpointCondition = buildDefaultHiddenUsageLogEndpointCondition(

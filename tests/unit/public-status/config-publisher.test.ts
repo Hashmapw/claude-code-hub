@@ -20,6 +20,16 @@ vi.mock("@/repository/model-price", () => ({
   findLatestPricesByModels: mockFindLatestPricesByModels,
 }));
 
+vi.mock("@/lib/model-vendor-icons", () => ({
+  getModelVendor: (modelId: string) => {
+    const normalized = modelId.toLowerCase();
+    if (normalized.startsWith("qwen")) return { i18nKey: "qwen" };
+    if (normalized.startsWith("deepseek")) return { i18nKey: "deepseek" };
+    if (normalized.startsWith("gpt")) return { i18nKey: "openai" };
+    return null;
+  },
+}));
+
 vi.mock("@/lib/redis", () => ({
   getRedisClient: mockGetRedisClient,
 }));

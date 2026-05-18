@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/repository/error-rules", () => ({
   getActiveErrorRules: mocks.getActiveErrorRules,
+  syncDefaultErrorRules: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/event-emitter", () => ({
@@ -93,7 +94,7 @@ describe("ErrorRuleDetector reload queue", () => {
 
     const initialReload = errorRuleDetector.reload();
 
-    mocks.eventEmitter.emit("errorRulesUpdated");
+    void errorRuleDetector.reload({ queueIfRunning: true });
 
     resolveFirstLoad?.([buildRule()]);
     await initialReload;
@@ -112,7 +113,7 @@ describe("ErrorRuleDetector reload queue", () => {
             resolveFirstLoad = (value) => {
               resolve(value);
               queueMicrotask(() => {
-                mocks.eventEmitter.emit("errorRulesUpdated");
+                void errorRuleDetector.reload({ queueIfRunning: true });
               });
             };
           })
@@ -149,7 +150,7 @@ describe("ErrorRuleDetector reload queue", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const initialReload = errorRuleDetector.reload();
-    mocks.eventEmitter.emit("errorRulesUpdated");
+    void errorRuleDetector.reload({ queueIfRunning: true });
 
     rejectFirstLoad?.(new Error("DSN environment variable is not set"));
     await initialReload;
@@ -209,7 +210,7 @@ describe("ErrorRuleDetector reload queue", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const runningReload = errorRuleDetector.reload();
-    mocks.eventEmitter.emit("errorRulesUpdated");
+    void errorRuleDetector.reload({ queueIfRunning: true });
 
     resolveFirstLoad?.([buildRule()]);
     await new Promise((resolve) => setTimeout(resolve, 0));

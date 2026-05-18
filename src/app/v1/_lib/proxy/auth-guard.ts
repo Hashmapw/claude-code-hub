@@ -109,6 +109,11 @@ export class ProxyAuthenticator {
     session.setAuthState(authState);
 
     if (authState.success) {
+      const { handleKeySoftBlock } = await import("./key-soft-block");
+      const softBlockResponse = await handleKeySoftBlock(session);
+      if (softBlockResponse) {
+        return softBlockResponse;
+      }
       proxyAuthPolicy.recordSuccess(clientIp, authState.apiKey ?? undefined);
       return null;
     }
@@ -269,12 +274,13 @@ export class ProxyAuthenticator {
         userId: user.id,
         userName: user.name,
       });
+      const locale = await getRequestLocale();
       return buildAuthFailure({
         apiKey,
         failureKind: "account_state",
         errorResponse: ProxyResponses.buildError(
           401,
-          "用户账户已被禁用。请联系管理员。",
+          await getErrorMessageServer(locale, ERROR_CODES.PROXY_USER_DISABLED),
           "user_disabled"
         ),
       });
@@ -299,7 +305,9 @@ export class ProxyAuthenticator {
         failureKind: "account_state",
         errorResponse: ProxyResponses.buildError(
           401,
-          `用户账户已于 ${user.expiresAt.toISOString().split("T")[0]} 过期。请续费订阅。`,
+          await getErrorMessageServer(await getRequestLocale(), ERROR_CODES.PROXY_USER_EXPIRED, {
+            date: user.expiresAt.toISOString().split("T")[0] ?? "",
+          }),
           "user_expired"
         ),
       });

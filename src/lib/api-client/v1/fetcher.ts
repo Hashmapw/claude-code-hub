@@ -1,4 +1,5 @@
 import { CSRF_HEADER } from "@/lib/api/v1/_shared/constants";
+import { withBasePath } from "@/lib/utils/base-path";
 import { ApiError } from "./errors";
 
 type ProblemBody = {
@@ -39,7 +40,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     if (csrfToken) headers.set(CSRF_HEADER, csrfToken);
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(withBasePath(path), {
     ...options,
     method,
     credentials: options.credentials ?? "include",
@@ -69,7 +70,7 @@ async function getCsrfToken(): Promise<string | null> {
   if (csrfTokenPromise && now < csrfTokenExpiresAt) return csrfTokenPromise;
 
   csrfTokenExpiresAt = now + CSRF_TOKEN_CACHE_TTL_MS;
-  csrfTokenPromise = fetch("/api/v1/auth/csrf", {
+  csrfTokenPromise = fetch(withBasePath("/api/v1/auth/csrf"), {
     credentials: "include",
     headers: { Accept: "application/json" },
   })

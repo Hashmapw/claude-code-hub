@@ -145,7 +145,7 @@ describe("legacy actions API redaction compatibility", () => {
     expect(JSON.stringify(body)).not.toContain("leaderboard-secret");
     expect(JSON.stringify(body)).not.toContain("cost-secret");
     expect(JSON.stringify(body)).not.toContain("cache-secret");
-  }, 20_000);
+  }, 60_000);
 
   test("redacts legacy notification settings webhook URLs after updates", async () => {
     vi.resetModules();

@@ -146,7 +146,7 @@ describe("ProxyAuthenticator account-state failures", () => {
 
     const error = await readErrorBody(response as Response);
     expect(error.type).toBe("user_disabled");
-    expect(error.message).toMatch(/账户已被禁用/);
+    expect(error.message).toBe("PROXY_USER_DISABLED");
 
     expect(policyRecordFailure).not.toHaveBeenCalled();
   });
@@ -167,7 +167,7 @@ describe("ProxyAuthenticator account-state failures", () => {
 
     const error = await readErrorBody(response as Response);
     expect(error.type).toBe("user_expired");
-    expect(error.message).toMatch(/已于.*过期/);
+    expect(error.message).toBe("PROXY_USER_EXPIRED");
 
     expect(markUserExpired).toHaveBeenCalledWith(8);
     expect(policyRecordFailure).not.toHaveBeenCalled();

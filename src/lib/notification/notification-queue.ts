@@ -16,12 +16,14 @@ import {
   buildCircuitBreakerMessage,
   buildCostAlertMessage,
   buildDailyLeaderboardMessage,
+  buildVipGroupUsageMessage,
   type CacheHitRateAlertData,
   type CircuitBreakerAlertData,
   type CostAlertData,
   type DailyLeaderboardData,
   type StructuredMessage,
   sendWebhookMessage,
+  type VipGroupUsageData,
   type WebhookNotificationType,
 } from "@/lib/webhook";
 import { isCacheHitRateAlertSettingsWindowMode } from "@/lib/webhook/types";
@@ -36,7 +38,12 @@ export interface NotificationJobData {
   // 新模式使用（多目标）
   targetId?: number;
   bindingId?: number;
-  data?: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData | CacheHitRateAlertData; // 可选：定时任务会在执行时动态生成
+  data?:
+    | CircuitBreakerAlertData
+    | DailyLeaderboardData
+    | CostAlertData
+    | CacheHitRateAlertData
+    | VipGroupUsageData; // 可选：定时任务会在执行时动态生成
 }
 
 function toWebhookNotificationType(type: NotificationJobType): WebhookNotificationType {
@@ -49,6 +56,8 @@ function toWebhookNotificationType(type: NotificationJobType): WebhookNotificati
       return "cost_alert";
     case "cache-hit-rate-alert":
       return "cache_hit_rate_alert";
+    case "vip-group-usage":
+      return "vip_group_usage";
   }
 }
 
@@ -421,6 +430,7 @@ function setupQueueProcessor(queue: Queue.Queue<NotificationJobData>): void {
         | DailyLeaderboardData
         | CostAlertData
         | CacheHitRateAlertData
+        | VipGroupUsageData
         | undefined = data;
       let cooldownCommit: { keys: string[]; cooldownMinutes: number } | undefined;
       switch (type) {
@@ -466,6 +476,23 @@ function setupQueueProcessor(queue: Queue.Queue<NotificationJobData>): void {
           // 发送第一个告警（后续可扩展为批量发送）
           templateData = alerts[0];
           message = buildCostAlertMessage(alerts[0]);
+          break;
+        }
+        case "vip-group-usage": {
+          if (!data) {
+            logger.error({
+              action: "vip_group_usage_invalid_payload",
+              jobId: job.id,
+              targetId,
+              bindingId,
+              reason: "missing_data",
+            });
+            return { success: true, skipped: true };
+          }
+
+          const payload = data as VipGroupUsageData;
+          templateData = payload;
+          message = buildVipGroupUsageMessage(payload, timezone);
           break;
         }
         case "cache-hit-rate-alert": {
@@ -649,7 +676,12 @@ function setupQueueProcessor(queue: Queue.Queue<NotificationJobData>): void {
 export async function addNotificationJob(
   type: NotificationJobType,
   webhookUrl: string,
-  data: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData | CacheHitRateAlertData
+  data:
+    | CircuitBreakerAlertData
+    | DailyLeaderboardData
+    | CostAlertData
+    | CacheHitRateAlertData
+    | VipGroupUsageData
 ): Promise<void> {
   try {
     const queue = getNotificationQueue();
@@ -679,7 +711,12 @@ export async function addNotificationJobForTarget(
   type: NotificationJobType,
   targetId: number,
   bindingId: number | null,
-  data: CircuitBreakerAlertData | DailyLeaderboardData | CostAlertData | CacheHitRateAlertData
+  data:
+    | CircuitBreakerAlertData
+    | DailyLeaderboardData
+    | CostAlertData
+    | CacheHitRateAlertData
+    | VipGroupUsageData
 ): Promise<void> {
   try {
     const queue = getNotificationQueue();

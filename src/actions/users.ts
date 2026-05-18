@@ -9,6 +9,7 @@ import { messageRequest, usageLedger, users as usersTable } from "@/drizzle/sche
 import { emitActionAudit } from "@/lib/audit/emit";
 import { getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
+import { getKeySoftBlockConfigs, type KeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
 import { getUnauthorizedFields } from "@/lib/permissions/user-field-permissions";
 import { clipStartByResetAt, resolveUser5hCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
@@ -72,6 +73,32 @@ export interface GetUsersBatchParams {
 const USER_LIST_DEFAULT_LIMIT = 50;
 const USER_LIST_MAX_LIMIT = 200;
 const SEARCH_USERS_MAX_LIMIT = 5000;
+
+function attachSoftBlockConfigs(
+  users: UserDisplay[],
+  configMap: Map<number, KeySoftBlockConfig>
+): UserDisplay[] {
+  return users.map((user) => ({
+    ...user,
+    keys: user.keys.map((key) => {
+      const config = configMap.get(key.id);
+      return {
+        ...key,
+        softBlockEnabled: config?.enabled ?? false,
+        softBlockMessage: config?.message ?? null,
+      };
+    }),
+  }));
+}
+
+async function attachRuntimeKeyConfig(users: UserDisplay[]): Promise<UserDisplay[]> {
+  const keyIds = users.flatMap((user) => user.keys.map((key) => key.id));
+  if (keyIds.length === 0) {
+    return users;
+  }
+  const softBlockConfigMap = await getKeySoftBlockConfigs(keyIds);
+  return attachSoftBlockConfigs(users, softBlockConfigMap);
+}
 
 type UserActionSession = {
   user: { id: number };
@@ -485,7 +512,7 @@ export async function getUsers(params?: GetUsersBatchParams): Promise<UserDispla
       }
     });
 
-    return userDisplays;
+    return attachRuntimeKeyConfig(userDisplays);
   } catch (error) {
     logger.error("Failed to fetch user data:", error);
     return [];
@@ -806,7 +833,14 @@ export async function getUsersBatch(
       }
     });
 
-    return { ok: true, data: { users: userDisplays, nextCursor, hasMore } };
+    return {
+      ok: true,
+      data: {
+        users: await attachRuntimeKeyConfig(userDisplays),
+        nextCursor,
+        hasMore,
+      },
+    };
   } catch (error) {
     logger.error("Failed to fetch user batch data:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch user batch data";
@@ -925,7 +959,7 @@ export async function getUsersBatchCore(
     return {
       ok: true,
       data: {
-        users: userDisplays.map(toActionTransportUserDisplay),
+        users: (await attachRuntimeKeyConfig(userDisplays)).map(toActionTransportUserDisplay),
         nextCursor,
         hasMore,
       },

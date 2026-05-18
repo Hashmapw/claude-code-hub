@@ -407,7 +407,9 @@ export async function traceProxyRequest(ctx: TraceContext): Promise<void> {
       }
     );
 
-    // Explicitly set trace-level input/output (propagateAttributes does not support these)
+    // Explicitly set trace-level input/output (propagateAttributes does not support these).
+    // The Langfuse tracing SDK exposes this as setTraceIO. Using observation.update here only
+    // changes the root observation payload and does not populate the legacy trace-level IO fields.
     rootSpan.setTraceIO({
       input: actualRequestBody,
       output: actualResponseBody,

@@ -253,7 +253,7 @@
         "responseModelLabel": "实际响应模型",
         "mismatchTooltip": "上游供应商实际返回的模型与请求的模型不一致。计费仍然基于请求模型。",
         "secondaryLineAriaLabel": "实际响应模型：{model}",
-        "arrowPrefix": "\u21b3"
+        "arrowPrefix": "↳"
       },
       "errorMessage": "错误信息",
       "fake200ForwardedNotice": "提示：对于流式请求，该失败可能在流结束后才被识别；响应内容可能已原样透传给客户端。",
@@ -1895,7 +1895,9 @@
       "clickToDisableKey": "点击禁用密钥",
       "clickToEnableKey": "点击启用密钥",
       "operationFailed": "操作失败",
-      "clickToQuickRenew": "点击快捷续期"
+      "clickToQuickRenew": "点击快捷续期",
+      "softBlocked": "临时限制",
+      "softBlockedDescription": "该 Key 当前已被临时限制使用"
     },
     "userStatus": {
       "enabled": "启用",
@@ -2040,6 +2042,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "临时限制该 Key 使用",
+          "descriptionEnabled": "开启后，所有使用该 Key 的请求都会被立即拦截，并返回下方自定义提示词。",
+          "descriptionDisabled": "关闭后，该 Key 将继续正常发起请求。",
+          "messageLabel": "限制提示词",
+          "messagePlaceholder": "输入请求被限制时返回给用户的提示词",
+          "messageDescription": "当该 Key 被临时限制时，直接返回给客户端。最多 500 个字符。"
         }
       },
       "limitRules": {

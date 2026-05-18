@@ -53,6 +53,8 @@
     "patternLabel": "正则模式 *",
     "patternPlaceholder": "输入正则表达式...",
     "patternRequired": "请输入正则模式",
+    "streamPrefixPatternLabel": "兜底关键词 *",
+    "streamPrefixPatternRequired": "请输入兜底关键词",
     "patternHint": "支持 JavaScript 正则表达式语法，例如：prompt is too long|invalid.*request",
     "categoryLabel": "规则类别 *",
     "categoryPlaceholder": "选择规则类别",
@@ -86,7 +88,11 @@
     "invalidJson": "JSON 格式无效",
     "invalidStatusCode": "状态码必须在 400-599 范围内",
     "creating": "创建中...",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "streamPrefixPatternPlaceholder": "输入兜底关键词，例如：公益 token 通知群",
+    "streamPrefixPatternHint": "该类别不按正则匹配；pattern 仅作为 keywords 为空时的兜底关键词。",
+    "streamPrefixDescriptionPlaceholder": "{\n  \"scanLimitBytes\": 4096,\n  \"keywords\": [\"175877552\", \"公益 token 通知群\"],\n  \"providerIds\": [12, 18, 33],\n  \"statusCode\": 403,\n  \"message\": \"响应已被流前缀策略拦截\"\n}",
+    "streamPrefixDescriptionHint": "填写 JSON 配置：scanLimitBytes 为前缀扫描字节数；keywords 为空时回退使用 pattern；providerIds 缺省表示全局生效；overrideStatusCode 优先于 statusCode。"
   },
   "table": {
     "pattern": "正则模式",
@@ -142,7 +148,8 @@
     "thinking_error": "Thinking 格式错误",
     "parameter_error": "参数验证失败",
     "invalid_request": "非法请求",
-    "cache_limit": "缓存控制限制"
+    "cache_limit": "缓存控制限制",
+    "stream_prefix_block": "流前缀拦截"
   },
   "regexTester": {
     "title": "正则测试器",

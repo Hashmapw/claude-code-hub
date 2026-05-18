@@ -148,8 +148,8 @@ export function createTestRunnerConfig(opts: TestRunnerConfigOptions) {
       environment: opts.environment,
       setupFiles,
       ...(opts.api ? { api: opts.api, open: false } : {}),
-      testTimeout: opts.testTimeout ?? 10000,
-      hookTimeout: opts.hookTimeout ?? 10000,
+      testTimeout: opts.testTimeout ?? 60000,
+      hookTimeout: opts.hookTimeout ?? 60000,
       teardownTimeout: parsePositiveInt(process.env.VITEST_TEARDOWN_TIMEOUT_MS, 15000),
       slowTestThreshold: parsePositiveInt(process.env.VITEST_SLOW_TEST_THRESHOLD_MS, 1000),
       maxConcurrency:

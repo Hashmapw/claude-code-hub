@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Database, DollarSign, Settings2, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ElementType, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -34,7 +34,7 @@ interface TypeConfig {
   iconColor: string;
   iconBgColor: string;
   borderColor: string;
-  IconComponent: typeof AlertTriangle | typeof TrendingUp | typeof DollarSign | typeof Database;
+  IconComponent: ElementType;
 }
 
 function getTypeConfig(type: NotificationType): TypeConfig {
@@ -66,6 +66,13 @@ function getTypeConfig(type: NotificationType): TypeConfig {
         iconBgColor: "bg-blue-500/10",
         borderColor: "border-blue-500/20 hover:border-blue-500/30",
         IconComponent: Database,
+      };
+    case "vip_group_usage":
+      return {
+        iconColor: "text-purple-400",
+        iconBgColor: "bg-purple-500/10",
+        borderColor: "border-purple-500/20 hover:border-purple-500/30",
+        IconComponent: Settings2,
       };
   }
 }
@@ -186,7 +193,8 @@ export function NotificationTypeCard({
     | "circuitBreakerEnabled"
     | "dailyLeaderboardEnabled"
     | "costAlertEnabled"
-    | "cacheHitRateAlertEnabled";
+    | "cacheHitRateAlertEnabled"
+    | "vipGroupUsageEnabled";
 
   type TypeMeta = {
     title: string;
@@ -230,10 +238,19 @@ export function NotificationTypeCard({
           enabledKey: "cacheHitRateAlertEnabled" as const,
           enableLabel: t("notifications.cacheHitRateAlert.enable"),
         };
+      case "vip_group_usage":
+        return {
+          title: t("notifications.vipGroupUsage.title"),
+          description: t("notifications.vipGroupUsage.description"),
+          enabled: settings.vipGroupUsageEnabled,
+          enabledKey: "vipGroupUsageEnabled" as const,
+          enableLabel: t("notifications.vipGroupUsage.enable"),
+        };
     }
   }, [settings, t, type]);
 
   const enabled = meta.enabled;
+  const controlsDisabled = type === "vip_group_usage" ? false : !settings.enabled;
 
   const bindingEnabledCount = useMemo(() => {
     return bindings.filter((b) => b.isEnabled && b.target.isEnabled).length;
@@ -286,7 +303,7 @@ export function NotificationTypeCard({
           <Switch
             id={`${type}-enabled`}
             checked={enabled}
-            disabled={!settings.enabled}
+            disabled={controlsDisabled}
             onCheckedChange={(checked) =>
               onUpdateSettings(createSettingsPatch(meta.enabledKey, checked))
             }
@@ -311,7 +328,7 @@ export function NotificationTypeCard({
                   id="dailyLeaderboardTime"
                   type="time"
                   value={settings.dailyLeaderboardTime}
-                  disabled={!settings.enabled}
+                  disabled={controlsDisabled}
                   onChange={(e) => onUpdateSettings({ dailyLeaderboardTime: e.target.value })}
                   className={cn(
                     "w-full bg-muted/50 border border-border rounded-lg py-2 px-3 text-sm text-foreground",
@@ -332,7 +349,7 @@ export function NotificationTypeCard({
                   min={1}
                   max={20}
                   value={settings.dailyLeaderboardTopN}
-                  disabled={!settings.enabled}
+                  disabled={controlsDisabled}
                   onValueChange={(v) => onUpdateSettings({ dailyLeaderboardTopN: v })}
                   constraints={{ integer: true, min: 1, max: 20 }}
                   className={cn(
@@ -362,7 +379,7 @@ export function NotificationTypeCard({
                   max={1.0}
                   step={0.05}
                   value={settings.costAlertThreshold}
-                  disabled={!settings.enabled}
+                  disabled={controlsDisabled}
                   onChange={safeNumberOnChange(
                     (nextValue) => onUpdateSettings({ costAlertThreshold: nextValue }),
                     { min: 0.5, max: 1.0 }
@@ -382,7 +399,7 @@ export function NotificationTypeCard({
                   min={10}
                   max={1440}
                   value={settings.costAlertCheckInterval}
-                  disabled={!settings.enabled}
+                  disabled={controlsDisabled}
                   onValueChange={(v) => onUpdateSettings({ costAlertCheckInterval: v })}
                   constraints={{ integer: true, min: 10, max: 1440 }}
                   className={cn(
@@ -405,7 +422,7 @@ export function NotificationTypeCard({
                   <select
                     id="cacheHitRateAlertWindowMode"
                     value={settings.cacheHitRateAlertWindowMode}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onChange={(e) => {
                       const nextValue = e.target.value;
                       if (!isCacheHitRateAlertSettingsWindowMode(nextValue)) return;
@@ -432,7 +449,7 @@ export function NotificationTypeCard({
                     min={1}
                     max={1440}
                     value={settings.cacheHitRateAlertCheckInterval}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) => onUpdateSettings({ cacheHitRateAlertCheckInterval: v })}
                     constraints={{ integer: true, min: 1, max: 1440 }}
                     className={settingsControlClassName}
@@ -448,7 +465,7 @@ export function NotificationTypeCard({
                     min={1}
                     max={90}
                     value={settings.cacheHitRateAlertHistoricalLookbackDays}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) =>
                       onUpdateSettings({
                         cacheHitRateAlertHistoricalLookbackDays: v,
@@ -468,7 +485,7 @@ export function NotificationTypeCard({
                     min={0}
                     max={1440}
                     value={settings.cacheHitRateAlertCooldownMinutes}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) => onUpdateSettings({ cacheHitRateAlertCooldownMinutes: v })}
                     constraints={{ integer: true, min: 0, max: 1440 }}
                     className={settingsControlClassName}
@@ -487,7 +504,7 @@ export function NotificationTypeCard({
                     max={1}
                     step={0.01}
                     value={settings.cacheHitRateAlertAbsMin}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) => onUpdateSettings({ cacheHitRateAlertAbsMin: v })}
                     constraints={{ min: 0, max: 1 }}
                     className={settingsControlClassName}
@@ -504,7 +521,7 @@ export function NotificationTypeCard({
                     max={1}
                     step={0.01}
                     value={settings.cacheHitRateAlertDropAbs}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) => onUpdateSettings({ cacheHitRateAlertDropAbs: v })}
                     constraints={{ min: 0, max: 1 }}
                     className={settingsControlClassName}
@@ -521,7 +538,7 @@ export function NotificationTypeCard({
                     max={1}
                     step={0.01}
                     value={settings.cacheHitRateAlertDropRel}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) => onUpdateSettings({ cacheHitRateAlertDropRel: v })}
                     constraints={{ min: 0, max: 1 }}
                     className={settingsControlClassName}
@@ -539,7 +556,7 @@ export function NotificationTypeCard({
                     min={1}
                     max={100000}
                     value={settings.cacheHitRateAlertMinEligibleRequests}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) =>
                       onUpdateSettings({
                         cacheHitRateAlertMinEligibleRequests: v,
@@ -559,7 +576,7 @@ export function NotificationTypeCard({
                     min={0}
                     max={2147483647}
                     value={settings.cacheHitRateAlertMinEligibleTokens}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) =>
                       onUpdateSettings({
                         cacheHitRateAlertMinEligibleTokens: v,
@@ -579,13 +596,36 @@ export function NotificationTypeCard({
                     min={1}
                     max={100}
                     value={settings.cacheHitRateAlertTopN}
-                    disabled={!settings.enabled}
+                    disabled={controlsDisabled}
                     onValueChange={(v) => onUpdateSettings({ cacheHitRateAlertTopN: v })}
                     constraints={{ integer: true, min: 1, max: 100 }}
                     className={settingsControlClassName}
                   />
                 </LabeledControl>
               </div>
+            </div>
+          )}
+
+          {type === "vip_group_usage" && (
+            <div className="space-y-3">
+              <LabeledControl
+                id="vipGroupUsageCooldownSeconds"
+                label={t("notifications.vipGroupUsage.cooldownSeconds")}
+              >
+                <NumberInput
+                  id="vipGroupUsageCooldownSeconds"
+                  min={1}
+                  max={86400}
+                  value={settings.vipGroupUsageCooldownSeconds}
+                  disabled={controlsDisabled}
+                  onValueChange={(v) => onUpdateSettings({ vipGroupUsageCooldownSeconds: v })}
+                  constraints={{ integer: true, min: 1, max: 86400 }}
+                  className={settingsControlClassName}
+                />
+              </LabeledControl>
+              <p className="text-xs text-muted-foreground">
+                {t("notifications.vipGroupUsage.cooldownHelp")}
+              </p>
             </div>
           )}
 

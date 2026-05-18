@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { addKey } from "@/lib/api-client/v1/actions/keys";
 import { getAvailableProviderGroups } from "@/lib/api-client/v1/actions/providers";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
@@ -23,6 +24,15 @@ import { getErrorMessage } from "@/lib/utils/error-messages";
 import { parseProviderGroups } from "@/lib/utils/provider-group";
 import { KeyFormSchema } from "@/lib/validation/schemas";
 import type { KeyDialogUserContext } from "@/types/user";
+
+function getFormErrorMessage(
+  message: string | undefined,
+  tErrors: (key: string, params?: Record<string, string | number>) => string
+): string | undefined {
+  if (!message) return undefined;
+  if (!message.startsWith("KEY_SOFT_BLOCK_")) return message;
+  return getErrorMessage(tErrors, message);
+}
 
 interface AddKeyFormProps {
   userId?: number;
@@ -39,6 +49,7 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
   const tBalancePage = useTranslations(
     "dashboard.userManagement.keyEditSection.fields.balanceQueryPage"
   );
+  const tSoftBlock = useTranslations("dashboard.userManagement.keyEditSection.fields.softBlock");
   const tUI = useTranslations("ui.tagInput");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
@@ -58,6 +69,8 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
       name: "",
       expiresAt: "",
       canLoginWebUi: false,
+      softBlockEnabled: false,
+      softBlockMessage: null,
       providerGroup: PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: "inherit",
       limit5hUsd: null,
@@ -82,6 +95,8 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
           // 重要：清除到期时间时用空字符串表达，避免 undefined 在 Server Action 序列化时被丢弃
           expiresAt: data.expiresAt ?? "",
           canLoginWebUi: data.canLoginWebUi,
+          softBlockEnabled: data.softBlockEnabled,
+          softBlockMessage: data.softBlockMessage ?? null,
           limit5hUsd: data.limit5hUsd,
           limit5hResetMode: data.limit5hResetMode,
           limitDailyUsd: data.limitDailyUsd,
@@ -191,6 +206,45 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
           checked={!form.values.canLoginWebUi}
           onCheckedChange={(checked) => form.setValue("canLoginWebUi", !checked)}
         />
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-dashed border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label htmlFor="add-key-soft-block" className="text-sm font-medium">
+              {tSoftBlock("label")}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {form.values.softBlockEnabled
+                ? tSoftBlock("descriptionEnabled")
+                : tSoftBlock("descriptionDisabled")}
+            </p>
+          </div>
+          <Switch
+            id="add-key-soft-block"
+            checked={form.values.softBlockEnabled ?? false}
+            onCheckedChange={(checked) => form.setValue("softBlockEnabled", checked)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="add-key-soft-block-message">{tSoftBlock("messageLabel")}</Label>
+          <Textarea
+            id="add-key-soft-block-message"
+            value={form.values.softBlockMessage ?? ""}
+            onChange={(event) => form.setValue("softBlockMessage", event.target.value)}
+            placeholder={tSoftBlock("messagePlaceholder")}
+            maxLength={500}
+            rows={4}
+            disabled={!(form.values.softBlockEnabled ?? false)}
+          />
+          <p className="text-xs text-muted-foreground">{tSoftBlock("messageDescription")}</p>
+          {form.errors.softBlockMessage ? (
+            <p className="text-xs text-destructive" role="alert">
+              {getFormErrorMessage(form.errors.softBlockMessage, tErrors)}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <TagInputField

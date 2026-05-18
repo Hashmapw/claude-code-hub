@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getRedisClient } from "@/lib/redis/client";
-import type { CircuitBreakerAlertData } from "@/lib/webhook";
+import type { CircuitBreakerAlertData, VipGroupUsageData } from "@/lib/webhook";
 import { generateCostAlerts } from "./tasks/cost-alert";
 import { generateDailyLeaderboard } from "./tasks/daily-leaderboard";
 
@@ -243,6 +243,76 @@ export async function sendCostAlerts(): Promise<void> {
   } catch (error) {
     logger.error({
       action: "send_cost_alerts_error",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * 发送 VIP 高成本分组使用提醒
+ * 配置与冷却窗口保存在 Redis，不写入数据库设置表。
+ */
+export async function sendVipGroupUsageAlert(data: VipGroupUsageData): Promise<void> {
+  try {
+    const { loadVipGroupUsageAlertConfig } = await import("@/lib/redis/vip-group-usage-config");
+    const config = await loadVipGroupUsageAlertConfig();
+
+    if (!config.enabled) {
+      logger.info({
+        action: "vip_group_usage_alert_disabled",
+        providerId: data.providerId,
+        sessionId: data.sessionId || "no-session",
+        reason: "vip_group_usage_disabled",
+      });
+      return;
+    }
+
+    const { getEnabledBindingsByType } = await import("@/repository/notification-bindings");
+    const bindings = await getEnabledBindingsByType("vip_group_usage");
+
+    if (bindings.length === 0) {
+      logger.info({
+        action: "vip_group_usage_alert_skipped",
+        providerId: data.providerId,
+        sessionId: data.sessionId || "no-session",
+        reason: "no_bindings",
+      });
+      return;
+    }
+
+    const redisClient = getRedisClient({ allowWhenRateLimitDisabled: true });
+    const dedupKey = `vip-group-usage-alert:${data.providerId}:${data.sessionId || "no-session"}`;
+
+    if (redisClient) {
+      const reserved = await redisClient.set(dedupKey, "1", "EX", config.cooldownSeconds, "NX");
+      if (reserved !== "OK") {
+        logger.info({
+          action: "vip_group_usage_alert_suppressed",
+          providerId: data.providerId,
+          sessionId: data.sessionId || "no-session",
+          reason: "duplicate_within_cooldown",
+          cooldownSeconds: config.cooldownSeconds,
+        });
+        return;
+      }
+    }
+
+    const { addNotificationJobForTarget } = await import("./notification-queue");
+    for (const binding of bindings) {
+      await addNotificationJobForTarget("vip-group-usage", binding.targetId, binding.id, data);
+    }
+
+    logger.info({
+      action: "vip_group_usage_alert_sent",
+      providerId: data.providerId,
+      sessionId: data.sessionId || "no-session",
+      bindingsCount: bindings.length,
+    });
+  } catch (error) {
+    logger.error({
+      action: "send_vip_group_usage_alert_error",
+      providerId: data.providerId,
+      sessionId: data.sessionId || "no-session",
       error: error instanceof Error ? error.message : String(error),
     });
   }

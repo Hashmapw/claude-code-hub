@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Hoist mocks before imports -- mock transitive dependencies to avoid
 // next-intl pulling in next/navigation (not resolvable in vitest)
@@ -14,7 +14,8 @@ vi.mock("@/i18n/routing", () => ({
   },
 }));
 
-vi.mock("@/lib/config/env.schema", () => ({
+vi.mock("@/lib/config/env.schema", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/config/env.schema")>()),
   isDevelopment: () => false,
 }));
 
@@ -35,6 +36,12 @@ function makeRequest(pathname: string, cookies: Record<string, string> = {}) {
 }
 
 describe("proxy auth cookie passthrough", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("VSCODE_PROXY_URI", "");
+    vi.stubEnv("vscode_proxy_uri", "");
+  });
+
   it("redirects to login when no auth cookie is present", async () => {
     const localeResponse = new Response(null, { status: 200 });
     mockIntlMiddleware.mockReturnValue(localeResponse);

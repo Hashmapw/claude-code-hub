@@ -21,7 +21,8 @@
     "parameter_error": "Ошибка валидации параметров",
     "pdf_limit": "Ограничение страниц PDF",
     "prompt_limit": "Ограничение длины промпта",
-    "thinking_error": "Ошибка формата Thinking"
+    "thinking_error": "Ошибка формата Thinking",
+    "stream_prefix_block": "Блокировка префикса потока"
   },
   "confirmDelete": "Вы уверены, что хотите удалить правило ошибки \"{pattern}\"?",
   "defaultRules": {
@@ -64,6 +65,8 @@
     "patternLabel": "Регулярное выражение *",
     "patternPlaceholder": "Введите регулярное выражение...",
     "patternRequired": "Пожалуйста, введите регулярное выражение",
+    "streamPrefixPatternLabel": "Резервное ключевое слово *",
+    "streamPrefixPatternRequired": "Пожалуйста, введите резервное ключевое слово",
     "regexTester": "Тестер регулярных выражений",
     "saving": "Сохранение...",
     "testMessageLabel": "Тестовое сообщение",
@@ -73,7 +76,11 @@
     "templateOpenaiApi": "OpenAI API",
     "useTemplate": "Шаблон Claude Error",
     "useTemplateConfirm": "Существующее содержимое будет заменено шаблоном. Продолжить?",
-    "validJson": "Формат JSON корректен"
+    "validJson": "Формат JSON корректен",
+    "streamPrefixPatternPlaceholder": "Введите резервное ключевое слово, например группа уведомлений public token",
+    "streamPrefixPatternHint": "Эта категория не использует regex; pattern применяется только как резервное ключевое слово, если keywords пуст.",
+    "streamPrefixDescriptionPlaceholder": "{\n  \"scanLimitBytes\": 4096,\n  \"keywords\": [\"175877552\", \"группа уведомлений public token\"],\n  \"providerIds\": [12, 18, 33],\n  \"statusCode\": 403,\n  \"message\": \"Ответ заблокирован политикой префикса потока\"\n}",
+    "streamPrefixDescriptionHint": "Введите JSON: scanLimitBytes задает окно сканирования префикса; если keywords пуст, используется pattern; отсутствие providerIds означает глобальное действие; overrideStatusCode имеет приоритет над statusCode."
   },
   "disable": "Правило ошибки отключено",
   "edit": "Редактировать правило ошибки",

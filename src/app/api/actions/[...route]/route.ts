@@ -1922,6 +1922,14 @@ const { route: updateNotificationSettingsRoute, handler: updateNotificationSetti
           .max(100)
           .optional()
           .describe("TopN（最多返回/推送条数）"),
+        vipGroupUsageEnabled: z.boolean().optional().describe("是否启用 VIP 高成本分组提醒"),
+        vipGroupUsageCooldownSeconds: z
+          .number()
+          .int()
+          .min(1)
+          .max(86400)
+          .optional()
+          .describe("VIP 高成本分组提醒冷却时间（秒）"),
       }),
       summary: "更新通知设置",
       description: "更新通知开关与各类型通知配置（生产环境会触发重新调度定时任务）",
@@ -1960,6 +1968,7 @@ const WebhookNotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 const WebhookTargetSchema = z.object({

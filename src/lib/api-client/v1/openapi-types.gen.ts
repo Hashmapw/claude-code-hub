@@ -4121,7 +4121,7 @@ export interface operations {
                      * @description Notification type used for sending a test webhook message.
                      * @enum {string}
                      */
-                    notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                    notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
                 };
             };
         };
@@ -10683,6 +10683,10 @@ export interface operations {
                         cacheHitRateAlertCooldownMinutes: number | null;
                         /** @description Top N cache hit-rate alerts. */
                         cacheHitRateAlertTopN: number | null;
+                        /** @description Whether VIP group usage alerts are enabled. */
+                        vipGroupUsageEnabled: boolean;
+                        /** @description VIP group usage alert cooldown in seconds. */
+                        vipGroupUsageCooldownSeconds: number;
                         /**
                          * Format: date-time
                          * @description Creation time.
@@ -10870,6 +10874,10 @@ export interface operations {
                     cacheHitRateAlertCooldownMinutes?: number | null;
                     /** @description Top N cache hit-rate alerts. */
                     cacheHitRateAlertTopN?: number | null;
+                    /** @description Whether VIP group usage alerts are enabled. */
+                    vipGroupUsageEnabled?: boolean;
+                    /** @description VIP group usage alert cooldown in seconds. */
+                    vipGroupUsageCooldownSeconds?: number;
                 };
             };
         };
@@ -10931,6 +10939,10 @@ export interface operations {
                         cacheHitRateAlertCooldownMinutes: number | null;
                         /** @description Top N cache hit-rate alerts. */
                         cacheHitRateAlertTopN: number | null;
+                        /** @description Whether VIP group usage alerts are enabled. */
+                        vipGroupUsageEnabled: boolean;
+                        /** @description VIP group usage alert cooldown in seconds. */
+                        vipGroupUsageCooldownSeconds: number;
                         /**
                          * Format: date-time
                          * @description Creation time.
@@ -11079,7 +11091,7 @@ export interface operations {
                      * @description Notification job type.
                      * @enum {string}
                      */
-                    type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                    type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
                 };
             };
         };
@@ -11217,7 +11229,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Notification job type. */
-                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
             };
             cookie?: never;
         };
@@ -11238,7 +11250,7 @@ export interface operations {
                              * @description Notification job type.
                              * @enum {string}
                              */
-                            notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                            notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
                             /** @description Webhook target id. */
                             targetId: number;
                             /** @description Whether this binding is enabled. */
@@ -11440,7 +11452,7 @@ export interface operations {
             };
             path: {
                 /** @description Notification job type. */
-                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
             };
             cookie?: never;
         };
@@ -13713,7 +13725,7 @@ export interface operations {
                              */
                             matchType: "contains" | "exact" | "regex";
                             /** @description Error category. */
-                            category: ("prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit") | string;
+                            category: ("prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit" | "stream_prefix_block") | string;
                             /** @description Optional description. */
                             description: string | null;
                             /** @description Optional response override. */
@@ -13911,7 +13923,7 @@ export interface operations {
                      * @description Error rule category.
                      * @enum {string}
                      */
-                    category: "prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit";
+                    category: "prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit" | "stream_prefix_block";
                     /**
                      * @description Match type.
                      * @enum {string}
@@ -13946,7 +13958,7 @@ export interface operations {
                          */
                         matchType: "contains" | "exact" | "regex";
                         /** @description Error category. */
-                        category: ("prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit") | string;
+                        category: ("prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit" | "stream_prefix_block") | string;
                         /** @description Optional description. */
                         description: string | null;
                         /** @description Optional response override. */
@@ -14882,7 +14894,7 @@ export interface operations {
                      * @description Error rule category.
                      * @enum {string}
                      */
-                    category?: "prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit";
+                    category?: "prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit" | "stream_prefix_block";
                     /**
                      * @description Match type.
                      * @enum {string}
@@ -14921,7 +14933,7 @@ export interface operations {
                          */
                         matchType: "contains" | "exact" | "regex";
                         /** @description Error category. */
-                        category: ("prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit") | string;
+                        category: ("prompt_limit" | "content_filter" | "pdf_limit" | "thinking_error" | "parameter_error" | "invalid_request" | "cache_limit" | "stream_prefix_block") | string;
                         /** @description Optional description. */
                         description: string | null;
                         /** @description Optional response override. */
@@ -32610,6 +32622,10 @@ export interface operations {
                     isEnabled?: boolean;
                     /** @description Whether this key can login to the Web UI. */
                     canLoginWebUi?: boolean;
+                    /** @description Whether Redis-only temporary key soft block is enabled. */
+                    softBlockEnabled?: boolean;
+                    /** @description Message returned when the key soft block is hit. */
+                    softBlockMessage?: string | null;
                     /** @description Five-hour USD quota. */
                     limit5hUsd?: number | null;
                     /**
@@ -33717,6 +33733,10 @@ export interface operations {
                     isEnabled?: boolean;
                     /** @description Whether this key can login to the Web UI. */
                     canLoginWebUi?: boolean;
+                    /** @description Whether Redis-only temporary key soft block is enabled. */
+                    softBlockEnabled?: boolean;
+                    /** @description Message returned when the key soft block is hit. */
+                    softBlockMessage?: string | null;
                     /** @description Five-hour USD quota. */
                     limit5hUsd?: number | null;
                     /**

@@ -10,6 +10,7 @@ export {
   buildCircuitBreakerMessage,
   buildCostAlertMessage,
   buildDailyLeaderboardMessage,
+  buildVipGroupUsageMessage,
 } from "./templates";
 export type {
   CacheHitRateAlertAnomaly,
@@ -27,6 +28,7 @@ export type {
   Section,
   SectionContent,
   StructuredMessage,
+  VipGroupUsageData,
   WebhookNotificationType,
   WebhookPayload,
   WebhookResult,

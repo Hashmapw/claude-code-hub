@@ -364,7 +364,7 @@ export const UpdateUserSchema = z.object({
 /**
  * 密钥表单数据验证schema
  */
-export const KeyFormSchema = z.object({
+export const KeyFormSchemaBase = z.object({
   name: z.string().min(1, "密钥名称不能为空").max(64, "密钥名称不能超过64个字符"),
   expiresAt: z
     .string()
@@ -373,6 +373,13 @@ export const KeyFormSchema = z.object({
     .transform((val) => (val === "" ? undefined : val)),
   // Web UI 登录权限控制
   canLoginWebUi: z.boolean().optional().default(true),
+  softBlockEnabled: z.boolean().optional().default(false),
+  softBlockMessage: z
+    .string()
+    .trim()
+    .max(500, "KEY_SOFT_BLOCK_MESSAGE_TOO_LONG")
+    .nullable()
+    .optional(),
   // 金额限流配置
   limit5hUsd: z.coerce
     .number()
@@ -425,6 +432,16 @@ export const KeyFormSchema = z.object({
     .optional()
     .default(""),
   cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
+});
+
+export const KeyFormSchema = KeyFormSchemaBase.superRefine((data, ctx) => {
+  if (data.softBlockEnabled && !data.softBlockMessage) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["softBlockMessage"],
+      message: "KEY_SOFT_BLOCK_MESSAGE_REQUIRED",
+    });
+  }
 });
 
 // 共享：静态自定义请求头的 zod 校验器，复用 normalizeCustomHeadersRecord 中的全部规则。

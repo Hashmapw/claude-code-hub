@@ -24,12 +24,39 @@ import {
 } from "@/components/ui/select";
 import { createErrorRuleAction } from "@/lib/api-client/v1/actions/error-rules";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/utils/error-messages";
 import type { ErrorOverrideResponse } from "@/repository/error-rules";
 import { OverrideSection } from "./override-section";
 import { RegexTester } from "./regex-tester";
 
+type ErrorRuleCategory =
+  | "prompt_limit"
+  | "content_filter"
+  | "pdf_limit"
+  | "thinking_error"
+  | "parameter_error"
+  | "invalid_request"
+  | "cache_limit"
+  | "stream_prefix_block";
+
+const ERROR_RULE_CATEGORIES: ErrorRuleCategory[] = [
+  "prompt_limit",
+  "content_filter",
+  "pdf_limit",
+  "thinking_error",
+  "parameter_error",
+  "invalid_request",
+  "cache_limit",
+  "stream_prefix_block",
+];
+
+function isStreamPrefixBlock(category: string): boolean {
+  return category === "stream_prefix_block";
+}
+
 export function AddRuleDialog() {
   const t = useTranslations("settings");
+  const tErrors = useTranslations("errors");
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pattern, setPattern] = useState("");
@@ -38,12 +65,19 @@ export function AddRuleDialog() {
   const [enableOverride, setEnableOverride] = useState(false);
   const [overrideResponse, setOverrideResponse] = useState("");
   const [overrideStatusCode, setOverrideStatusCode] = useState<string>("");
+  const isStreamPrefixBlockRule = isStreamPrefixBlock(category);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!pattern.trim()) {
-      toast.error(t("errorRules.dialog.patternRequired"));
+      toast.error(
+        t(
+          isStreamPrefixBlockRule
+            ? "errorRules.dialog.streamPrefixPatternRequired"
+            : "errorRules.dialog.patternRequired"
+        )
+      );
       return;
     }
 
@@ -52,12 +86,14 @@ export function AddRuleDialog() {
       return;
     }
 
-    // Validate regex pattern
-    try {
-      new RegExp(pattern.trim());
-    } catch {
-      toast.error(t("errorRules.dialog.invalidRegex"));
-      return;
+    // Validate regex pattern. stream_prefix_block stores a fallback keyword, not a regex.
+    if (!isStreamPrefixBlockRule) {
+      try {
+        new RegExp(pattern.trim());
+      } catch {
+        toast.error(t("errorRules.dialog.invalidRegex"));
+        return;
+      }
     }
 
     // Parse and validate override response JSON (only when override is enabled)
@@ -90,14 +126,8 @@ export function AddRuleDialog() {
     try {
       const result = await createErrorRuleAction({
         pattern: pattern.trim(),
-        category: category as
-          | "prompt_limit"
-          | "content_filter"
-          | "pdf_limit"
-          | "thinking_error"
-          | "parameter_error"
-          | "invalid_request"
-          | "cache_limit",
+        category: category as ErrorRuleCategory,
+        matchType: isStreamPrefixBlockRule ? "contains" : "regex",
         description: description.trim() || undefined,
         overrideResponse: parsedOverrideResponse ?? null,
         overrideStatusCode: parsedStatusCode ?? null,
@@ -114,7 +144,11 @@ export function AddRuleDialog() {
         setOverrideResponse("");
         setOverrideStatusCode("");
       } else {
-        toast.error(result.error);
+        toast.error(
+          result.errorCode
+            ? getErrorMessage(tErrors, result.errorCode, result.errorParams)
+            : result.error
+        );
       }
     } catch {
       toast.error(t("errorRules.addFailed"));
@@ -144,13 +178,21 @@ export function AddRuleDialog() {
                 htmlFor="pattern"
                 className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
               >
-                {t("errorRules.dialog.patternLabel")}
+                {t(
+                  isStreamPrefixBlockRule
+                    ? "errorRules.dialog.streamPrefixPatternLabel"
+                    : "errorRules.dialog.patternLabel"
+                )}
               </Label>
               <input
                 id="pattern"
                 value={pattern}
                 onChange={(e) => setPattern(e.target.value)}
-                placeholder={t("errorRules.dialog.patternPlaceholder")}
+                placeholder={
+                  isStreamPrefixBlockRule
+                    ? t("errorRules.dialog.streamPrefixPatternPlaceholder")
+                    : t("errorRules.dialog.patternPlaceholder")
+                }
                 required
                 className={cn(
                   "w-full bg-muted/50 border border-border rounded-lg py-2 px-3 text-sm text-foreground font-mono",
@@ -158,7 +200,11 @@ export function AddRuleDialog() {
                   "focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                 )}
               />
-              <p className="text-xs text-muted-foreground">{t("errorRules.dialog.patternHint")}</p>
+              <p className="text-xs text-muted-foreground">
+                {isStreamPrefixBlockRule
+                  ? t("errorRules.dialog.streamPrefixPatternHint")
+                  : t("errorRules.dialog.patternHint")}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -173,25 +219,11 @@ export function AddRuleDialog() {
                   <SelectValue placeholder={t("errorRules.dialog.categoryPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="prompt_limit">
-                    {t("errorRules.categories.prompt_limit")}
-                  </SelectItem>
-                  <SelectItem value="content_filter">
-                    {t("errorRules.categories.content_filter")}
-                  </SelectItem>
-                  <SelectItem value="pdf_limit">{t("errorRules.categories.pdf_limit")}</SelectItem>
-                  <SelectItem value="thinking_error">
-                    {t("errorRules.categories.thinking_error")}
-                  </SelectItem>
-                  <SelectItem value="parameter_error">
-                    {t("errorRules.categories.parameter_error")}
-                  </SelectItem>
-                  <SelectItem value="invalid_request">
-                    {t("errorRules.categories.invalid_request")}
-                  </SelectItem>
-                  <SelectItem value="cache_limit">
-                    {t("errorRules.categories.cache_limit")}
-                  </SelectItem>
+                  {ERROR_RULE_CATEGORIES.map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {t(`errorRules.categories.${item}`)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">{t("errorRules.dialog.categoryHint")}</p>
@@ -208,7 +240,11 @@ export function AddRuleDialog() {
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={t("errorRules.dialog.descriptionPlaceholder")}
+                placeholder={
+                  isStreamPrefixBlockRule
+                    ? t("errorRules.dialog.streamPrefixDescriptionPlaceholder")
+                    : t("errorRules.dialog.descriptionPlaceholder")
+                }
                 rows={3}
                 className={cn(
                   "w-full bg-muted/50 border border-border rounded-lg py-2.5 px-3 text-sm text-foreground",
@@ -216,6 +252,11 @@ export function AddRuleDialog() {
                   "focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                 )}
               />
+              {isStreamPrefixBlockRule && (
+                <p className="text-xs text-muted-foreground">
+                  {t("errorRules.dialog.streamPrefixDescriptionHint")}
+                </p>
+              )}
             </div>
 
             <OverrideSection
@@ -228,7 +269,7 @@ export function AddRuleDialog() {
               onOverrideStatusCodeChange={setOverrideStatusCode}
             />
 
-            {pattern && (
+            {pattern && !isStreamPrefixBlockRule && (
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   {t("errorRules.dialog.regexTester")}

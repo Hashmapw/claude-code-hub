@@ -42,6 +42,200 @@ async function getErrorTranslator() {
   return getTranslations("errors");
 }
 
+function getUsageLedgerBillingModelExpr(billingModelSource: BillingModelSource) {
+  return billingModelSource === "original"
+    ? sql<string | null>`COALESCE(${usageLedger.originalModel}, ${usageLedger.model})`
+    : sql<string | null>`${usageLedger.model}`;
+}
+
+function getMessageRequestBillingModelExpr(billingModelSource: BillingModelSource) {
+  return billingModelSource === "original"
+    ? sql<string | null>`COALESCE(${messageRequest.originalModel}, ${messageRequest.model})`
+    : sql<string | null>`${messageRequest.model}`;
+}
+
+type MyStatsSummaryBreakdownRow = {
+  model: string | null;
+  requests: number;
+  cost: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  cacheCreation5mTokens: number;
+  cacheCreation1hTokens: number;
+};
+
+function createEmptyStatsSummaryBreakdownRow(model: string | null): MyStatsSummaryBreakdownRow {
+  return {
+    model,
+    requests: 0,
+    cost: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreation5mTokens: 0,
+    cacheCreation1hTokens: 0,
+  };
+}
+
+function mergeStatsSummaryBreakdownRows(
+  ...groups: Array<MyStatsSummaryBreakdownRow[]>
+): MyStatsSummaryBreakdownRow[] {
+  const merged = new Map<string | null, MyStatsSummaryBreakdownRow>();
+
+  for (const group of groups) {
+    for (const row of group) {
+      const existing = merged.get(row.model) ?? createEmptyStatsSummaryBreakdownRow(row.model);
+      existing.requests += row.requests;
+      existing.cost += row.cost;
+      existing.inputTokens += row.inputTokens;
+      existing.outputTokens += row.outputTokens;
+      existing.cacheCreationTokens += row.cacheCreationTokens;
+      existing.cacheReadTokens += row.cacheReadTokens;
+      existing.cacheCreation5mTokens += row.cacheCreation5mTokens;
+      existing.cacheCreation1hTokens += row.cacheCreation1hTokens;
+      merged.set(row.model, existing);
+    }
+  }
+
+  return Array.from(merged.values()).sort((a, b) => {
+    if (b.cost !== a.cost) {
+      return b.cost - a.cost;
+    }
+
+    if (b.requests !== a.requests) {
+      return b.requests - a.requests;
+    }
+
+    if (a.model === b.model) {
+      return 0;
+    }
+
+    if (a.model === null) {
+      return 1;
+    }
+
+    if (b.model === null) {
+      return -1;
+    }
+
+    return a.model.localeCompare(b.model);
+  });
+}
+
+async function getMessageRequestStatsSummaryBreakdown(params: {
+  userId: number;
+  keyString?: string;
+  startDate?: Date;
+  endDate?: Date;
+  billingModelSource: BillingModelSource;
+}): Promise<MyStatsSummaryBreakdownRow[]> {
+  const { userId, keyString, startDate, endDate, billingModelSource } = params;
+  const billingModelExpr = getMessageRequestBillingModelExpr(billingModelSource);
+
+  const rows = await db
+    .select({
+      model: billingModelExpr,
+      requests: sql<number>`count(*)::int`,
+      cost: sql<string>`COALESCE(sum(${messageRequest.costUsd}), 0)`,
+      inputTokens: sql<number>`COALESCE(sum(${messageRequest.inputTokens}), 0)::double precision`,
+      outputTokens: sql<number>`COALESCE(sum(${messageRequest.outputTokens}), 0)::double precision`,
+      cacheCreationTokens: sql<number>`COALESCE(sum(${messageRequest.cacheCreationInputTokens}), 0)::double precision`,
+      cacheReadTokens: sql<number>`COALESCE(sum(${messageRequest.cacheReadInputTokens}), 0)::double precision`,
+      cacheCreation5mTokens: sql<number>`COALESCE(sum(${messageRequest.cacheCreation5mInputTokens}), 0)::double precision`,
+      cacheCreation1hTokens: sql<number>`COALESCE(sum(${messageRequest.cacheCreation1hInputTokens}), 0)::double precision`,
+    })
+    .from(messageRequest)
+    .where(
+      and(
+        eq(messageRequest.userId, userId),
+        keyString ? eq(messageRequest.key, keyString) : undefined,
+        isNull(messageRequest.deletedAt),
+        EXCLUDE_WARMUP_CONDITION,
+        startDate ? gte(messageRequest.createdAt, startDate) : undefined,
+        endDate ? lt(messageRequest.createdAt, endDate) : undefined
+      )
+    )
+    .groupBy(billingModelExpr);
+
+  return rows.map((row) => ({
+    model: row.model,
+    requests: row.requests ?? 0,
+    cost: Number(row.cost ?? 0),
+    inputTokens: row.inputTokens ?? 0,
+    outputTokens: row.outputTokens ?? 0,
+    cacheCreationTokens: row.cacheCreationTokens ?? 0,
+    cacheReadTokens: row.cacheReadTokens ?? 0,
+    cacheCreation5mTokens: row.cacheCreation5mTokens ?? 0,
+    cacheCreation1hTokens: row.cacheCreation1hTokens ?? 0,
+  }));
+}
+
+async function getLedgerStatsSummaryBreakdown(params: {
+  userId: number;
+  keyString?: string;
+  startDate?: Date;
+  endDate?: Date;
+  billingModelSource: BillingModelSource;
+}): Promise<MyStatsSummaryBreakdownRow[]> {
+  const { userId, keyString, startDate, endDate, billingModelSource } = params;
+  const billingModelExpr = getUsageLedgerBillingModelExpr(billingModelSource);
+
+  const rows = await db
+    .select({
+      model: billingModelExpr,
+      requests: sql<number>`count(*)::int`,
+      cost: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
+      inputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}), 0)::double precision`,
+      outputTokens: sql<number>`COALESCE(sum(${usageLedger.outputTokens}), 0)::double precision`,
+      cacheCreationTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreationInputTokens}), 0)::double precision`,
+      cacheReadTokens: sql<number>`COALESCE(sum(${usageLedger.cacheReadInputTokens}), 0)::double precision`,
+      cacheCreation5mTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreation5mInputTokens}), 0)::double precision`,
+      cacheCreation1hTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreation1hInputTokens}), 0)::double precision`,
+    })
+    .from(usageLedger)
+    .where(
+      and(
+        eq(usageLedger.userId, userId),
+        keyString ? eq(usageLedger.key, keyString) : undefined,
+        LEDGER_BILLING_CONDITION,
+        startDate ? gte(usageLedger.createdAt, startDate) : undefined,
+        endDate ? lt(usageLedger.createdAt, endDate) : undefined,
+        sql`not exists (
+          select 1
+          from "message_request" as mr_active
+          where mr_active.id = ${usageLedger.requestId}
+            and mr_active.deleted_at is null
+            and mr_active.key = ${usageLedger.key}
+        )`
+      )
+    )
+    .groupBy(billingModelExpr);
+
+  return rows.map((row) => ({
+    model: row.model,
+    requests: row.requests ?? 0,
+    cost: Number(row.cost ?? 0),
+    inputTokens: row.inputTokens ?? 0,
+    outputTokens: row.outputTokens ?? 0,
+    cacheCreationTokens: row.cacheCreationTokens ?? 0,
+    cacheReadTokens: row.cacheReadTokens ?? 0,
+    cacheCreation5mTokens: row.cacheCreation5mTokens ?? 0,
+    cacheCreation1hTokens: row.cacheCreation1hTokens ?? 0,
+  }));
+}
+
+function resolveBillingModelValue(
+  values: { model: string | null; originalModel?: string | null },
+  billingModelSource: BillingModelSource
+): string | null {
+  return billingModelSource === "original"
+    ? (values.originalModel ?? values.model ?? null)
+    : (values.model ?? null);
+}
+
 function scrubProviderChainRequestForReadonly(
   providerChain: ProviderChainItem[] | null
 ): ProviderChainItem[] | null {
@@ -536,6 +730,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     const settings = await getSystemSettings();
     const billingModelSource = settings.billingModelSource;
     const currencyCode = settings.currencyDisplay;
+    const billingModelExpr = getUsageLedgerBillingModelExpr(billingModelSource);
 
     // 修复: 使用 Key 的 dailyResetTime 和 dailyResetMode 来计算时间范围
     const { getTimeRangeForPeriodWithMode } = await import("@/lib/rate-limit/time-utils");
@@ -547,8 +742,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
     const breakdown = await db
       .select({
-        model: usageLedger.model,
-        originalModel: usageLedger.originalModel,
+        model: billingModelExpr,
         calls: sql<number>`count(*)::int`,
         costUsd: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
         inputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}), 0)::double precision`,
@@ -563,7 +757,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
           lt(usageLedger.createdAt, timeRange.endTime)
         )
       )
-      .groupBy(usageLedger.model, usageLedger.originalModel);
+      .groupBy(billingModelExpr);
 
     let totalCalls = 0;
     let totalInputTokens = 0;
@@ -571,7 +765,6 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     let totalCostUsd = 0;
 
     const modelBreakdown = breakdown.map((row) => {
-      const billingModel = billingModelSource === "original" ? row.originalModel : row.model;
       const rawCostUsd = Number(row.costUsd ?? 0);
       const costUsd = Number.isFinite(rawCostUsd) ? rawCostUsd : 0;
 
@@ -582,7 +775,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
       return {
         model: row.model,
-        billingModel,
+        billingModel: row.model,
         calls: row.calls,
         costUsd,
         inputTokens: row.inputTokens,
@@ -633,8 +826,7 @@ function mapMyUsageLogEntries(
         ? `${log.originalModel} → ${log.model}`
         : null;
 
-    const billingModel =
-      (billingModelSource === "original" ? log.originalModel : log.model) ?? null;
+    const billingModel = resolveBillingModelValue(log, billingModelSource);
 
     return {
       id: log.id,
@@ -680,6 +872,7 @@ export async function getMyUsageLogs(
     const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.trunc(parsedPage) : 1;
     const result = await findUsageLogsForKeySlim({
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
       sessionId: filters.sessionId,
       startTime: dateRange.startTime,
       endTime: dateRange.endTime,
@@ -725,6 +918,7 @@ export async function getMyUsageLogsBatch(
     const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 100) : 20;
     const result = await findUsageLogsForKeyBatch({
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
       sessionId: filters.sessionId,
       startTime: dateRange.startTime,
       endTime: dateRange.endTime,
@@ -768,6 +962,7 @@ export async function getMyUsageLogsBatchFull(
       return { ok: false, error: tError("UNAUTHORIZED"), errorCode: ERROR_CODES.UNAUTHORIZED };
     }
 
+    const settings = await getSystemSettings();
     const timezone = await resolveSystemTimezone();
     const dateRange =
       params.startTime !== undefined || params.endTime !== undefined
@@ -786,6 +981,7 @@ export async function getMyUsageLogsBatchFull(
       endTime: dateRange.endTime,
       limit,
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
     });
 
     return { ok: true, data: scrubUsageLogsBatchForReadonly(result) };
@@ -807,7 +1003,8 @@ export async function getMyAvailableModels(): Promise<ActionResult<string[]>> {
       return { ok: false, error: tError("UNAUTHORIZED"), errorCode: ERROR_CODES.UNAUTHORIZED };
     }
 
-    const models = await getDistinctModelsForKey(session.key.key);
+    const settings = await getSystemSettings();
+    const models = await getDistinctModelsForKey(session.key.key, settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("[my-usage] getMyAvailableModels failed", error);
@@ -978,6 +1175,7 @@ export async function getMyStatsSummary(
 
     const settings = await getSystemSettings();
     const currencyCode = settings.currencyDisplay;
+    const billingModelSource = settings.billingModelSource;
 
     const timezone = await resolveSystemTimezone();
     const { startTime, endTime } = parseDateRangeInServerTimezone(
@@ -992,54 +1190,56 @@ export async function getMyStatsSummary(
     const userId = session.user.id;
     const keyString = session.key.key;
 
-    // Key 维度是 User 维度的子集：用一条聚合 SQL 扫描 userId 范围即可同时算出两套 breakdown。
-    const modelBreakdown = await db
-      .select({
-        model: usageLedger.model,
-        // User breakdown（跨所有 Key）
-        userRequests: sql<number>`count(*)::int`,
-        userCost: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
-        userInputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}), 0)::double precision`,
-        userOutputTokens: sql<number>`COALESCE(sum(${usageLedger.outputTokens}), 0)::double precision`,
-        userCacheCreationTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreationInputTokens}), 0)::double precision`,
-        userCacheReadTokens: sql<number>`COALESCE(sum(${usageLedger.cacheReadInputTokens}), 0)::double precision`,
-        userCacheCreation5mTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreation5mInputTokens}), 0)::double precision`,
-        userCacheCreation1hTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreation1hInputTokens}), 0)::double precision`,
-        // Key breakdown（FILTER 聚合）
-        keyRequests: sql<number>`count(*) FILTER (WHERE ${usageLedger.key} = ${keyString})::int`,
-        keyCost: sql<string>`COALESCE(sum(${usageLedger.costUsd}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)`,
-        keyInputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)::double precision`,
-        keyOutputTokens: sql<number>`COALESCE(sum(${usageLedger.outputTokens}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)::double precision`,
-        keyCacheCreationTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreationInputTokens}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)::double precision`,
-        keyCacheReadTokens: sql<number>`COALESCE(sum(${usageLedger.cacheReadInputTokens}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)::double precision`,
-        keyCacheCreation5mTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreation5mInputTokens}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)::double precision`,
-        keyCacheCreation1hTokens: sql<number>`COALESCE(sum(${usageLedger.cacheCreation1hInputTokens}) FILTER (WHERE ${usageLedger.key} = ${keyString}), 0)::double precision`,
-      })
-      .from(usageLedger)
-      .where(
-        and(
-          eq(usageLedger.userId, userId),
-          LEDGER_BILLING_CONDITION,
-          startDate ? gte(usageLedger.createdAt, startDate) : undefined,
-          endDate ? lt(usageLedger.createdAt, endDate) : undefined
-        )
-      )
-      .groupBy(usageLedger.model)
-      .orderBy(sql`sum(${usageLedger.costUsd}) DESC`);
+    const [keyMessageBreakdown, keyLedgerBreakdown, userMessageBreakdown, userLedgerBreakdown] =
+      await Promise.all([
+        getMessageRequestStatsSummaryBreakdown({
+          userId,
+          keyString,
+          startDate,
+          endDate,
+          billingModelSource,
+        }),
+        getLedgerStatsSummaryBreakdown({
+          userId,
+          keyString,
+          startDate,
+          endDate,
+          billingModelSource,
+        }),
+        getMessageRequestStatsSummaryBreakdown({
+          userId,
+          startDate,
+          endDate,
+          billingModelSource,
+        }),
+        getLedgerStatsSummaryBreakdown({
+          userId,
+          startDate,
+          endDate,
+          billingModelSource,
+        }),
+      ]);
 
-    const keyOnlyBreakdown = modelBreakdown.filter((row) => (row.keyRequests ?? 0) > 0);
+    const keyOnlyBreakdown = mergeStatsSummaryBreakdownRows(
+      keyMessageBreakdown,
+      keyLedgerBreakdown
+    );
+    const userModelBreakdown = mergeStatsSummaryBreakdownRows(
+      userMessageBreakdown,
+      userLedgerBreakdown
+    );
 
     const summaryAcc = keyOnlyBreakdown.reduce(
       (acc, row) => {
-        const cost = Number(row.keyCost ?? 0);
-        acc.totalRequests += row.keyRequests ?? 0;
+        const cost = Number(row.cost ?? 0);
+        acc.totalRequests += row.requests ?? 0;
         acc.totalCost += Number.isFinite(cost) ? cost : 0;
-        acc.totalInputTokens += row.keyInputTokens ?? 0;
-        acc.totalOutputTokens += row.keyOutputTokens ?? 0;
-        acc.totalCacheCreationTokens += row.keyCacheCreationTokens ?? 0;
-        acc.totalCacheReadTokens += row.keyCacheReadTokens ?? 0;
-        acc.totalCacheCreation5mTokens += row.keyCacheCreation5mTokens ?? 0;
-        acc.totalCacheCreation1hTokens += row.keyCacheCreation1hTokens ?? 0;
+        acc.totalInputTokens += row.inputTokens ?? 0;
+        acc.totalOutputTokens += row.outputTokens ?? 0;
+        acc.totalCacheCreationTokens += row.cacheCreationTokens ?? 0;
+        acc.totalCacheReadTokens += row.cacheReadTokens ?? 0;
+        acc.totalCacheCreation5mTokens += row.cacheCreation5mTokens ?? 0;
+        acc.totalCacheCreation1hTokens += row.cacheCreation1hTokens ?? 0;
         return acc;
       },
       {
@@ -1074,30 +1274,8 @@ export async function getMyStatsSummary(
 
     const result: MyStatsSummary = {
       ...stats,
-      keyModelBreakdown: keyOnlyBreakdown
-        .map((row) => ({
-          model: row.model,
-          requests: row.keyRequests,
-          cost: Number(row.keyCost ?? 0),
-          inputTokens: row.keyInputTokens,
-          outputTokens: row.keyOutputTokens,
-          cacheCreationTokens: row.keyCacheCreationTokens,
-          cacheReadTokens: row.keyCacheReadTokens,
-          cacheCreation5mTokens: row.keyCacheCreation5mTokens,
-          cacheCreation1hTokens: row.keyCacheCreation1hTokens,
-        }))
-        .sort((a, b) => b.cost - a.cost),
-      userModelBreakdown: modelBreakdown.map((row) => ({
-        model: row.model,
-        requests: row.userRequests,
-        cost: Number(row.userCost ?? 0),
-        inputTokens: row.userInputTokens,
-        outputTokens: row.userOutputTokens,
-        cacheCreationTokens: row.userCacheCreationTokens,
-        cacheReadTokens: row.userCacheReadTokens,
-        cacheCreation5mTokens: row.userCacheCreation5mTokens,
-        cacheCreation1hTokens: row.userCacheCreation1hTokens,
-      })),
+      keyModelBreakdown: keyOnlyBreakdown,
+      userModelBreakdown,
       currencyCode,
     };
 

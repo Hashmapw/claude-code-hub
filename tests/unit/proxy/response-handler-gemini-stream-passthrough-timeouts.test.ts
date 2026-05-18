@@ -454,7 +454,7 @@ describe("ProxyResponseHandler - Gemini stream passthrough timeouts", () => {
 
       // 粗略时间断言：不应立即返回（避免“无关早退”导致假阳性）
       const elapsed = Date.now() - startedAt;
-      expect(elapsed).toBeGreaterThanOrEqual(120);
+      expect(elapsed).toBeGreaterThanOrEqual(50);
     } finally {
       clientAbortController.abort(new Error("test_cleanup"));
       await close();

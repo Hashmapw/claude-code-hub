@@ -160,5 +160,12 @@
     "placeholders": "プレースホルダー",
     "title": "テンプレート（JSON）"
   },
-  "title": "プッシュ通知"
+  "title": "プッシュ通知",
+  "vipGroupUsage": {
+    "title": "VIP 高コストグループ通知",
+    "description": "VIP グループのプロバイダーに命中したリクエストを通知し、高コスト経路の監査に利用します。",
+    "enable": "VIP グループ使用通知を有効にする",
+    "cooldownSeconds": "クールダウン（秒）",
+    "cooldownHelp": "同じプロバイダーとセッションはクールダウン期間内に一度だけ通知されます。既定値は 300 秒です。"
+  }
 }
