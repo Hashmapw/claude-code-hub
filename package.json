@@ -1,6 +1,6 @@
 {
   "name": "claude-code-hub",
-  "version": "0.8.1.1-rc.1",
+  "version": "0.8.1.2-rc1",
   "private": true,
   "scripts": {
     "dev": "tsgo -p tsconfig.json --noEmit && next dev --port 13500",

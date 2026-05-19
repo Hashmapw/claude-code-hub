@@ -281,7 +281,8 @@ jobs:
             exit 1
           fi
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin HEAD:main "$NEW_TAG"
+          TARGET_BRANCH="${GITHUB_REF_NAME}"
+          git push --atomic origin HEAD:"$TARGET_BRANCH" "$NEW_TAG"
 
       - name: Prepare image names
         id: image_names
