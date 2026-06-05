@@ -92,6 +92,11 @@ import { ProxyProviderResolver } from "./provider-selector";
 import type { ProxySession } from "./session";
 import { setDeferredStreamingFinalization } from "./stream-finalization";
 import {
+  bufferStreamingResponseForZeroUsageGuard,
+  getStreamingResponseGuardErrorType,
+  rejectStreamingContentLengthIfNeeded,
+} from "./streaming-response-guards";
+import {
   detectThinkingBudgetRectifierTrigger,
   rectifyThinkingBudget,
 } from "./thinking-budget-rectifier";
@@ -178,6 +183,43 @@ type ProxySessionWithAttemptRuntime = ProxySession & {
   responseController?: AbortController;
   releaseAgent?: () => void;
 };
+
+function cleanupForwarderOwnedResponseRuntime(session: ProxySession): void {
+  const runtime = session as ProxySessionWithAttemptRuntime;
+  try {
+    runtime.clearResponseTimeout?.();
+  } catch {
+    // ignore
+  }
+  runtime.clearResponseTimeout = undefined;
+
+  try {
+    runtime.releaseAgent?.();
+  } catch {
+    // ignore
+  }
+  runtime.releaseAgent = undefined;
+}
+
+async function bufferStreamingResponseForZeroUsageGuardWithRuntime(
+  session: ProxySession,
+  provider: Provider,
+  response: Response
+): Promise<Response> {
+  const runtime = session as ProxySessionWithAttemptRuntime;
+
+  return await bufferStreamingResponseForZeroUsageGuard({
+    response,
+    provider,
+    onFirstChunk: () => runtime.clearResponseTimeout?.(),
+    firstByteTimeoutMs: provider.firstByteTimeoutStreamingMs,
+    idleTimeoutMs: provider.streamingIdleTimeoutMs,
+    onIdleTimeout: () => runtime.responseController?.abort(new Error("streaming_idle")),
+    isUpstreamTimeoutAbort: () =>
+      runtime.responseController?.signal.aborted === true &&
+      session.clientAbortSignal?.aborted !== true,
+  });
+}
 
 type StreamingHedgeAttempt = {
   provider: Provider;
@@ -1301,6 +1343,19 @@ export class ProxyForwarder {
           // 解决：Forwarder 只负责尽快把 Response 返回给下游开始透传，
           // 把最终成功/失败结算延迟到 ResponseHandler：等 SSE 正常结束后再基于最终 body 补充检查并更新内部状态。
           if (isSSE) {
+            let streamResponse: Response;
+            try {
+              await rejectStreamingContentLengthIfNeeded(response, currentProvider);
+              streamResponse = await bufferStreamingResponseForZeroUsageGuardWithRuntime(
+                session,
+                currentProvider,
+                response
+              );
+            } catch (scanError) {
+              cleanupForwarderOwnedResponseRuntime(session);
+              throw scanError;
+            }
+
             setDeferredStreamingFinalization(session, {
               providerId: currentProvider.id,
               providerName: currentProvider.name,
@@ -1311,7 +1366,7 @@ export class ProxyForwarder {
               isFailoverSuccess: totalProvidersAttempted > 1,
               endpointId: activeEndpoint.endpointId,
               endpointUrl: endpointAudit.endpointUrl,
-              upstreamStatusCode: response.status,
+              upstreamStatusCode: streamResponse.status,
             });
 
             logger.info("ProxyForwarder: Streaming response received, deferring finalization", {
@@ -1319,10 +1374,10 @@ export class ProxyForwarder {
               providerName: currentProvider.name,
               attemptNumber: attemptCount,
               totalProvidersAttempted,
-              statusCode: response.status,
+              statusCode: streamResponse.status,
             });
 
-            return response;
+            return streamResponse;
           }
 
           // 非流式响应：检测空响应
@@ -1994,7 +2049,10 @@ export class ProxyForwarder {
             // 常规 ProxyError 处理
             const proxyError = lastError as ProxyError;
             const statusCode = proxyError.statusCode;
-            const willRetry = attemptCount < maxAttemptsPerProvider;
+            const streamingGuardErrorType = getStreamingResponseGuardErrorType(proxyError);
+            const willRetry = streamingGuardErrorType
+              ? false
+              : attemptCount < maxAttemptsPerProvider;
 
             if (
               !isMcpRequest &&
@@ -2061,6 +2119,7 @@ export class ProxyForwarder {
               providerName: currentProvider.name,
               statusCode: statusCode,
               statusCodeInferred: proxyError.upstreamError?.statusCodeInferred ?? false,
+              streamingGuardErrorType,
               error: errorMessage,
               attemptNumber: attemptCount,
               totalProvidersAttempted,
@@ -3851,9 +3910,23 @@ export class ProxyForwarder {
           attempt.clearResponseTimeout = attemptRuntime.clearResponseTimeout ?? null;
           attempt.releaseAgent = attemptRuntime.releaseAgent ?? null;
           attempt.clearResponseTimeout?.();
-          attempt.response = response;
 
-          if (!response.body) {
+          let streamResponse: Response;
+          try {
+            await rejectStreamingContentLengthIfNeeded(response, attempt.provider);
+            streamResponse = await bufferStreamingResponseForZeroUsageGuardWithRuntime(
+              attempt.session,
+              attempt.provider,
+              response
+            );
+          } catch (scanError) {
+            releaseAttemptAgent(attempt);
+            throw scanError;
+          }
+
+          attempt.response = streamResponse;
+
+          if (!streamResponse.body) {
             await handleAttemptFailure(
               attempt,
               new EmptyResponseError(attempt.provider.id, attempt.provider.name, "empty_body")
@@ -3861,7 +3934,7 @@ export class ProxyForwarder {
             return;
           }
 
-          attempt.reader = response.body.getReader();
+          attempt.reader = streamResponse.body.getReader();
 
           try {
             const firstChunk = await ProxyForwarder.readFirstReadableChunk(attempt.reader);

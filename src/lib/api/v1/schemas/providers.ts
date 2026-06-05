@@ -36,6 +36,12 @@ export const ProviderSummarySchema = z
     providerVendorId: z.number().int().nullable().describe("Provider vendor id."),
     preserveClientIp: z.boolean().describe("Whether client IP is preserved upstream."),
     disableSessionReuse: z.boolean().describe("Whether sticky session reuse is disabled."),
+    rejectStreamingContentLength: z
+      .boolean()
+      .describe("Whether streaming responses with Content-Length are rejected."),
+    rejectStreamingZeroUsage: z
+      .boolean()
+      .describe("Whether streaming responses with explicit zero usage are rejected."),
     modelRedirects: z.array(z.unknown()).nullable().describe("Model redirect rules."),
     activeTimeStart: NullableStringSchema.describe("Scheduled active start time in HH:mm."),
     activeTimeEnd: NullableStringSchema.describe("Scheduled active end time in HH:mm."),
@@ -201,6 +207,14 @@ const ProviderBatchUpdateFieldsSchema = z
     allowed_models: z.array(z.unknown()).nullable().optional().describe("Allowed model rules."),
     allowed_clients: z.array(z.string()).optional().describe("Allowed client patterns."),
     blocked_clients: z.array(z.string()).optional().describe("Blocked client patterns."),
+    reject_streaming_content_length: z
+      .boolean()
+      .optional()
+      .describe("Whether streaming responses with Content-Length are rejected."),
+    reject_streaming_zero_usage: z
+      .boolean()
+      .optional()
+      .describe("Whether streaming responses with explicit zero usage are rejected."),
     limit_5h_usd: z.number().min(0).nullable().optional().describe("Five-hour USD limit."),
     limit_5h_reset_mode: z.enum(["fixed", "rolling"]).optional().describe("Five-hour reset mode."),
     limit_daily_usd: z.number().min(0).nullable().optional().describe("Daily USD limit."),
@@ -356,6 +370,14 @@ export const ProviderCreateSchema = z
       .boolean()
       .optional()
       .describe("Whether sticky session reuse is disabled."),
+    reject_streaming_content_length: z
+      .boolean()
+      .optional()
+      .describe("Whether streaming responses with Content-Length are rejected."),
+    reject_streaming_zero_usage: z
+      .boolean()
+      .optional()
+      .describe("Whether streaming responses with explicit zero usage are rejected."),
     model_redirects: z.array(z.unknown()).nullable().optional().describe("Model redirect rules."),
     active_time_start: TimeOfDaySchema.nullable()
       .optional()

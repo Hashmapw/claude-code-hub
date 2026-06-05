@@ -4312,6 +4312,10 @@ export interface operations {
                             preserveClientIp: boolean;
                             /** @description Whether sticky session reuse is disabled. */
                             disableSessionReuse: boolean;
+                            /** @description Whether streaming responses with Content-Length are rejected. */
+                            rejectStreamingContentLength: boolean;
+                            /** @description Whether streaming responses with explicit zero usage are rejected. */
+                            rejectStreamingZeroUsage: boolean;
                             /** @description Model redirect rules. */
                             modelRedirects: unknown[] | null;
                             /** @description Scheduled active start time in HH:mm. */
@@ -4621,6 +4625,10 @@ export interface operations {
                     preserve_client_ip?: boolean;
                     /** @description Whether sticky session reuse is disabled. */
                     disable_session_reuse?: boolean;
+                    /** @description Whether streaming responses with Content-Length are rejected. */
+                    reject_streaming_content_length?: boolean;
+                    /** @description Whether streaming responses with explicit zero usage are rejected. */
+                    reject_streaming_zero_usage?: boolean;
                     /** @description Model redirect rules. */
                     model_redirects?: unknown[] | null;
                     /** @description Scheduled active start time. */
@@ -4767,6 +4775,10 @@ export interface operations {
                         preserveClientIp: boolean;
                         /** @description Whether sticky session reuse is disabled. */
                         disableSessionReuse: boolean;
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        rejectStreamingContentLength: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        rejectStreamingZeroUsage: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -5084,6 +5096,10 @@ export interface operations {
                         preserveClientIp: boolean;
                         /** @description Whether sticky session reuse is disabled. */
                         disableSessionReuse: boolean;
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        rejectStreamingContentLength: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        rejectStreamingZeroUsage: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -5568,6 +5584,10 @@ export interface operations {
                     preserve_client_ip?: boolean;
                     /** @description Whether sticky session reuse is disabled. */
                     disable_session_reuse?: boolean;
+                    /** @description Whether streaming responses with Content-Length are rejected. */
+                    reject_streaming_content_length?: boolean;
+                    /** @description Whether streaming responses with explicit zero usage are rejected. */
+                    reject_streaming_zero_usage?: boolean;
                     /** @description Model redirect rules. */
                     model_redirects?: unknown[] | null;
                     /** @description Scheduled active start time. */
@@ -5720,6 +5740,10 @@ export interface operations {
                         preserveClientIp: boolean;
                         /** @description Whether sticky session reuse is disabled. */
                         disableSessionReuse: boolean;
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        rejectStreamingContentLength: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        rejectStreamingZeroUsage: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -7605,6 +7629,10 @@ export interface operations {
                         allowed_clients?: string[];
                         /** @description Blocked client patterns. */
                         blocked_clients?: string[];
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        reject_streaming_content_length?: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        reject_streaming_zero_usage?: boolean;
                         /** @description Five-hour USD limit. */
                         limit_5h_usd?: number | null;
                         /**

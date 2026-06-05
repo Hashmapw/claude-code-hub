@@ -1,0 +1,2 @@
+ALTER TABLE "providers" ADD COLUMN "reject_streaming_content_length" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "providers" ADD COLUMN "reject_streaming_zero_usage" boolean DEFAULT false NOT NULL;

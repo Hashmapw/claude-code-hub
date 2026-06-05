@@ -381,6 +381,14 @@
       "label": "Skip session reuse",
       "desc": "When enabled, the next request will ignore this provider's sticky binding and rerun priority and health checks. Useful when a cheap higher-priority provider should be retried as soon as it recovers."
     },
+    "rejectStreamingContentLength": {
+      "label": "Reject streaming Content-Length",
+      "desc": "When enabled, an upstream SSE response that includes a Content-Length header is interrupted and treated as a 503 provider failure so the next provider can be tried."
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "Reject zero-usage streams",
+      "desc": "When enabled, an SSE stream with explicit usage fields all equal to 0 is fully buffered, interrupted before reaching the client, and treated as a 503 provider failure. Missing usage is ignored."
+    },
     "options": {
       "title": "Options",
       "desc": "Additional provider options and overrides"
