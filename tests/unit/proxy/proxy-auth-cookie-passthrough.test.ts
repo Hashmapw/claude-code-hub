@@ -23,7 +23,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 function makeRequest(pathname: string, cookies: Record<string, string> = {}) {
-  const url = new URL(`http://localhost:13500${pathname}`);
+  const url = new URL(`http://localhost:3000${pathname}`);
   return {
     method: "GET",
     nextUrl: { pathname, clone: () => url },

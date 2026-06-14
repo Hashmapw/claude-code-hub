@@ -16,6 +16,8 @@ const policyCheck = vi.hoisted(() => vi.fn());
 const policyRecordSuccess = vi.hoisted(() => vi.fn());
 const policyRecordFailure = vi.hoisted(() => vi.fn());
 const markUserExpired = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const getKeySoftBlockConfig = vi.hoisted(() => vi.fn());
+const storeSessionSpecialSettings = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("@/repository/key", () => ({
   resolveApiKeyAuthOutcome,
@@ -23,6 +25,17 @@ vi.mock("@/repository/key", () => ({
 
 vi.mock("@/repository/user", () => ({
   markUserExpired,
+}));
+
+vi.mock("@/lib/key-soft-block-store", () => ({
+  getKeySoftBlockConfig,
+}));
+
+vi.mock("@/lib/session-manager", () => ({
+  SessionManager: {
+    generateSessionId: vi.fn(() => "generated-session"),
+    storeSessionSpecialSettings,
+  },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -88,6 +101,8 @@ describe("ProxyAuthenticator account-state failures", () => {
     policyCheck.mockReset().mockReturnValue({ allowed: true });
     policyRecordSuccess.mockReset();
     policyRecordFailure.mockReset();
+    getKeySoftBlockConfig.mockReset().mockResolvedValue({ enabled: false, message: null });
+    storeSessionSpecialSettings.mockReset().mockResolvedValue(undefined);
     // vitest config sets mockReset: true globally, which wipes the
     // mockResolvedValue from the hoisted setup. Re-apply per-test.
     markUserExpired.mockReset().mockResolvedValue(undefined);
@@ -187,6 +202,48 @@ describe("ProxyAuthenticator account-state failures", () => {
     expect(error.message).toBe("PROXY_INVALID_API_KEY");
 
     expect(policyRecordFailure).toHaveBeenCalledWith("203.0.113.24", "sk-doesnotexist");
+  });
+
+  it("soft-blocked key returns 401 user_disabled after successful auth without recording auth failure", async () => {
+    resolveApiKeyAuthOutcome.mockResolvedValue({
+      ok: true,
+      user: { id: 9, name: "dave", isEnabled: true, expiresAt: null },
+      key: { id: 99, name: "daves-key" },
+    });
+    getKeySoftBlockConfig.mockResolvedValue({ enabled: true, message: "blocked for review" });
+
+    const { ProxyAuthenticator } = await import("@/app/v1/_lib/proxy/auth-guard");
+    const session = {
+      ...makeSession("203.0.113.26", "sk-soft-blocked"),
+      sessionId: null as string | null,
+      specialSettings: [] as unknown[],
+      setSessionId(value: string) {
+        this.sessionId = value;
+      },
+      addSpecialSetting(value: unknown) {
+        this.specialSettings.push(value);
+      },
+      getSpecialSettings() {
+        return this.specialSettings;
+      },
+      getRequestSequence() {
+        return 1;
+      },
+    };
+    const response = await ProxyAuthenticator.ensure(session as never);
+
+    expect(response?.status).toBe(401);
+    const error = await readErrorBody(response as Response);
+    expect(error.type).toBe("user_disabled");
+    expect(error.message).toBe("blocked for review");
+    expect(getKeySoftBlockConfig).toHaveBeenCalledWith(99);
+    expect(policyRecordFailure).not.toHaveBeenCalled();
+    expect(policyRecordSuccess).not.toHaveBeenCalled();
+    expect(storeSessionSpecialSettings).toHaveBeenCalledWith(
+      "generated-session",
+      [expect.objectContaining({ guard: "key_soft_block", statusCode: 401 })],
+      1
+    );
   });
 
   it("missing credentials returns 401 authentication_error and records failure", async () => {

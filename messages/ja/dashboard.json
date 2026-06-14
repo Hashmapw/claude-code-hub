@@ -1903,7 +1903,9 @@
       "clickToDisableKey": "クリックしてキーを無効化",
       "clickToEnableKey": "クリックしてキーを有効化",
       "operationFailed": "操作に失敗しました",
-      "clickToQuickRenew": "クリックして更新"
+      "clickToQuickRenew": "クリックして更新",
+      "softBlocked": "一時制限",
+      "softBlockedDescription": "この Key は実行時ポリシーにより一時的に制限されています。"
     },
     "userStatus": {
       "enabled": "有効",
@@ -2048,6 +2050,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Key 一時制限",
+          "descriptionEnabled": "この Key を使うリクエストは、設定されたメッセージで拒否されます。",
+          "descriptionDisabled": "無効にすると、この Key は通常の有効/無効状態に従います。",
+          "messageLabel": "制限メッセージ",
+          "messagePlaceholder": "クライアントに返すメッセージを入力",
+          "messageDescription": "Key が一時制限されたときにクライアントへ表示されます。最大 500 文字。"
         }
       },
       "limitRules": {

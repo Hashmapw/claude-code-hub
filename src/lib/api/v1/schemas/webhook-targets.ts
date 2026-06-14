@@ -6,7 +6,13 @@ export const WebhookProviderTypeSchema = z
   .describe("Webhook provider type.");
 
 export const WebhookNotificationTypeSchema = z
-  .enum(["circuit_breaker", "daily_leaderboard", "cost_alert", "cache_hit_rate_alert"])
+  .enum([
+    "circuit_breaker",
+    "daily_leaderboard",
+    "cost_alert",
+    "cache_hit_rate_alert",
+    "vip_group_usage",
+  ])
   .describe("Notification type used for sending a test webhook message.");
 
 export const WebhookTestResultSchema = z

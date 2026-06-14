@@ -105,7 +105,7 @@ export const EnvSchema = z.object({
   // 原因: Boolean("false") === true (任何非空字符串都是 truthy)
   // 正确做法: 使用 transform 显式处理 "false" 和 "0" 字符串
   AUTO_MIGRATE: z.string().default("true").transform(booleanTransform),
-  PORT: z.coerce.number().default(23000),
+  PORT: z.coerce.number().default(3000),
   REDIS_URL: z.string().optional(),
   REDIS_TLS_REJECT_UNAUTHORIZED: z.string().default("true").transform(booleanTransform),
   ENABLE_RATE_LIMIT: z.string().default("true").transform(booleanTransform),

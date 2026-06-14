@@ -26,6 +26,7 @@ export type DeferredStreamingFinalization = {
   isFailoverSuccess: boolean;
   endpointId: number | null;
   endpointUrl: string;
+  providerGroupTag?: string | null;
   upstreamStatusCode: number;
   /** When true, commitWinner() already performed session binding and chain logging; finalization should skip them. */
   isHedgeWinner?: boolean;

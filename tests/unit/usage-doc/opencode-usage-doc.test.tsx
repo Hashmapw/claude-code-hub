@@ -47,7 +47,7 @@ function renderWithIntl(locale: string, node: ReactNode) {
 
 describe("UsageDoc - OpenCode 配置教程", () => {
   test("OpenCode 段落应位于 Gemini CLI 之后、Droid 之前", () => {
-    const { unmount } = renderWithIntl("en", <UsageDocContent origin="http://localhost:23000" />);
+    const { unmount } = renderWithIntl("en", <UsageDocContent origin="http://localhost:3000" />);
 
     const h2Ids = Array.from(document.querySelectorAll("h2")).map((el) => el.id);
 
@@ -61,12 +61,12 @@ describe("UsageDoc - OpenCode 配置教程", () => {
   });
 
   test("应提供单份 opencode.json 示例，且包含 cch 端点与所有要求模型", () => {
-    const { unmount } = renderWithIntl("en", <UsageDocContent origin="http://localhost:23000" />);
+    const { unmount } = renderWithIntl("en", <UsageDocContent origin="http://localhost:3000" />);
 
     const text = document.body.textContent || "";
 
     expect(text).toContain('"$schema": "https://opencode.ai/config.json"');
-    expect(text).toContain('"baseURL": "http://localhost:23000/v1"');
+    expect(text).toContain('"baseURL": "http://localhost:3000/v1"');
 
     expect(text).toContain('"npm": "@ai-sdk/anthropic"');
     expect(text).toContain('"npm": "@ai-sdk/google"');
@@ -90,13 +90,13 @@ describe("UsageDoc - OpenCode 配置教程", () => {
 
     expect(text).toContain("gemini-3-pro-preview");
     expect(text).toContain("gemini-3-flash-preview");
-    expect(text).toContain('"baseURL": "http://localhost:23000/v1beta"');
+    expect(text).toContain('"baseURL": "http://localhost:3000/v1beta"');
 
     unmount();
   });
 
   test("应包含官方安装方式示例（curl/npm/bun/brew/paru，以及 Windows 包管理器）", () => {
-    const { unmount } = renderWithIntl("en", <UsageDocContent origin="http://localhost:23000" />);
+    const { unmount } = renderWithIntl("en", <UsageDocContent origin="http://localhost:3000" />);
 
     const text = document.body.textContent || "";
 

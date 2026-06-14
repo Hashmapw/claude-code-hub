@@ -23,7 +23,8 @@ import { addKey } from "@/lib/api-client/v1/actions/keys";
 import { createUserOnly, removeUser } from "@/lib/api-client/v1/actions/users";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { useZodForm } from "@/lib/hooks/use-zod-form";
-import { KeyFormSchema, UpdateUserSchema } from "@/lib/validation/schemas";
+import { getErrorMessage } from "@/lib/utils/error-messages";
+import { KeyFormSchemaBase, UpdateUserSchema } from "@/lib/validation/schemas";
 import { KeyEditSection } from "./forms/key-edit-section";
 import { UserEditSection } from "./forms/user-edit-section";
 import { useKeyTranslations } from "./hooks/use-key-translations";
@@ -31,6 +32,15 @@ import { useModelSuggestions } from "./hooks/use-model-suggestions";
 import { useUserTranslations } from "./hooks/use-user-translations";
 import { getFirstErrorMessage } from "./utils/form-utils";
 import { normalizeProviderGroup } from "./utils/provider-group";
+
+function getFormErrorMessage(
+  message: string | null,
+  tErrors: (key: string, params?: Record<string, string | number>) => string
+): string | null {
+  if (!message) return null;
+  if (!message.startsWith("KEY_SOFT_BLOCK_")) return message;
+  return getErrorMessage(tErrors, message);
+}
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -47,7 +57,7 @@ const CreateUserSchema = UpdateUserSchema.extend({
   dailyQuota: z.number().nullable().optional(),
 });
 
-const CreateKeySchema = KeyFormSchema.extend({
+const CreateKeySchema = KeyFormSchemaBase.extend({
   id: z.number(),
   isEnabled: z.boolean().optional(),
   // 覆盖 expiresAt 以支持 Date 类型（KeyEditSection 返回 Date 对象）
@@ -59,6 +69,14 @@ const CreateKeySchema = KeyFormSchema.extend({
       if (val instanceof Date) return val.toISOString();
       return val;
     }),
+}).superRefine((data, ctx) => {
+  if (data.softBlockEnabled && !data.softBlockMessage) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["softBlockMessage"],
+      message: "KEY_SOFT_BLOCK_MESSAGE_REQUIRED",
+    });
+  }
 });
 
 const CreateFormSchema = z.object({
@@ -100,6 +118,8 @@ function buildDefaultValues(): CreateFormValues {
       isEnabled: true,
       expiresAt: undefined,
       canLoginWebUi: false,
+      softBlockEnabled: false,
+      softBlockMessage: null,
       providerGroup: PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: "inherit" as const,
       limit5hUsd: null,
@@ -125,6 +145,7 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
   const router = useRouter();
   const queryClient = useQueryClient();
   const t = useTranslations("dashboard.userManagement");
+  const tErrors = useTranslations("errors");
   const tCommon = useTranslations("common");
   const [isPending, startTransition] = useTransition();
   const [generatedKey, setGeneratedKey] = useState<GeneratedKeyInfo | null>(null);
@@ -179,6 +200,8 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
             // 重要：清除到期时间时用空字符串表达，避免 undefined 在 Server Action 序列化时被丢弃
             expiresAt: data.key.expiresAt ?? "",
             canLoginWebUi: data.key.canLoginWebUi,
+            softBlockEnabled: data.key.softBlockEnabled,
+            softBlockMessage: data.key.softBlockMessage ?? null,
             providerGroup: normalizeProviderGroup(data.key.providerGroup),
             cacheTtlPreference: data.key.cacheTtlPreference,
             limit5hUsd: data.key.limit5hUsd,
@@ -201,7 +224,11 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
               rollbackFailed = true;
               console.error("[CreateUserDialog] rollback failed", rollbackError);
             }
-            toast.error(keyRes.error || t("createDialog.keyCreateFailed", { name: data.key.name }));
+            toast.error(
+              keyRes.errorCode
+                ? getErrorMessage(tErrors, keyRes.errorCode, keyRes.errorParams)
+                : keyRes.error || t("createDialog.keyCreateFailed", { name: data.key.name })
+            );
             if (rollbackFailed) {
               toast.error(t("createDialog.rollbackFailed", { userId: newUserId }));
             }
@@ -226,7 +253,10 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
     },
   });
 
-  const errorMessage = useMemo(() => getFirstErrorMessage(form.errors), [form.errors]);
+  const errorMessage = useMemo(
+    () => getFormErrorMessage(getFirstErrorMessage(form.errors), tErrors),
+    [form.errors, tErrors]
+  );
 
   const currentUserDraft = form.values.user || defaultValues.user;
   const currentKeyDraft = form.values.key || defaultValues.key;
@@ -396,6 +426,8 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
               expiresAt: currentKeyDraft.expiresAt ? new Date(currentKeyDraft.expiresAt) : null,
               isEnabled: currentKeyDraft.isEnabled ?? true,
               canLoginWebUi: currentKeyDraft.canLoginWebUi ?? false,
+              softBlockEnabled: currentKeyDraft.softBlockEnabled ?? false,
+              softBlockMessage: currentKeyDraft.softBlockMessage ?? null,
               providerGroup: normalizeProviderGroup(currentKeyDraft.providerGroup),
               cacheTtlPreference: currentKeyDraft.cacheTtlPreference ?? "inherit",
               limit5hUsd: currentKeyDraft.limit5hUsd ?? null,

@@ -36,6 +36,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'daily_leaderboard',
   'cost_alert',
   'cache_hit_rate_alert',
+  'vip_group_usage',
 ]);
 
 // Users table
@@ -213,6 +214,10 @@ export const providers = pgTable('providers', {
   preserveClientIp: boolean('preserve_client_ip').notNull().default(false),
   // 是否跳过当前供应商的 sticky session 复用
   disableSessionReuse: boolean('disable_session_reuse').notNull().default(false),
+  // 禁止流式响应携带 Content-Length 响应头
+  rejectStreamingContentLength: boolean('reject_streaming_content_length').notNull().default(false),
+  // 禁止流式响应显式返回 0 用量
+  rejectStreamingZeroUsage: boolean('reject_streaming_zero_usage').notNull().default(false),
 
   // 模型重定向：将请求的模型名称重定向到另一个模型
   modelRedirects: jsonb('model_redirects').$type<

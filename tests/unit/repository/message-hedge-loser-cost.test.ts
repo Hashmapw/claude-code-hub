@@ -6,18 +6,17 @@ function sqlToString(sqlObj: unknown): string {
     if (!node || visited.has(node)) return "";
     visited.add(node);
     if (typeof node === "string") return node;
+    if (Array.isArray(node)) return node.map(walk).join("");
     if (typeof node === "object") {
-      // biome-ignore lint/suspicious/noExplicitAny: test-only structural walk
-      const anyNode = node as any;
-      if (Array.isArray(anyNode)) return anyNode.map(walk).join("");
-      if (anyNode.name && typeof anyNode.name === "string") return anyNode.name;
-      if (anyNode.value !== undefined) {
-        if (Array.isArray(anyNode.value)) return anyNode.value.map(String).join("");
-        return String(anyNode.value);
+      const record = node as Record<string, unknown>;
+      if (typeof record.name === "string") return record.name;
+      if (record.value !== undefined) {
+        if (Array.isArray(record.value)) return record.value.map(String).join("");
+        return String(record.value);
       }
-      if (anyNode.queryChunks) return walk(anyNode.queryChunks);
+      if (record.queryChunks) return walk(record.queryChunks);
       // Plain object (e.g. a drizzle .set({...}) payload): walk its values.
-      return Object.values(anyNode).map(walk).join(" ");
+      return Object.values(record).map(walk).join(" ");
     }
     return "";
   };

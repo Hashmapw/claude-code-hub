@@ -97,6 +97,8 @@ function createMockState(
       groupTag: [],
       preserveClientIp: false,
       disableSessionReuse: false,
+      rejectStreamingContentLength: false,
+      rejectStreamingZeroUsage: false,
       modelRedirects: {},
       allowedModels: [],
       allowedClients: [],
@@ -237,6 +239,15 @@ describe("OptionsSection", () => {
       const { unmount } = renderSection();
 
       expect(document.getElementById("disable-session-reuse")).toBeTruthy();
+
+      unmount();
+    });
+
+    it("renders streaming guard toggles", () => {
+      const { unmount } = renderSection();
+
+      expect(document.getElementById("reject-streaming-content-length")).toBeTruthy();
+      expect(document.getElementById("reject-streaming-zero-usage")).toBeTruthy();
 
       unmount();
     });
@@ -505,7 +516,7 @@ describe("OptionsSection", () => {
         container.querySelectorAll('[data-testid="switch"]')
       ) as HTMLButtonElement[];
 
-      expect(switches).toHaveLength(4);
+      expect(switches).toHaveLength(6);
       for (const toggle of switches) {
         expect(toggle.hasAttribute("disabled")).toBe(true);
       }
@@ -519,6 +530,8 @@ describe("OptionsSection", () => {
       const { unmount } = renderSection({ mode: "edit" });
 
       expect(document.getElementById("edit-preserve-client-ip")).toBeTruthy();
+      expect(document.getElementById("edit-reject-streaming-content-length")).toBeTruthy();
+      expect(document.getElementById("edit-reject-streaming-zero-usage")).toBeTruthy();
 
       unmount();
     });

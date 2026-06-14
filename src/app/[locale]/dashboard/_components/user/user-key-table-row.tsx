@@ -656,6 +656,8 @@ export function UserKeyTableRow({
                     expiresAt: key.expiresAt,
                     status: key.status,
                     modelStats: key.modelStats,
+                    softBlockEnabled: key.softBlockEnabled ?? false,
+                    softBlockMessage: key.softBlockMessage ?? null,
                   }}
                   userProviderGroup={user.providerGroup ?? null}
                   isMultiSelectMode={isMultiSelectMode}
@@ -720,6 +722,8 @@ export function UserKeyTableRow({
                 limitMonthlyUsd: editingKey.limitMonthlyUsd,
                 limitTotalUsd: editingKey.limitTotalUsd,
                 limitConcurrentSessions: editingKey.limitConcurrentSessions,
+                softBlockEnabled: editingKey.softBlockEnabled ?? false,
+                softBlockMessage: editingKey.softBlockMessage ?? null,
                 costResetAt:
                   typeof editingKey.costResetAt === "string"
                     ? editingKey.costResetAt

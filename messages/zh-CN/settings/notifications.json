@@ -160,5 +160,12 @@
     "testFailedRetry": "测试失败，请重试",
     "testError": "测试连接失败",
     "testNoResult": "测试成功但未返回结果"
+  },
+  "vipGroupUsage": {
+    "title": "VIP 高成本分组提醒",
+    "description": "当请求命中 VIP 供应商分组时发送提醒，用于高成本线路审计。",
+    "enable": "启用 VIP 分组使用提醒",
+    "cooldownSeconds": "冷却时间（秒）",
+    "cooldownHelp": "同一供应商与同一会话在冷却窗口内只提醒一次，默认 300 秒。"
   }
 }

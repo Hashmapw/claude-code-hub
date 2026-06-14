@@ -37,7 +37,7 @@ DEPLOY_DIR=""
 OS_TYPE=""
 IMAGE_TAG="latest"
 BRANCH_NAME="main"
-APP_PORT="23000"
+APP_PORT="3000"
 AUTH_SESSION_TTL_SECONDS="604800"
 SESSION_TTL="300"
 UPDATE_MODE=false
@@ -60,7 +60,7 @@ Usage: $0 [OPTIONS]
 
 Options:
   -b, --branch <name>        Branch to deploy: main (default) or dev
-  -p, --port <port>          App external port (default: 23000)
+  -p, --port <port>          App external port (default: 3000)
   -t, --admin-token <token>  Custom admin token (default: auto-generated)
   -d, --deploy-dir <path>    Custom deployment directory
       --domain <domain>      Domain for Caddy HTTPS (enables Caddy automatically)

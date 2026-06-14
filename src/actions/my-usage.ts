@@ -21,6 +21,7 @@ import { ERROR_CODES } from "@/lib/utils/error-messages";
 import { resolveSystemTimezone } from "@/lib/utils/timezone";
 import { LEDGER_BILLING_CONDITION } from "@/repository/_shared/ledger-conditions";
 import { EXCLUDE_WARMUP_CONDITION } from "@/repository/_shared/message-request-conditions";
+import { buildLedgerBillingModelField } from "@/repository/_shared/usage-model-field";
 import { getSystemSettings } from "@/repository/system-config";
 import {
   findReadonlyUsageLogsBatchForKey,
@@ -287,13 +288,37 @@ export interface MyUsageLogsResult {
 
 // Infinity means "all time" - no date filter applied to the query
 const ALL_TIME_MAX_AGE_DAYS = Infinity;
+const DEFAULT_BILLING_MODEL_SOURCE: BillingModelSource = "original";
+const DEFAULT_CURRENCY_CODE: CurrencyCode = "USD";
+
+async function getMyUsageDisplaySettings(): Promise<{
+  currencyDisplay: CurrencyCode;
+  billingModelSource: BillingModelSource;
+}> {
+  try {
+    const settings = await getSystemSettings();
+    return {
+      currencyDisplay: settings?.currencyDisplay ?? DEFAULT_CURRENCY_CODE,
+      billingModelSource:
+        settings?.billingModelSource === "redirected" ? "redirected" : DEFAULT_BILLING_MODEL_SOURCE,
+    };
+  } catch (error) {
+    logger.warn?.("[my-usage] Failed to resolve display settings, using safe defaults", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      currencyDisplay: DEFAULT_CURRENCY_CODE,
+      billingModelSource: DEFAULT_BILLING_MODEL_SOURCE,
+    };
+  }
+}
 
 export async function getMyUsageMetadata(): Promise<ActionResult<MyUsageMetadata>> {
   try {
     const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) return { ok: false, error: "Unauthorized" };
 
-    const settings = await getSystemSettings();
+    const settings = await getMyUsageDisplaySettings();
     const key = session.key;
     const user = session.user;
 
@@ -533,9 +558,10 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) return { ok: false, error: "Unauthorized" };
 
-    const settings = await getSystemSettings();
+    const settings = await getMyUsageDisplaySettings();
     const billingModelSource = settings.billingModelSource;
     const currencyCode = settings.currencyDisplay;
+    const billingModelExpr = buildLedgerBillingModelField(billingModelSource);
 
     // 修复: 使用 Key 的 dailyResetTime 和 dailyResetMode 来计算时间范围
     const { getTimeRangeForPeriodWithMode } = await import("@/lib/rate-limit/time-utils");
@@ -547,8 +573,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
 
     const breakdown = await db
       .select({
-        model: usageLedger.model,
-        originalModel: usageLedger.originalModel,
+        model: billingModelExpr,
         calls: sql<number>`count(*)::int`,
         costUsd: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
         inputTokens: sql<number>`COALESCE(sum(${usageLedger.inputTokens}), 0)::double precision`,
@@ -563,7 +588,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
           lt(usageLedger.createdAt, timeRange.endTime)
         )
       )
-      .groupBy(usageLedger.model, usageLedger.originalModel);
+      .groupBy(billingModelExpr);
 
     let totalCalls = 0;
     let totalInputTokens = 0;
@@ -571,7 +596,7 @@ export async function getMyTodayStats(): Promise<ActionResult<MyTodayStats>> {
     let totalCostUsd = 0;
 
     const modelBreakdown = breakdown.map((row) => {
-      const billingModel = billingModelSource === "original" ? row.originalModel : row.model;
+      const billingModel = row.model ?? null;
       const rawCostUsd = Number(row.costUsd ?? 0);
       const costUsd = Number.isFinite(rawCostUsd) ? rawCostUsd : 0;
 
@@ -634,7 +659,9 @@ function mapMyUsageLogEntries(
         : null;
 
     const billingModel =
-      (billingModelSource === "original" ? log.originalModel : log.model) ?? null;
+      billingModelSource === "original"
+        ? (log.originalModel ?? log.model ?? null)
+        : (log.model ?? log.originalModel ?? null);
 
     return {
       id: log.id,
@@ -665,7 +692,7 @@ export async function getMyUsageLogs(
     const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) return { ok: false, error: "Unauthorized" };
 
-    const settings = await getSystemSettings();
+    const settings = await getMyUsageDisplaySettings();
     const timezone = await resolveSystemTimezone();
     const dateRange =
       filters.startTime !== undefined || filters.endTime !== undefined
@@ -688,6 +715,7 @@ export async function getMyUsageLogs(
       excludeStatusCode200: filters.excludeStatusCode200,
       endpoint: filters.endpoint,
       minRetryCount: filters.minRetryCount,
+      billingModelSource: settings.billingModelSource,
       page,
       pageSize,
     });
@@ -716,7 +744,7 @@ export async function getMyUsageLogsBatch(
     const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) return { ok: false, error: "Unauthorized" };
 
-    const settings = await getSystemSettings();
+    const settings = await getMyUsageDisplaySettings();
     const timezone = await resolveSystemTimezone();
     const dateRange =
       filters.startTime !== undefined || filters.endTime !== undefined
@@ -733,6 +761,7 @@ export async function getMyUsageLogsBatch(
       excludeStatusCode200: filters.excludeStatusCode200,
       endpoint: filters.endpoint,
       minRetryCount: filters.minRetryCount,
+      billingModelSource: settings.billingModelSource,
       cursor: filters.cursor,
       limit,
     });
@@ -768,6 +797,7 @@ export async function getMyUsageLogsBatchFull(
       return { ok: false, error: tError("UNAUTHORIZED"), errorCode: ERROR_CODES.UNAUTHORIZED };
     }
 
+    const settings = await getMyUsageDisplaySettings();
     const timezone = await resolveSystemTimezone();
     const dateRange =
       params.startTime !== undefined || params.endTime !== undefined
@@ -786,6 +816,7 @@ export async function getMyUsageLogsBatchFull(
       endTime: dateRange.endTime,
       limit,
       keyString: session.key.key,
+      billingModelSource: settings.billingModelSource,
     });
 
     return { ok: true, data: scrubUsageLogsBatchForReadonly(result) };
@@ -807,7 +838,8 @@ export async function getMyAvailableModels(): Promise<ActionResult<string[]>> {
       return { ok: false, error: tError("UNAUTHORIZED"), errorCode: ERROR_CODES.UNAUTHORIZED };
     }
 
-    const models = await getDistinctModelsForKey(session.key.key);
+    const settings = await getMyUsageDisplaySettings();
+    const models = await getDistinctModelsForKey(session.key.key, settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("[my-usage] getMyAvailableModels failed", error);
@@ -976,8 +1008,9 @@ export async function getMyStatsSummary(
     const session = await getSession({ allowReadOnlyAccess: true });
     if (!session) return { ok: false, error: "Unauthorized" };
 
-    const settings = await getSystemSettings();
+    const settings = await getMyUsageDisplaySettings();
     const currencyCode = settings.currencyDisplay;
+    const billingModelExpr = buildLedgerBillingModelField(settings.billingModelSource);
 
     const timezone = await resolveSystemTimezone();
     const { startTime, endTime } = parseDateRangeInServerTimezone(
@@ -995,7 +1028,7 @@ export async function getMyStatsSummary(
     // Key 维度是 User 维度的子集：用一条聚合 SQL 扫描 userId 范围即可同时算出两套 breakdown。
     const modelBreakdown = await db
       .select({
-        model: usageLedger.model,
+        model: billingModelExpr,
         // User breakdown（跨所有 Key）
         userRequests: sql<number>`count(*)::int`,
         userCost: sql<string>`COALESCE(sum(${usageLedger.costUsd}), 0)`,
@@ -1024,7 +1057,7 @@ export async function getMyStatsSummary(
           endDate ? lt(usageLedger.createdAt, endDate) : undefined
         )
       )
-      .groupBy(usageLedger.model)
+      .groupBy(billingModelExpr)
       .orderBy(sql`sum(${usageLedger.costUsd}) DESC`);
 
     const keyOnlyBreakdown = modelBreakdown.filter((row) => (row.keyRequests ?? 0) > 0);

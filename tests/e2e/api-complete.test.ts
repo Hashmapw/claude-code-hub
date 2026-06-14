@@ -9,7 +9,7 @@
  * ✅ 全部通过的自动化测试脚本
  *
  * 🔑 认证方式：Cookie (auth-token)
- * ⚙️ 前提：开发服务器运行在 http://localhost:13500
+ * ⚙️ 前提：开发服务器运行在 http://localhost:3000
  * 🧹 清理：测试完成后自动清理数据
  */
 
@@ -18,7 +18,7 @@ import { loginAndGetAuthToken } from "./_helpers/auth";
 
 // ==================== 配置 ====================
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000/api/actions";
 const ADMIN_KEY = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN_TOKEN;
 const run = ADMIN_KEY ? describe : describe.skip;
 

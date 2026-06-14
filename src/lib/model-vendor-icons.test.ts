@@ -20,6 +20,8 @@ describe("getModelVendor", () => {
     // DeepSeek
     { modelId: "deepseek-chat", expectedKey: "deepseek" },
     { modelId: "deepseek-reasoner", expectedKey: "deepseek" },
+    { modelId: "ds-chat", expectedKey: "deepseek" },
+    { modelId: "router-ds-v3", expectedKey: "deepseek" },
     // Mistral family
     { modelId: "mistral-large-latest", expectedKey: "mistral" },
     { modelId: "mixtral-8x7b-instruct", expectedKey: "mistral" },
@@ -86,6 +88,7 @@ describe("getModelVendor", () => {
     expect(getModelVendor("Claude-Sonnet-4-5")?.i18nKey).toBe("anthropic");
     expect(getModelVendor("GPT-4o")?.i18nKey).toBe("openai");
     expect(getModelVendor("DEEPSEEK-CHAT")?.i18nKey).toBe("deepseek");
+    expect(getModelVendor("CUSTOM-DS-MODEL")?.i18nKey).toBe("deepseek");
   });
 
   it("returns null for unknown models", () => {

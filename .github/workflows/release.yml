@@ -246,7 +246,14 @@ jobs:
         run: |
           NEW_TAG="${{ steps.next_version.outputs.new_tag }}"
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin HEAD:main "$NEW_TAG"
+          if [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            TARGET_BRANCH="${GITHUB_REF#refs/heads/}"
+            echo "Pushing release commit back to branch: $TARGET_BRANCH"
+            git push origin "HEAD:${TARGET_BRANCH}" "$NEW_TAG"
+          else
+            echo "Current ref is not a branch; pushing tag only"
+            git push origin "$NEW_TAG"
+          fi
 
       - name: Prepare image names
         id: image_names
@@ -418,7 +425,7 @@ jobs:
 
       # 同步 main 分支到 dev 分支 (rebase dev onto main) - 仅正式版本触发
       - name: Sync main to dev branch
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.next_version.outputs.is_prerelease != 'true' && success()
         id: sync_dev
         continue-on-error: true
         env:
@@ -496,7 +503,7 @@ jobs:
 
       # 如果同步失败(冲突)，触发 autofix workflow
       - name: Trigger autofix for sync conflicts
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.sync_dev.outputs.sync_status == 'conflict' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.sync_dev.outputs.sync_status == 'conflict' && success()
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
@@ -517,7 +524,7 @@ jobs:
 
       # 同步结果汇总 - 仅正式版本显示
       - name: Sync summary
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && always()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.next_version.outputs.is_prerelease != 'true' && always()
         run: |
           echo "=========================================="
           echo "Dev Branch Sync Summary"

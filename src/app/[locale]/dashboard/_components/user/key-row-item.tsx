@@ -61,6 +61,8 @@ export interface KeyRowItemProps {
     lastUsedAt: Date | null;
     expiresAt: string;
     status: "enabled" | "disabled";
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     modelStats: Array<{
       model: string;
       callCount: number;
@@ -390,6 +392,18 @@ export function KeyRowItem({
           <Badge variant={keyExpiryStatus.variant} className="text-[10px] shrink-0">
             {tKeyStatus(keyExpiryStatus.label)}
           </Badge>
+          {keyData.softBlockEnabled ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="destructive" className="text-[10px] shrink-0 cursor-help">
+                  {tKeyStatus("softBlocked")}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[320px] break-words">
+                {keyData.softBlockMessage?.trim() || tKeyStatus("softBlockedDescription")}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
 

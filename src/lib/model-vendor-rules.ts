@@ -99,6 +99,7 @@ export const MODEL_VENDOR_RULES = [
     litellmProvider: "zhipuai",
   },
   { prefix: "gpt", hasColor: false, i18nKey: "openai", litellmProvider: "openai" },
+  { prefix: "ds", hasColor: true, i18nKey: "deepseek", litellmProvider: "deepseek" },
   { prefix: "o1", hasColor: false, i18nKey: "openai", litellmProvider: "openai" },
   { prefix: "o3", hasColor: false, i18nKey: "openai", litellmProvider: "openai" },
   { prefix: "o4", hasColor: false, i18nKey: "openai", litellmProvider: "openai" },
@@ -107,9 +108,15 @@ export const MODEL_VENDOR_RULES = [
 
 export type ModelVendorRule = (typeof MODEL_VENDOR_RULES)[number];
 
+const DEEPSEEK_DS_ALIAS_RULE =
+  MODEL_VENDOR_RULES.find((rule) => rule.prefix === "ds" && rule.i18nKey === "deepseek") ?? null;
+
 export function getModelVendor(modelId: string): ModelVendorRule | null {
   if (!modelId) return null;
   const lower = modelId.toLowerCase();
+  if (lower.includes("ds") && DEEPSEEK_DS_ALIAS_RULE) {
+    return DEEPSEEK_DS_ALIAS_RULE;
+  }
   for (const rule of MODEL_VENDOR_RULES) {
     if (lower.startsWith(rule.prefix)) {
       return rule;

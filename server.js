@@ -34,7 +34,7 @@ function isNextDevMode(nodeEnv) {
 // 镜像会显式设置 NODE_ENV=production 和 PORT=3000。
 const dev = isNextDevMode(process.env.NODE_ENV);
 const hostname = process.env.HOSTNAME || "0.0.0.0";
-const port = parseInt(process.env.PORT || (dev ? "13500" : "3000"), 10);
+const port = parseInt(process.env.PORT || "3000", 10);
 
 // Loopback target for the in-process WS->HTTP tunnel. When the public bind
 // hostname is a wildcard (0.0.0.0 / ::), tunnel via 127.0.0.1; otherwise use

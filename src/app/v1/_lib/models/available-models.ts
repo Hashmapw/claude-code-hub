@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { request as undiciRequest } from "undici";
 import { normalizeAllowedModelRules } from "@/lib/allowed-model-rules";
+import { getKeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
 import { createProxyAgentForProvider } from "@/lib/proxy-agent";
 import { ERROR_CODES, getErrorMessageServer } from "@/lib/utils/error-messages";
@@ -16,6 +17,7 @@ import type {
 import type { Provider } from "@/types/provider";
 import { extractApiKeyFromHeaders } from "../proxy/auth-guard";
 import type { ClientFormat } from "../proxy/format-mapper";
+import { buildKeySoftBlockResponse, resolveKeySoftBlockMessage } from "../proxy/key-soft-block";
 import { checkProviderGroupMatch } from "../proxy/provider-selector";
 
 type ResponseFormat = "openai" | "anthropic" | "gemini" | "codex";
@@ -29,6 +31,11 @@ export interface FetchedModel {
 /** 模型列表请求的默认超时（毫秒） */
 const DEFAULT_MODELS_TIMEOUT_MS = 10000;
 
+async function getRequestLocale(): Promise<string> {
+  const { getLocale } = await import("next-intl/server");
+  return await getLocale();
+}
+
 /**
  * 获取 provider 的请求超时配置
  */
@@ -40,11 +47,15 @@ function getProviderTimeout(provider: Provider): number {
  * 从请求中提取 API Key（复用 auth-guard 的逻辑）
  */
 function extractApiKey(c: Context): string | null {
-  return extractApiKeyFromHeaders({
-    authorization: c.req.header("authorization"),
-    "x-api-key": c.req.header("x-api-key"),
-    "x-goog-api-key": c.req.header("x-goog-api-key"),
-  });
+  return (
+    extractApiKeyFromHeaders({
+      authorization: c.req.header("authorization"),
+      "x-api-key": c.req.header("x-api-key"),
+      "x-goog-api-key": c.req.header("x-goog-api-key"),
+    }) ||
+    c.req.query("key")?.trim() ||
+    null
+  );
 }
 
 /**
@@ -54,7 +65,7 @@ function extractApiKey(c: Context): string | null {
  */
 async function authenticateRequest(c: Context): Promise<{
   user: { id: number; providerGroup: string | null; isEnabled: boolean; expiresAt?: Date | null };
-  key: { providerGroup: string | null; name: string };
+  key: { id: number; providerGroup: string | null; name: string };
 }> {
   const apiKey = extractApiKey(c);
   if (!apiKey) {
@@ -66,8 +77,7 @@ async function authenticateRequest(c: Context): Promise<{
     // Exhaustive switch: see auth-guard.ts for rationale. Adding a new
     // ApiKeyAuthFailureReason will produce a TypeScript error on the
     // exhaustiveness fallthrough until this branch is handled explicitly.
-    const { getLocale } = await import("next-intl/server");
-    const locale = await getLocale();
+    const locale = await getRequestLocale();
     switch (outcome.reason) {
       case "key_disabled":
         throw c.json(
@@ -109,11 +119,36 @@ async function authenticateRequest(c: Context): Promise<{
   const { user, key } = outcome;
 
   if (!user.isEnabled) {
-    throw c.json({ error: { message: "用户账户已被禁用", type: "user_disabled" } }, 401);
+    const locale = await getRequestLocale();
+    throw c.json(
+      {
+        error: {
+          message: await getErrorMessageServer(locale, ERROR_CODES.PROXY_USER_DISABLED),
+          type: "user_disabled",
+        },
+      },
+      401
+    );
   }
 
   if (user.expiresAt && user.expiresAt.getTime() <= Date.now()) {
-    throw c.json({ error: { message: "用户账户已过期", type: "user_expired" } }, 401);
+    const locale = await getRequestLocale();
+    throw c.json(
+      {
+        error: {
+          message: await getErrorMessageServer(locale, ERROR_CODES.PROXY_USER_EXPIRED, {
+            date: user.expiresAt.toISOString(),
+          }),
+          type: "user_expired",
+        },
+      },
+      401
+    );
+  }
+
+  const softBlockConfig = await getKeySoftBlockConfig(key.id);
+  if (softBlockConfig.enabled) {
+    throw buildKeySoftBlockResponse(await resolveKeySoftBlockMessage(softBlockConfig.message));
   }
 
   return { user, key };

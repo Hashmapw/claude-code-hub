@@ -141,6 +141,9 @@ export interface UserKeyDisplay {
   costResetAt?: string | null; // 软重置时间
   // Provider group override (null = inherit from user)
   providerGroup?: string | null;
+  // Redis-only runtime soft block config (not persisted in key table).
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
 }
 
 /**

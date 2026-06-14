@@ -1911,7 +1911,9 @@
       "clickToDisableKey": "點擊停用密鑰",
       "clickToEnableKey": "點擊啟用密鑰",
       "operationFailed": "操作失敗",
-      "clickToQuickRenew": "點擊快速續期"
+      "clickToQuickRenew": "點擊快速續期",
+      "softBlocked": "暫時限制",
+      "softBlockedDescription": "此 Key 目前被執行階段策略暫時限制。"
     },
     "userStatus": {
       "enabled": "啟用",
@@ -2056,6 +2058,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Key 暫時限制",
+          "descriptionEnabled": "使用此 Key 的請求會被拒絕，並返回設定的提示文字。",
+          "descriptionDisabled": "關閉後，此 Key 只遵循一般啟用/停用狀態。",
+          "messageLabel": "限制提示文字",
+          "messagePlaceholder": "輸入返回給客戶端的提示文字",
+          "messageDescription": "Key 被暫時限制時顯示給客戶端，最多 500 個字元。"
         }
       },
       "limitRules": {

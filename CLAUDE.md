@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Development
 bun install               # Install dependencies
-bun run dev               # Run tsgo preflight, then start dev server (port 13500)
+bun run dev               # Run tsgo preflight, then start dev server (port 3000)
 
 # Build & Production
 bun run build             # Run tsgo preflight, then build for production

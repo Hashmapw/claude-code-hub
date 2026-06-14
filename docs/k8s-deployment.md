@@ -510,7 +510,7 @@ kubectl -n claude-code-hub describe pod -l app=claude-code-hub    # 看 Events
 
 - `DSN` / `REDIS_URL` 错:检查 Secret 是否完整 `cch secret dsn`
 - 迁移失败:`cch logs` 看 drizzle 报错,通常是 Postgres 还没就绪
-- 健康探针失败但应用已起:临时 `kubectl -n claude-code-hub port-forward svc/claude-code-hub 13500:80` 再 `curl`
+- 健康探针失败但应用已起:临时 `kubectl -n claude-code-hub port-forward svc/claude-code-hub 3000:80` 再 `curl`
 
 **Ingress 域名不通**
 
@@ -583,7 +583,7 @@ deploy/k8s/
 | Redis | service `redis` | StatefulSet `redis` + PVC |
 | 网络 | 同一 compose 网络 | ClusterIP Service + NetworkPolicy |
 | 环境变量 | `env_file: .env` | Secret + Deployment.env |
-| 端口 | `23000:3000` | Ingress / NodePort |
+| 端口 | `3000:3000` | Ingress / NodePort |
 | 持久化 | `./data/postgres`、`./data/redis` | PVC (StorageClass) |
 
 ### 进一步阅读

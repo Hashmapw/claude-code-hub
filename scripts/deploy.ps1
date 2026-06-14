@@ -42,7 +42,7 @@ $script:DB_PASSWORD = ""
 $script:DEPLOY_DIR = "C:\ProgramData\claude-code-hub"
 $script:IMAGE_TAG = "latest"
 $script:BRANCH_NAME = "main"
-$script:APP_PORT = "23000"
+$script:APP_PORT = "3000"
 $script:AUTH_SESSION_TTL_SECONDS = "604800"
 $script:SESSION_TTL = "300"
 $script:ENABLE_CADDY = $false
@@ -58,7 +58,7 @@ Usage: .\deploy.ps1 [OPTIONS]
 
 Options:
   -Branch, -b <name>         Branch to deploy: main (default) or dev
-  -Port, -p <port>           App external port (default: 23000)
+  -Port, -p <port>           App external port (default: 3000)
   -AdminToken, -t <token>    Custom admin token (default: auto-generated)
   -DeployDir, -d <path>      Custom deployment directory
   -Domain <domain>           Domain for Caddy HTTPS (enables Caddy automatically)

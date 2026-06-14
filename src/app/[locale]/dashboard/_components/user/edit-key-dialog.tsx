@@ -30,6 +30,8 @@ export interface EditKeyDialogProps {
     limitTotalUsd?: number | null;
     limitConcurrentSessions?: number;
     costResetAt?: string | null;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
   };
   user?: KeyDialogUserContext;
   isAdmin?: boolean;

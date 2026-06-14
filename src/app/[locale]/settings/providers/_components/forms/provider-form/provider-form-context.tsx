@@ -78,6 +78,8 @@ const ACTION_TO_FIELD_PATH: Partial<Record<ProviderFormActionWith5hResetMode["ty
   SET_GROUP_TAG: "routing.groupTag",
   SET_PRESERVE_CLIENT_IP: "routing.preserveClientIp",
   SET_DISABLE_SESSION_REUSE: "routing.disableSessionReuse",
+  SET_REJECT_STREAMING_CONTENT_LENGTH: "routing.rejectStreamingContentLength",
+  SET_REJECT_STREAMING_ZERO_USAGE: "routing.rejectStreamingZeroUsage",
   SET_MODEL_REDIRECTS: "routing.modelRedirects",
   SET_ALLOWED_MODELS: "routing.allowedModels",
   SET_ALLOWED_CLIENTS: "routing.allowedClients",
@@ -158,6 +160,14 @@ export function createInitialState(
         disableSessionReuse:
           analysis.routing.disableSessionReuse.status === "uniform"
             ? analysis.routing.disableSessionReuse.value
+            : false,
+        rejectStreamingContentLength:
+          analysis.routing.rejectStreamingContentLength.status === "uniform"
+            ? analysis.routing.rejectStreamingContentLength.value
+            : false,
+        rejectStreamingZeroUsage:
+          analysis.routing.rejectStreamingZeroUsage.status === "uniform"
+            ? analysis.routing.rejectStreamingZeroUsage.value
             : false,
         modelRedirects:
           analysis.routing.modelRedirects.status === "uniform"
@@ -346,6 +356,8 @@ export function createInitialState(
         groupTag: [],
         preserveClientIp: false,
         disableSessionReuse: false,
+        rejectStreamingContentLength: false,
+        rejectStreamingZeroUsage: false,
         modelRedirects: [],
         allowedModels: [],
         allowedClients: [],
@@ -423,6 +435,8 @@ export function createInitialState(
       groupTag: parseProviderGroups(sourceProvider?.groupTag),
       preserveClientIp: sourceProvider?.preserveClientIp ?? false,
       disableSessionReuse: sourceProvider?.disableSessionReuse ?? false,
+      rejectStreamingContentLength: sourceProvider?.rejectStreamingContentLength ?? false,
+      rejectStreamingZeroUsage: sourceProvider?.rejectStreamingZeroUsage ?? false,
       modelRedirects: normalizeProviderModelRedirectRules(sourceProvider?.modelRedirects) ?? [],
       allowedModels: normalizeAllowedModelRules(sourceProvider?.allowedModels) ?? [],
       allowedClients: sourceProvider?.allowedClients ?? [],
@@ -529,6 +543,16 @@ export function providerFormReducer(
       return { ...state, routing: { ...state.routing, preserveClientIp: action.payload } };
     case "SET_DISABLE_SESSION_REUSE":
       return { ...state, routing: { ...state.routing, disableSessionReuse: action.payload } };
+    case "SET_REJECT_STREAMING_CONTENT_LENGTH":
+      return {
+        ...state,
+        routing: { ...state.routing, rejectStreamingContentLength: action.payload },
+      };
+    case "SET_REJECT_STREAMING_ZERO_USAGE":
+      return {
+        ...state,
+        routing: { ...state.routing, rejectStreamingZeroUsage: action.payload },
+      };
     case "SET_MODEL_REDIRECTS":
       return { ...state, routing: { ...state.routing, modelRedirects: action.payload } };
     case "SET_ALLOWED_MODELS":

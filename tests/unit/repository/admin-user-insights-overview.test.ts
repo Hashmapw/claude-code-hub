@@ -145,3 +145,44 @@ describe("getUserOverviewMetrics", () => {
     });
   });
 });
+
+describe("getUserProviderBreakdown", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    selectResults.length = 0;
+    allWhereArgs.length = 0;
+    capturedSelections.length = 0;
+  });
+
+  it("filters provider breakdown by original-model billing source with COALESCE", async () => {
+    const { getSystemSettings } = await import("@/repository/system-config");
+    vi.mocked(getSystemSettings).mockResolvedValue({ billingModelSource: "original" } as never);
+    selectResults.push([]);
+
+    const { getUserProviderBreakdown } = await import("@/repository/admin-user-insights");
+    await getUserProviderBreakdown(10, undefined, undefined, { model: "claude-original" });
+
+    const whereSql = sqlToString(allWhereArgs[0][0]);
+    expect(whereSql).toContain("COALESCE");
+    expect(whereSql).toContain("originalModel");
+    expect(whereSql).toContain("model");
+    expect(whereSql.indexOf("originalModel")).toBeLessThan(whereSql.indexOf("model"));
+    expect(whereSql.match(/ILIKE/g)).toHaveLength(1);
+  });
+
+  it("filters provider breakdown by redirected-model billing source with COALESCE", async () => {
+    const { getSystemSettings } = await import("@/repository/system-config");
+    vi.mocked(getSystemSettings).mockResolvedValue({ billingModelSource: "redirected" } as never);
+    selectResults.push([]);
+
+    const { getUserProviderBreakdown } = await import("@/repository/admin-user-insights");
+    await getUserProviderBreakdown(10, undefined, undefined, { model: "claude-redirected" });
+
+    const whereSql = sqlToString(allWhereArgs[0][0]);
+    expect(whereSql).toContain("COALESCE");
+    expect(whereSql).toContain("model");
+    expect(whereSql).toContain("originalModel");
+    expect(whereSql.indexOf("model")).toBeLessThan(whereSql.indexOf("originalModel"));
+    expect(whereSql.match(/ILIKE/g)).toHaveLength(1);
+  });
+});

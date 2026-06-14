@@ -167,7 +167,7 @@ describe("v1 notification endpoints", () => {
     });
     expect(ok.response.status).toBe(200);
     expect(ok.json).toEqual({ success: true });
-    expect(testWebhookActionMock).toHaveBeenCalledWith("https://example.com/webhook", "cost_alert");
+    expect(testWebhookActionMock).toHaveBeenCalledWith("https://example.com/webhook", "cost-alert");
 
     const invalid = await callV1Route({
       method: "POST",

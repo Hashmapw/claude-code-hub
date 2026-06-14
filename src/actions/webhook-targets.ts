@@ -80,6 +80,7 @@ const NotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
@@ -248,6 +249,8 @@ function toJobType(type: NotificationType): NotificationJobType {
       return "cost-alert";
     case "cache_hit_rate_alert":
       return "cache-hit-rate-alert";
+    case "vip_group_usage":
+      return "vip-group-usage";
   }
 }
 
@@ -328,6 +331,17 @@ function buildTestData(type: NotificationType): unknown {
           topN: 10,
         },
         generatedAt: new Date().toISOString(),
+      };
+    case "vip_group_usage":
+      return {
+        userId: 1,
+        userName: "测试用户",
+        providerId: 100,
+        providerName: "测试 VIP 供应商",
+        providerGroupTag: "vip",
+        model: "claude-test-model",
+        sessionId: "test-session",
+        timestamp: new Date().toISOString(),
       };
   }
 }

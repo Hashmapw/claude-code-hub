@@ -14,6 +14,8 @@ function createBatchState(): ProviderFormState {
       groupTag: [],
       preserveClientIp: false,
       disableSessionReuse: false,
+      rejectStreamingContentLength: false,
+      rejectStreamingZeroUsage: false,
       modelRedirects: [],
       allowedModels: [],
       allowedClients: [],
@@ -262,6 +264,26 @@ describe("buildPatchDraftFromFormState", () => {
     const draft = buildPatchDraftFromFormState(state, dirty);
 
     expect(draft.disable_session_reuse).toEqual({ set: true });
+  });
+
+  it("sets rejectStreamingContentLength when dirty", () => {
+    const state = createBatchState();
+    state.routing.rejectStreamingContentLength = true;
+    const dirty = new Set(["routing.rejectStreamingContentLength"]);
+
+    const draft = buildPatchDraftFromFormState(state, dirty);
+
+    expect(draft.reject_streaming_content_length).toEqual({ set: true });
+  });
+
+  it("sets rejectStreamingZeroUsage when dirty", () => {
+    const state = createBatchState();
+    state.routing.rejectStreamingZeroUsage = true;
+    const dirty = new Set(["routing.rejectStreamingZeroUsage"]);
+
+    const draft = buildPatchDraftFromFormState(state, dirty);
+
+    expect(draft.reject_streaming_zero_usage).toEqual({ set: true });
   });
 
   it("sets swapCacheTtlBilling when dirty", () => {

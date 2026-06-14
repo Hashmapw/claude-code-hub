@@ -89,6 +89,44 @@ export function OptionsSection({ subSectionRefs }: OptionsSectionProps) {
                 />
               </ToggleRow>
 
+              <ToggleRow
+                label={t("sections.routing.rejectStreamingContentLength.label")}
+                description={t("sections.routing.rejectStreamingContentLength.desc")}
+              >
+                <Switch
+                  id={
+                    isEdit
+                      ? "edit-reject-streaming-content-length"
+                      : "reject-streaming-content-length"
+                  }
+                  checked={state.routing.rejectStreamingContentLength}
+                  onCheckedChange={(checked) =>
+                    dispatch({
+                      type: "SET_REJECT_STREAMING_CONTENT_LENGTH",
+                      payload: checked,
+                    })
+                  }
+                  disabled={state.ui.isPending}
+                />
+              </ToggleRow>
+
+              <ToggleRow
+                label={t("sections.routing.rejectStreamingZeroUsage.label")}
+                description={t("sections.routing.rejectStreamingZeroUsage.desc")}
+              >
+                <Switch
+                  id={isEdit ? "edit-reject-streaming-zero-usage" : "reject-streaming-zero-usage"}
+                  checked={state.routing.rejectStreamingZeroUsage}
+                  onCheckedChange={(checked) =>
+                    dispatch({
+                      type: "SET_REJECT_STREAMING_ZERO_USAGE",
+                      payload: checked,
+                    })
+                  }
+                  disabled={state.ui.isPending}
+                />
+              </ToggleRow>
+
               {/* Swap Cache TTL Billing */}
               <ToggleRow
                 label={t("sections.routing.swapCacheTtlBilling.label")}

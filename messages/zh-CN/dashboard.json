@@ -1926,7 +1926,9 @@
       "clickToDisableKey": "点击禁用密钥",
       "clickToEnableKey": "点击启用密钥",
       "operationFailed": "操作失败",
-      "clickToQuickRenew": "点击快捷续期"
+      "clickToQuickRenew": "点击快捷续期",
+      "softBlocked": "临时限制",
+      "softBlockedDescription": "此 Key 当前被运行时策略临时限制。"
     },
     "userStatus": {
       "enabled": "启用",
@@ -2071,6 +2073,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Key 临时限制",
+          "descriptionEnabled": "使用此 Key 的请求会被拒绝，并返回配置的提示词。",
+          "descriptionDisabled": "关闭后，此 Key 只遵循普通启用/禁用状态。",
+          "messageLabel": "限制提示词",
+          "messagePlaceholder": "输入返回给客户端的提示词",
+          "messageDescription": "Key 被临时限制时展示给客户端，最多 500 个字符。"
         }
       },
       "limitRules": {

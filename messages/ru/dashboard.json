@@ -1950,7 +1950,9 @@
       "clickToDisableKey": "Нажмите, чтобы отключить ключ",
       "clickToEnableKey": "Нажмите, чтобы включить ключ",
       "operationFailed": "Операция не удалась",
-      "clickToQuickRenew": "Нажмите для быстрого продления"
+      "clickToQuickRenew": "Нажмите для быстрого продления",
+      "softBlocked": "Временно заблокирован",
+      "softBlockedDescription": "Этот Key временно заблокирован runtime-политикой."
     },
     "userStatus": {
       "enabled": "Включён",
@@ -2096,6 +2098,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Временная блокировка Key",
+          "descriptionEnabled": "Запросы с этим Key будут отклоняться с настроенным сообщением.",
+          "descriptionDisabled": "Если отключено, Key следует обычному состоянию включения/отключения.",
+          "messageLabel": "Сообщение блокировки",
+          "messagePlaceholder": "Введите сообщение для клиентов",
+          "messageDescription": "Показывается клиентам, когда Key временно заблокирован. До 500 символов."
         }
       },
       "limitRules": {

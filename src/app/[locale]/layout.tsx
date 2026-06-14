@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { Footer } from "@/components/customs/footer";
+import { FooterWrapper } from "@/components/customs/footer-wrapper";
+import { ProxyFetchInitializer } from "@/components/proxy-fetch-initializer";
 import { Toaster } from "@/components/ui/sonner";
 import { type Locale, locales } from "@/i18n/config";
 import {
@@ -37,7 +39,7 @@ export async function generateMetadata({
 
     // Generate alternates for all locales
     const alternates: Record<string, string> = {};
-    const baseUrl = process.env.APP_URL || "http://localhost:13500";
+    const baseUrl = process.env.APP_URL || "http://localhost:3000";
 
     locales.forEach((loc) => {
       alternates[loc] = `${baseUrl}/${loc}`;
@@ -98,9 +100,12 @@ export default async function RootLayout({
       <body className="antialiased">
         <NextIntlClientProvider locale={locale} messages={messages} timeZone={timeZone} now={now}>
           <AppProviders>
+            <ProxyFetchInitializer />
             <div className="flex min-h-[var(--cch-viewport-height,100vh)] flex-col bg-background text-foreground">
               <div className="flex-1">{children}</div>
-              <Footer />
+              <FooterWrapper>
+                <Footer />
+              </FooterWrapper>
             </div>
             <Toaster />
           </AppProviders>

@@ -55,6 +55,7 @@ import {
   consumeDeferredStreamingFinalization,
   peekDeferredStreamingFinalization,
 } from "./stream-finalization";
+import { maybeSendVipGroupUsageAlert } from "./vip-group-usage";
 
 const CLIENT_ABORT_DRAIN_MAX_MS = 60_000;
 
@@ -915,6 +916,8 @@ async function finalizeDeferredStreamingFinalizationIfNeeded(
       error: cbError,
     });
   }
+
+  await maybeSendVipGroupUsageAlert(session, providerForChain, meta.providerGroupTag);
 
   // Hedge winner: commitWinner() already performed session binding and chain logging.
   // Skip duplicate operations to avoid double entries in the provider chain.

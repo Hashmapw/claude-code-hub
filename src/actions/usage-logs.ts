@@ -14,6 +14,7 @@ import { createSummaryAccumulator } from "@/lib/usage-logs/export/summary";
 import { assembleUsageLogsXlsx, buildDetailRowXml } from "@/lib/usage-logs/export/xlsx";
 import { isProviderFinalized } from "@/lib/utils/provider-display";
 import { resolveSystemTimezone } from "@/lib/utils/timezone";
+import { getSystemSettings } from "@/repository/system-config";
 import {
   findUsageLogSessionIdSuggestions,
   findUsageLogsBatch,
@@ -36,6 +37,7 @@ import type { ActionResult } from "./types";
  */
 const FILTER_OPTIONS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 let filterOptionsCache: {
+  billingModelSource: string;
   models: string[];
   statusCodes: number[];
   endpoints: string[];
@@ -99,6 +101,24 @@ function resolveUsageLogFiltersForSession(
   filters: Omit<UsageLogFilters, "userId" | "page" | "pageSize">
 ): Omit<UsageLogFilters, "page" | "pageSize"> {
   return session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
+}
+
+async function withBillingModelSource<T extends { billingModelSource?: unknown }>(
+  filters: T
+): Promise<T & { billingModelSource: NonNullable<UsageLogFilters["billingModelSource"]> }> {
+  let billingModelSource: NonNullable<UsageLogFilters["billingModelSource"]> = "original";
+  try {
+    const settings = await getSystemSettings();
+    billingModelSource = settings.billingModelSource;
+  } catch (error) {
+    logger.warn("[UsageLogs] Failed to resolve billing model source, using original model", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return {
+    ...filters,
+    billingModelSource,
+  } as T & { billingModelSource: NonNullable<UsageLogFilters["billingModelSource"]> };
 }
 
 function toUsageLogsExportStatus(job: UsageLogsExportJobRecord): UsageLogsExportStatus {
@@ -310,8 +330,9 @@ export async function getUsageLogs(
     }
 
     // 如果不是 admin，强制过滤为当前用户
-    const finalFilters: UsageLogFilters =
-      session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
+    const finalFilters: UsageLogFilters = await withBillingModelSource(
+      session.user.role === "admin" ? filters : { ...filters, userId: session.user.id }
+    );
 
     const result = await findUsageLogsWithDetails(finalFilters);
 
@@ -346,7 +367,9 @@ export async function exportUsageLogs(input: UsageLogsExportInput): Promise<Acti
         error: "Synchronous export only supports CSV; use the async job for XLSX.",
       };
     }
-    const finalFilters = resolveUsageLogFiltersForSession(session, filters);
+    const finalFilters = await withBillingModelSource(
+      resolveUsageLogFiltersForSession(session, filters)
+    );
     const timezone = await resolveSystemTimezone();
     const content = await buildUsageLogsExport(finalFilters, "csv", timezone);
 
@@ -369,7 +392,9 @@ export async function startUsageLogsExport(
 
     const { format = "csv", ...filters } = input;
     const jobId = crypto.randomUUID();
-    const finalFilters = resolveUsageLogFiltersForSession(session, filters);
+    const finalFilters = await withBillingModelSource(
+      resolveUsageLogFiltersForSession(session, filters)
+    );
 
     const stored = await usageLogsExportStatusStore.set(jobId, {
       jobId,
@@ -474,7 +499,8 @@ export async function getModelList(): Promise<ActionResult<string[]>> {
       return { ok: false, error: "未登录" };
     }
 
-    const models = await getUsedModels();
+    const settings = await getSystemSettings();
+    const models = await getUsedModels(settings.billingModelSource);
     return { ok: true, data: models };
   } catch (error) {
     logger.error("获取模型列表失败:", error);
@@ -543,9 +569,14 @@ export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
     }
 
     const now = Date.now();
+    const settings = await getSystemSettings();
 
     // 检查缓存是否有效
-    if (filterOptionsCache && filterOptionsCache.expiresAt > now) {
+    if (
+      filterOptionsCache &&
+      filterOptionsCache.billingModelSource === settings.billingModelSource &&
+      filterOptionsCache.expiresAt > now
+    ) {
       logger.debug("筛选器选项命中缓存");
       return {
         ok: true,
@@ -560,13 +591,14 @@ export async function getFilterOptions(): Promise<ActionResult<FilterOptions>> {
     // 缓存过期或不存在，重新查询
     logger.debug("筛选器选项缓存未命中，执行 DISTINCT 查询");
     const [models, statusCodes, endpoints] = await Promise.all([
-      getUsedModels(),
+      getUsedModels(settings.billingModelSource),
       getUsedStatusCodes(),
       getUsedEndpoints(),
     ]);
 
     // 更新缓存
     filterOptionsCache = {
+      billingModelSource: settings.billingModelSource,
       models,
       statusCodes,
       endpoints,
@@ -647,8 +679,9 @@ export async function getUsageLogsStats(
     }
 
     // 如果不是 admin，强制过滤为当前用户
-    const finalFilters: Omit<UsageLogFilters, "page" | "pageSize"> =
-      session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
+    const finalFilters: Omit<UsageLogFilters, "page" | "pageSize"> = await withBillingModelSource(
+      session.user.role === "admin" ? filters : { ...filters, userId: session.user.id }
+    );
 
     const stats = await findUsageLogsStats(finalFilters);
 
@@ -678,8 +711,9 @@ export async function getUsageLogsBatch(
     }
 
     // 如果不是 admin，强制过滤为当前用户
-    const finalFilters: UsageLogBatchFilters =
-      session.user.role === "admin" ? filters : { ...filters, userId: session.user.id };
+    const finalFilters: UsageLogBatchFilters = await withBillingModelSource(
+      session.user.role === "admin" ? filters : { ...filters, userId: session.user.id }
+    );
 
     const result = await findUsageLogsBatch(finalFilters);
 

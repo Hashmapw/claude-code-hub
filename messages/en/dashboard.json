@@ -255,7 +255,7 @@
         "responseModelLabel": "Actual Response Model",
         "mismatchTooltip": "The upstream provider returned a different model than the one requested. Billing is still based on the requested model.",
         "secondaryLineAriaLabel": "Actual response model: {model}",
-        "arrowPrefix": "\u21b3",
+        "arrowPrefix": "↳",
         "noSignatureBadge": "No thinking signature",
         "noSignatureTooltip": "Thinking was enabled but no thinking signature was returned in the stream; the actual response model falls back to the plain model field from message_start."
       },
@@ -1967,7 +1967,9 @@
       "clickToDisableKey": "Click to disable key",
       "clickToEnableKey": "Click to enable key",
       "operationFailed": "Operation failed",
-      "clickToQuickRenew": "Click to quick renew"
+      "clickToQuickRenew": "Click to quick renew",
+      "softBlocked": "Soft blocked",
+      "softBlockedDescription": "This key is temporarily blocked by runtime policy."
     },
     "userStatus": {
       "enabled": "Enabled",
@@ -2112,6 +2114,14 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Temporary Key Soft Block",
+          "descriptionEnabled": "Requests using this key will be rejected with the configured message.",
+          "descriptionDisabled": "When disabled, this key follows its normal enabled/disabled status.",
+          "messageLabel": "Block message",
+          "messagePlaceholder": "Enter the message returned to clients",
+          "messageDescription": "Shown to clients when this key is soft blocked. Up to 500 characters."
         }
       },
       "limitRules": {

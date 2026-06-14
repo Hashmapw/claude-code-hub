@@ -210,9 +210,9 @@ The script will prompt you to select a deployment branch:
 
 Once started:
 
-- **Admin Dashboard**: `http://localhost:23000` (login with `ADMIN_TOKEN` from `.env`)
-- **API Docs (Scalar UI)**: `http://localhost:23000/api/actions/scalar`
-- **API Docs (Swagger UI)**: `http://localhost:23000/api/actions/docs`
+- **Admin Dashboard**: `http://localhost:3000` (login with `ADMIN_TOKEN` from `.env`)
+- **API Docs (Scalar UI)**: `http://localhost:3000/api/actions/scalar`
+- **API Docs (Swagger UI)**: `http://localhost:3000/api/actions/docs`
 
 > 💡 **Tip**: To change the port, edit the `ports` section in `docker-compose.yml`.
 
@@ -350,7 +350,7 @@ See **[docs/k8s-deployment.md](docs/k8s-deployment.md)** for full options, place
 | `SESSION_TTL`                              | `300`                    | Session cache window (seconds) that drives vendor reuse.                                             |
 | `ENABLE_SECURE_COOKIES`                    | `true`                   | Browsers require HTTPS for Secure cookies; set to `false` when serving plain HTTP outside localhost. |
 | `ENABLE_CIRCUIT_BREAKER_ON_NETWORK_ERRORS` | `false`                  | When `true`, network errors also trip the circuit breaker for quicker isolation.                     |
-| `APP_PORT`                                 | `23000`                  | Production port (override via container or process manager).                                         |
+| `APP_PORT`                                 | `3000`                  | Production port (override via container or process manager).                                         |
 | `APP_URL`                                  | empty                    | Populate to expose correct `servers` entries in OpenAPI docs.                                        |
 | `API_TEST_TIMEOUT_MS`                      | `15000`                  | Timeout (ms) for provider API connectivity tests. Accepts 5000-120000 for regional tuning.           |
 

@@ -152,6 +152,17 @@ export interface CacheHitRateAlertData {
   generatedAt: string;
 }
 
+export interface VipGroupUsageData {
+  providerId: number;
+  providerName: string;
+  providerGroupTag: string;
+  userId: number;
+  userName: string;
+  model: string;
+  sessionId: string;
+  timestamp: string;
+}
+
 /**
  * Webhook 相关类型
  */
@@ -162,7 +173,8 @@ export type WebhookNotificationType =
   | "circuit_breaker"
   | "daily_leaderboard"
   | "cost_alert"
-  | "cache_hit_rate_alert";
+  | "cache_hit_rate_alert"
+  | "vip_group_usage";
 
 export interface WebhookTargetConfig {
   id?: number;

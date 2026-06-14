@@ -109,6 +109,12 @@ export class ProxyAuthenticator {
     session.setAuthState(authState);
 
     if (authState.success) {
+      const { handleKeySoftBlock } = await import("./key-soft-block");
+      const softBlockResponse = await handleKeySoftBlock(session);
+      if (softBlockResponse) {
+        return softBlockResponse;
+      }
+
       proxyAuthPolicy.recordSuccess(clientIp, authState.apiKey ?? undefined);
       return null;
     }

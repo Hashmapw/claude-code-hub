@@ -44,6 +44,14 @@
       "label": "不遵循会话复用",
       "desc": "开启后，下次请求不会继续复用当前供应商的 sticky 绑定，而是重新走优先级与健康检查。适合高优先级便宜渠道恢复后尽快切回的场景。"
     },
+    "rejectStreamingContentLength": {
+      "label": "拒绝带 Content-Length 的流式响应",
+      "desc": "开启后，上游 SSE 流式响应只要包含 Content-Length 响应头，就中断该供应商并按 503 失败切换到后续供应商。"
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "拒绝 0 用量的流式响应",
+      "desc": "开启后，如果 SSE 流中显式返回的用量字段全为 0，会先缓存完整流并在发送给客户端前中断该供应商，按 503 失败切换。未返回用量不会触发。"
+    },
     "options": {
       "title": "选项",
       "desc": "附加供应商选项和覆写设置"

@@ -381,6 +381,14 @@
       "label": "不遵循 Session 復用",
       "desc": "啟用後，下次請求不會繼續復用目前供應商的 sticky 綁定，而會重新走優先級與健康檢查。適合高優先級便宜通道恢復後盡快切回的場景。"
     },
+    "rejectStreamingContentLength": {
+      "label": "拒絕帶 Content-Length 的串流回應",
+      "desc": "啟用後，上游 SSE 串流回應只要包含 Content-Length 回應標頭，就中斷該供應商並按 503 失敗切換到後續供應商。"
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "拒絕 0 用量的串流回應",
+      "desc": "啟用後，如果 SSE 串流中明確回傳的用量欄位全為 0，會先快取完整串流並在送給用戶端前中斷該供應商，按 503 失敗切換。未回傳用量不會觸發。"
+    },
     "options": {
       "title": "選項",
       "desc": "附加供應商選項和覆寫設定"

@@ -206,6 +206,8 @@ const userKeyListItemSchema = z.object({
   limitConcurrentSessions: z.number().describe("并发 Session 上限"),
   costResetAt: z.string().nullable().optional().describe("限额重置时间"),
   providerGroup: z.string().nullable().optional().describe("密钥供应商分组"),
+  softBlockEnabled: z.boolean().optional().describe("是否启用 Redis 临时限制"),
+  softBlockMessage: z.string().nullable().optional().describe("Redis 临时限制提示词"),
 });
 
 const userListItemSchema = z.object({
@@ -511,6 +513,8 @@ const { route: addKeyRoute, handler: addKeyHandler } = createActionRoute(
       name: z.string(),
       expiresAt: z.string().optional(),
       canLoginWebUi: z.boolean().optional(),
+      softBlockEnabled: z.boolean().optional(),
+      softBlockMessage: z.string().trim().max(500).nullable().optional(),
       limit5hUsd: z.number().nullable().optional(),
       limit5hResetMode: z.enum(["fixed", "rolling"]).optional(),
       limitDailyUsd: z.number().nullable().optional(),
@@ -548,6 +552,8 @@ const { route: editKeyRoute, handler: editKeyHandler } = createActionRoute(
       name: z.string(),
       expiresAt: z.string().optional(),
       canLoginWebUi: z.boolean().optional(),
+      softBlockEnabled: z.boolean().optional(),
+      softBlockMessage: z.string().trim().max(500).nullable().optional(),
       limit5hUsd: z.number().nullable().optional(),
       limit5hResetMode: z.enum(["fixed", "rolling"]).optional(),
       limitDailyUsd: z.number().nullable().optional(),
@@ -1922,6 +1928,14 @@ const { route: updateNotificationSettingsRoute, handler: updateNotificationSetti
           .max(100)
           .optional()
           .describe("TopN（最多返回/推送条数）"),
+        vipGroupUsageEnabled: z.boolean().optional().describe("是否启用 VIP 分组使用提醒"),
+        vipGroupUsageCooldownSeconds: z
+          .number()
+          .int()
+          .min(1)
+          .max(86400)
+          .optional()
+          .describe("VIP 分组使用提醒冷却时间（秒）"),
       }),
       summary: "更新通知设置",
       description: "更新通知开关与各类型通知配置（生产环境会触发重新调度定时任务）",
@@ -1960,6 +1974,7 @@ const WebhookNotificationTypeSchema = z.enum([
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ]);
 
 const WebhookTargetSchema = z.object({
@@ -2175,8 +2190,8 @@ function getOpenAPIServers() {
   // 降级：添加常见的开发环境地址
   if (process.env.NODE_ENV !== "production") {
     servers.push({
-      url: "http://localhost:13500",
-      description: "本地开发环境 - 默认端口 13500",
+      url: "http://localhost:3000",
+      description: "本地开发环境 - 默认端口 3000",
     });
   }
 
@@ -2240,7 +2255,7 @@ Claude Code Hub 是一个 Claude API 代理中转服务平台,提供以下功能
 
 \`\`\`bash
 # 使用 Cookie 认证调用 API
-curl -X POST 'http://localhost:23000/api/actions/users/getUsers' \\
+curl -X POST 'http://localhost:3000/api/actions/users/getUsers' \\
   -H 'Content-Type: application/json' \\
   -H 'Cookie: auth-token=your-token-here' \\
   -d '{}'
@@ -2264,7 +2279,7 @@ fetch('/api/actions/users/getUsers', {
 // Node.js 环境（需要手动设置 Cookie）
 const fetch = require('node-fetch');
 
-fetch('http://localhost:23000/api/actions/users/getUsers', {
+fetch('http://localhost:3000/api/actions/users/getUsers', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -2294,7 +2309,7 @@ headers = {
 }
 
 response = session.post(
-    'http://localhost:23000/api/actions/users/getUsers',
+    'http://localhost:3000/api/actions/users/getUsers',
     json={},
     headers=headers
 )

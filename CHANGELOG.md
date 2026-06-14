@@ -4,6 +4,31 @@
 
 ---
 
+## v0.8.7.1 (2026-06-15)
+
+### 新增
+
+- SII Notebook / VSCode 深层代理前缀支持：新增 `SII_PROXY_SUPPORT` / `NEXT_PUBLIC_SII_PROXY_SUPPORT` 开关，服务端 canonicalization、构建期 `assetPrefix` 与浏览器侧 fetch/navigation base-path 感知保持同口径。
+- 登录页 branding：新增公开接口 `GET /api/public/site-info`，登录页 version / login submit / site-info 请求均走 base-path-aware `apiFetch`，并在登录页隐藏重复 footer。
+- Key Soft Block：新增 Redis-only 的 Key 软封禁配置、Key 新增/编辑回填、用户与 Key 列表回填、代理链路与 `/v1/models` 同口径 401 `user_disabled` 拦截。
+- VIP 高成本分组提醒：provider 分组精确包含 `vip` 时异步发送 `vip_group_usage` 通知，支持 Redis runtime config 与 webhook 模板。
+- Provider 流式响应防护：新增“拒绝带 Content-Length 的流式响应”和“拒绝 0 用量的流式响应”两个 provider 开关，命中后按 503 中断当前供应商并 fallback 到后续供应商。
+- opencode Claude Messages 兼容：opencode 调用 Claude `/v1/messages` 且未显式携带 `beta` 时自动追加 `beta=true`。
+
+### 优化
+
+- 默认代理端口统一收敛为 `3000`，覆盖示例配置、脚本、dev compose、README 与测试 fixture。
+- my-usage / usage logs 使用统一 billing model source，默认按 `COALESCE(originalModel, model)` 展示、筛选与聚合。
+- 使用记录的计费模型列新增 `ds` 模型别名识别，模型名包含 `ds` 时显示 DeepSeek 海豚 logo。
+- Release workflow 在分支触发时将版本提交推回触发源分支，避免固定写回 `main`；`main -> dev` 同步仅限 main release。
+
+### 其他
+
+- 删除 Claude stale issue cleanup workflow，避免继续产生或处理 Oncall Issue Triage 类自动任务。
+- 本版本按要求不包含错误规则驱动的 `stream_prefix_block` 流式前缀关键词拦截能力。
+
+---
+
 ## v0.8.7 (2026-06-14)
 
 ### 新增

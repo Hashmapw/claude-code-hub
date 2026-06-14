@@ -95,7 +95,7 @@ describe("LoginPage footer system name", () => {
       (input: string | URL | Request) => {
         const path = getRequestPath(input);
 
-        if (path === "/api/public-site-meta") {
+        if (path === "/api/public/site-info") {
           return Promise.resolve(mockJsonResponse({ siteTitle: "My Custom Hub" }));
         }
 
@@ -115,7 +115,7 @@ describe("LoginPage footer system name", () => {
       (input: string | URL | Request) => {
         const path = getRequestPath(input);
 
-        if (path === "/api/public-site-meta") {
+        if (path === "/api/public/site-info") {
           return Promise.resolve(mockJsonResponse({ error: "Unauthorized" }, false));
         }
 
@@ -135,7 +135,7 @@ describe("LoginPage footer system name", () => {
       (input: string | URL | Request) => {
         const path = getRequestPath(input);
 
-        if (path === "/api/public-site-meta") {
+        if (path === "/api/public/site-info") {
           return new Promise(() => {});
         }
 
@@ -149,12 +149,12 @@ describe("LoginPage footer system name", () => {
     expect(getSiteTitleFooter()?.textContent).toBe(DEFAULT_SITE_TITLE);
   });
 
-  it("falls back to default title when public metadata returns blank title", async () => {
+  it("falls back to default title when public site info returns blank title", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
       (input: string | URL | Request) => {
         const path = getRequestPath(input);
 
-        if (path === "/api/public-site-meta") {
+        if (path === "/api/public/site-info") {
           return Promise.resolve(mockJsonResponse({ siteTitle: "   " }));
         }
 

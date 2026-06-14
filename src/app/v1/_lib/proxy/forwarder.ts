@@ -89,10 +89,16 @@ import {
   syncOpenAIImageMultipartFromLogicalBody,
   validateOpenAIImageRequest,
 } from "./openai-image-compat";
+import { appendOpencodeClaudeMessagesBetaIfNeeded } from "./opencode-beta";
 import { ProxyProviderResolver } from "./provider-selector";
 import { finalizeHedgeLoserBilling } from "./response-handler";
 import type { ProxySession } from "./session";
 import { setDeferredStreamingFinalization } from "./stream-finalization";
+import {
+  bufferStreamingResponseForZeroUsageGuard,
+  getStreamingResponseGuardErrorType,
+  rejectStreamingContentLengthIfNeeded,
+} from "./streaming-response-guards";
 import {
   detectThinkingBudgetRectifierTrigger,
   rectifyThinkingBudget,
@@ -111,6 +117,7 @@ import {
   type ThinkingSignatureRectifierResult,
   type ThinkingSignatureRectifierTrigger,
 } from "./thinking-signature-rectifier";
+import { maybeSendVipGroupUsageAlert } from "./vip-group-usage";
 
 /** Default User-Agent for Codex CLI requests when none is provided */
 export const DEFAULT_CODEX_USER_AGENT =
@@ -190,6 +197,62 @@ type ProxySessionWithAttemptRuntime = ProxySession & {
   responseController?: AbortController;
   releaseAgent?: () => void;
 };
+
+function cleanupForwarderOwnedResponseRuntime(session: ProxySession): void {
+  const runtime = session as ProxySessionWithAttemptRuntime;
+  try {
+    runtime.clearResponseTimeout?.();
+  } catch (error) {
+    logger.debug(
+      "ProxyForwarder: failed to clear response timeout after streaming guard rejection",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
+
+  try {
+    runtime.responseController?.abort(new Error("streaming_response_guard_rejected"));
+  } catch (error) {
+    logger.debug(
+      "ProxyForwarder: failed to abort response controller after streaming guard rejection",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
+
+  try {
+    runtime.releaseAgent?.();
+  } catch (error) {
+    logger.debug("ProxyForwarder: failed to release agent after streaming guard rejection", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function applyStreamingResponseGuards(
+  session: ProxySession,
+  provider: Provider,
+  response: Response,
+  options?: { onFirstChunk?: (chunkSize: number) => void }
+): Promise<Response> {
+  await rejectStreamingContentLengthIfNeeded(response, provider);
+
+  const runtime = session as ProxySessionWithAttemptRuntime;
+  return bufferStreamingResponseForZeroUsageGuard({
+    response,
+    provider,
+    onFirstChunk: (chunkSize) => {
+      runtime.clearResponseTimeout?.();
+      options?.onFirstChunk?.(chunkSize);
+    },
+    firstByteTimeoutMs: provider.firstByteTimeoutStreamingMs,
+    idleTimeoutMs: provider.streamingIdleTimeoutMs,
+    onIdleTimeout: () => runtime.responseController?.abort(new Error("streaming_idle_timeout")),
+    isUpstreamTimeoutAbort: () => runtime.responseController?.signal.aborted === true,
+  });
+}
 
 type StreamingHedgeAttempt = {
   provider: Provider;
@@ -1413,6 +1476,18 @@ export class ProxyForwarder {
           // 解决：Forwarder 只负责尽快把 Response 返回给下游开始透传，
           // 把最终成功/失败结算延迟到 ResponseHandler：等 SSE 正常结束后再基于最终 body 补充检查并更新内部状态。
           if (isSSE) {
+            let streamResponse: Response;
+            try {
+              streamResponse = await applyStreamingResponseGuards(
+                session,
+                currentProvider,
+                response
+              );
+            } catch (streamingGuardError) {
+              cleanupForwarderOwnedResponseRuntime(session);
+              throw streamingGuardError;
+            }
+
             setDeferredStreamingFinalization(session, {
               providerId: currentProvider.id,
               providerName: currentProvider.name,
@@ -1423,7 +1498,8 @@ export class ProxyForwarder {
               isFailoverSuccess: totalProvidersAttempted > 1,
               endpointId: activeEndpoint.endpointId,
               endpointUrl: endpointAudit.endpointUrl,
-              upstreamStatusCode: response.status,
+              providerGroupTag: currentProvider.groupTag,
+              upstreamStatusCode: streamResponse.status,
             });
 
             logger.info("ProxyForwarder: Streaming response received, deferring finalization", {
@@ -1431,10 +1507,10 @@ export class ProxyForwarder {
               providerName: currentProvider.name,
               attemptNumber: attemptCount,
               totalProvidersAttempted,
-              statusCode: response.status,
+              statusCode: streamResponse.status,
             });
 
-            return response;
+            return streamResponse;
           }
 
           // 非流式响应：检测空响应
@@ -1657,6 +1733,8 @@ export class ProxyForwarder {
               });
             }
           }
+
+          await maybeSendVipGroupUsageAlert(session, currentProvider);
 
           // 记录到决策链
           session.addProviderToChain(currentProvider, {
@@ -2106,7 +2184,10 @@ export class ProxyForwarder {
             // 常规 ProxyError 处理
             const proxyError = lastError as ProxyError;
             const statusCode = proxyError.statusCode;
-            const willRetry = attemptCount < maxAttemptsPerProvider;
+            const streamingGuardErrorType = getStreamingResponseGuardErrorType(proxyError);
+            const willRetry = streamingGuardErrorType
+              ? false
+              : attemptCount < maxAttemptsPerProvider;
 
             if (
               !isMcpRequest &&
@@ -2177,6 +2258,7 @@ export class ProxyForwarder {
               attemptNumber: attemptCount,
               totalProvidersAttempted,
               willRetry,
+              streamingGuardErrorType: streamingGuardErrorType ?? undefined,
             });
 
             // 获取熔断器健康信息（用于决策链显示）
@@ -2406,7 +2488,11 @@ export class ProxyForwarder {
             ? GEMINI_PROTOCOL.OFFICIAL_ENDPOINT
             : GEMINI_PROTOCOL.CLI_ENDPOINT);
 
-        proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+        proxyUrl = appendOpencodeClaudeMessagesBetaIfNeeded(
+          buildProxyUrl(effectiveBaseUrl, session.requestUrl),
+          session,
+          provider
+        );
 
         // 4. Headers 处理：默认透传 session.headers（含请求过滤器修改），但移除代理认证头并覆盖上游鉴权
         // 说明：之前 Gemini 分支使用 new Headers() 重建 headers，会导致 user-agent 丢失且过滤器不生效
@@ -2448,7 +2534,11 @@ export class ProxyForwarder {
             ? GEMINI_PROTOCOL.OFFICIAL_ENDPOINT
             : GEMINI_PROTOCOL.CLI_ENDPOINT);
 
-        proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+        proxyUrl = appendOpencodeClaudeMessagesBetaIfNeeded(
+          buildProxyUrl(effectiveBaseUrl, session.requestUrl),
+          session,
+          provider
+        );
 
         processedHeaders = ProxyForwarder.buildGeminiHeaders(
           session,
@@ -2678,7 +2768,11 @@ export class ProxyForwarder {
       // ⭐ 直接使用原始请求路径，让 buildProxyUrl() 智能处理路径拼接
       // 移除了强制 /v1/responses 路径重写，解决 Issue #139
       // buildProxyUrl() 会检测 base_url 是否已包含完整路径，避免重复拼接
-      proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = appendOpencodeClaudeMessagesBetaIfNeeded(
+        buildProxyUrl(effectiveBaseUrl, session.requestUrl),
+        session,
+        provider
+      );
 
       // Host header must match actual request target for undici TLS cert validation
       // When provider has multiple endpoints, provider.url and proxyUrl hosts may differ
@@ -4102,9 +4196,36 @@ export class ProxyForwarder {
           attempt.clearResponseTimeout = attemptRuntime.clearResponseTimeout ?? null;
           attempt.releaseAgent = attemptRuntime.releaseAgent ?? null;
           attempt.clearResponseTimeout?.();
-          attempt.response = response;
 
-          if (!response.body) {
+          let streamResponse: Response;
+          try {
+            streamResponse = await applyStreamingResponseGuards(
+              attempt.session,
+              attempt.provider,
+              response,
+              {
+                onFirstChunk: () => {
+                  if (attempt.thresholdTimer) {
+                    clearTimeout(attempt.thresholdTimer);
+                    attempt.thresholdTimer = null;
+                  }
+                },
+              }
+            );
+          } catch (streamingGuardError) {
+            cleanupForwarderOwnedResponseRuntime(attempt.session);
+            await handleAttemptFailure(
+              attempt,
+              streamingGuardError instanceof Error
+                ? streamingGuardError
+                : new Error(String(streamingGuardError))
+            );
+            return;
+          }
+
+          attempt.response = streamResponse;
+
+          if (!streamResponse.body) {
             await handleAttemptFailure(
               attempt,
               new EmptyResponseError(attempt.provider.id, attempt.provider.name, "empty_body")
@@ -4112,7 +4233,7 @@ export class ProxyForwarder {
             return;
           }
 
-          attempt.reader = response.body.getReader();
+          attempt.reader = streamResponse.body.getReader();
 
           try {
             const firstChunk = await ProxyForwarder.readFirstReadableChunk(attempt.reader);
@@ -4457,6 +4578,7 @@ export class ProxyForwarder {
         isFailoverSuccess: attempt.provider.id !== initialProvider.id,
         endpointId: attempt.endpointAudit.endpointId,
         endpointUrl: attempt.endpointAudit.endpointUrl,
+        providerGroupTag: attempt.provider.groupTag,
         upstreamStatusCode: attempt.response.status,
         isHedgeWinner: isActualHedgeWin,
         billHedgeLosers,

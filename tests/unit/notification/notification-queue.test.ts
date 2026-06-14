@@ -109,6 +109,7 @@ beforeEach(() => {
     buildCircuitBreakerMessage: vi.fn(() => ({})),
     buildCostAlertMessage: vi.fn(() => ({})),
     buildDailyLeaderboardMessage: vi.fn(() => ({})),
+    buildVipGroupUsageMessage: vi.fn(() => ({})),
     sendWebhookMessage: mockSendWebhookMessage,
   }));
 
@@ -296,6 +297,54 @@ describe("notification queue processor - circuit-breaker", () => {
 
     expect(result).toEqual({ success: true });
     expect(mockSendWebhookMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("notification queue processor - vip-group-usage", () => {
+  const data = {
+    userId: 1,
+    userName: "alice",
+    providerId: 2,
+    providerName: "vip-provider",
+    providerGroupTag: "vip",
+    model: "claude-sonnet-4-5",
+    sessionId: "session-1",
+    timestamp: "2026-06-15T00:00:00.000Z",
+  };
+
+  it("sends target-mode VIP usage alerts even though the global scheduler switch is off", async () => {
+    mockGetNotificationSettings.mockResolvedValue(makeSettings({ enabled: false }));
+
+    const handler = await loadProcessor();
+    const result = await handler(
+      makeJob({
+        type: "vip-group-usage",
+        targetId: 9,
+        bindingId: 7,
+        data,
+      })
+    );
+
+    const webhook = await import("@/lib/webhook");
+    expect(result).toEqual({ success: true });
+    expect(webhook.buildVipGroupUsageMessage).toHaveBeenCalledWith(data, "UTC");
+    expect(mockSendWebhookMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips malformed VIP usage jobs without sending", async () => {
+    mockGetNotificationSettings.mockResolvedValue(makeSettings({ enabled: true }));
+
+    const handler = await loadProcessor();
+    const result = await handler(
+      makeJob({
+        type: "vip-group-usage",
+        targetId: 9,
+        bindingId: 7,
+      })
+    );
+
+    expect(result).toEqual({ success: true, skipped: true });
+    expect(mockSendWebhookMessage).not.toHaveBeenCalled();
   });
 });
 

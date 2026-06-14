@@ -1,29 +1,23 @@
 {
   "_comment": "Error messages for Chinese Traditional",
-
   "REQUIRED_FIELD": "{field}不能為空",
   "USER_NAME_REQUIRED": "使用者名稱不能為空",
   "API_KEY_REQUIRED": "API金鑰不能為空",
   "PROVIDER_NAME_REQUIRED": "服務商名稱不能為空",
   "PROVIDER_URL_REQUIRED": "服務商URL不能為空",
-
   "MIN_LENGTH": "{field}長度不能少於{min}個字符",
   "MAX_LENGTH": "{field}長度不能超過{max}個字符",
   "INVALID_EMAIL": "請輸入有效的電子郵件地址",
   "INVALID_URL": "請輸入有效的URL地址",
-
   "MIN_VALUE": "{field}不能低於{min}",
   "MAX_VALUE": "{field}不能超過{max}",
   "MUST_BE_INTEGER": "{field}必須是整數",
   "MUST_BE_POSITIVE": "{field}必須是正數",
-
   "INVALID_TYPE": "{field}類型不正確",
   "INVALID_FORMAT": "{field}格式不正確",
-
   "DUPLICATE_NAME": "名稱'{name}'已存在",
   "INVALID_RANGE": "{field}必須在{min}到{max}之間",
   "EMPTY_UPDATE": "更新內容為空",
-
   "UNAUTHORIZED": "未授權，請先登入",
   "INVALID_CREDENTIALS": "使用者名稱或密碼錯誤",
   "SESSION_EXPIRED": "會話已過期，請重新登入",
@@ -33,7 +27,6 @@
   "PROXY_INVALID_API_KEY": "API 金鑰無效。提供的金鑰不存在或已被刪除。",
   "PROXY_API_KEY_DISABLED": "API 金鑰已被停用。請聯絡管理員重新啟用，或使用其他可用金鑰。",
   "PROXY_API_KEY_EXPIRED": "API 金鑰已過期。請聯絡管理員續期或更換金鑰。",
-
   "INTERNAL_ERROR": "系統內部錯誤，請稍後重試",
   "DATABASE_ERROR": "資料庫錯誤",
   "NOT_FOUND": "資源不存在",
@@ -48,11 +41,9 @@
   "CREATE_FAILED": "創建失敗，請稍後重試",
   "UPDATE_FAILED": "更新失敗，請稍後重試",
   "DELETE_FAILED": "刪除失敗，請稍後重試",
-
   "CONNECTION_FAILED": "連接失敗",
   "TIMEOUT": "請求逾時",
   "NETWORK_ERROR": "網路錯誤",
-
   "QUOTA_EXCEEDED": "配額已用盡",
   "BATCH_SIZE_EXCEEDED": "批次操作不能超過 {max} 個項目",
   "RATE_LIMIT_EXCEEDED": "請求過於頻繁，請稍後重試",
@@ -69,14 +60,12 @@
   "INVALID_STATE": "當前狀態不允許此操作",
   "CONFLICT": "操作衝突",
   "ENDPOINT_REFERENCED_BY_ENABLED_PROVIDERS": "此端點仍被 {count} 個啟用中的供應商引用：{providers}",
-
   "USER_NOT_FOUND": "使用者不存在",
   "USER_CANNOT_MODIFY_SENSITIVE_FIELDS": "普通使用者不能修改帳戶額度和供應商分組",
   "CREATE_USER_FAILED": "創建使用者失敗，請稍後重試",
   "UPDATE_USER_FAILED": "更新使用者失敗，請稍後重試",
   "DELETE_USER_FAILED": "刪除使用者失敗，請稍後重試",
   "GET_USER_QUOTA_FAILED": "獲取使用者額度使用情況失敗",
-
   "KEY_NOT_FOUND": "金鑰不存在",
   "CREATE_KEY_FAILED": "創建金鑰失敗，請稍後重試",
   "UPDATE_KEY_FAILED": "更新金鑰失敗，請稍後重試",
@@ -96,5 +85,16 @@
   "EXPIRES_AT_TOO_FAR": "過期時間不能超過10年",
   "CANNOT_DISABLE_SELF": "不能禁用自己的帳戶",
   "NO_DEFAULT_GROUP_PERMISSION": "無權使用 default 分組，您當前沒有 default 分組的 Key",
-  "NO_GROUP_PERMISSION": "無權使用以下分組: {groups}"
+  "NO_GROUP_PERMISSION": "無權使用以下分組: {groups}",
+  "PROXY_USER_DISABLED": "使用者帳戶已被停用。請聯絡管理員。",
+  "PROXY_USER_EXPIRED": "使用者帳戶已過期。請聯絡管理員。",
+  "PROXY_KEY_SOFT_BLOCKED": "此 API Key 已被暫時限制。請聯絡管理員。",
+  "KEY_SOFT_BLOCK_MESSAGE_TOO_LONG": "暫時限制提示文字不可超過 500 個字元。",
+  "KEY_SOFT_BLOCK_MESSAGE_REQUIRED": "啟用暫時限制時必須填寫提示文字。",
+  "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis 不可用，Key 暫時限制設定未儲存。",
+  "KEY_SOFT_BLOCK_SAVE_FAILED": "儲存 Key 暫時限制設定失敗。",
+  "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key 已儲存，但暫時限制設定儲存失敗。",
+  "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis 不可用，VIP 分組使用提醒設定未儲存。",
+  "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "儲存 VIP 分組使用提醒設定失敗。",
+  "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "通知設定已部分儲存，但部分執行階段設定儲存失敗。"
 }
