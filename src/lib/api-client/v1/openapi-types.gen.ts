@@ -32922,6 +32922,18 @@ export interface operations {
                      * @enum {string}
                      */
                     cacheTtlPreference?: "inherit" | "5m" | "1h";
+                    /** @description Whether streaming usage token rewriting is enabled for this key. */
+                    streamUsageAdjustmentEnabled?: boolean;
+                    /** @description Request-level hit probability in percent. */
+                    streamUsageAdjustmentProbability?: number;
+                    /** @description input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentInputTokensRatio?: number;
+                    /** @description output_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentOutputTokensRatio?: number;
+                    /** @description cache_read_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+                    /** @description cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
                 };
             };
         };
@@ -33143,6 +33155,18 @@ export interface operations {
                      * @enum {string}
                      */
                     cacheTtlPreference?: "inherit" | "5m" | "1h";
+                    /** @description Whether streaming usage token rewriting is enabled for this key. */
+                    streamUsageAdjustmentEnabled?: boolean;
+                    /** @description Request-level hit probability in percent. */
+                    streamUsageAdjustmentProbability?: number;
+                    /** @description input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentInputTokensRatio?: number;
+                    /** @description output_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentOutputTokensRatio?: number;
+                    /** @description cache_read_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+                    /** @description cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
                 };
             };
         };
@@ -34254,6 +34278,18 @@ export interface operations {
                      * @enum {string}
                      */
                     cacheTtlPreference?: "inherit" | "5m" | "1h";
+                    /** @description Whether streaming usage token rewriting is enabled for this key. */
+                    streamUsageAdjustmentEnabled?: boolean;
+                    /** @description Request-level hit probability in percent. */
+                    streamUsageAdjustmentProbability?: number;
+                    /** @description input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentInputTokensRatio?: number;
+                    /** @description output_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentOutputTokensRatio?: number;
+                    /** @description cache_read_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+                    /** @description cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
                 };
             };
         };

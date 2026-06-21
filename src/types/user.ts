@@ -144,6 +144,13 @@ export interface UserKeyDisplay {
   // Redis-only runtime soft block config (not persisted in key table).
   softBlockEnabled?: boolean;
   softBlockMessage?: string | null;
+  // Stream usage token rewrite config (percent values).
+  streamUsageAdjustmentEnabled?: boolean;
+  streamUsageAdjustmentProbability?: number;
+  streamUsageAdjustmentInputTokensRatio?: number;
+  streamUsageAdjustmentOutputTokensRatio?: number;
+  streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+  streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
 }
 
 /**

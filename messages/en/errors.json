@@ -94,6 +94,8 @@
   "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis is unavailable; key soft block settings were not saved.",
   "KEY_SOFT_BLOCK_SAVE_FAILED": "Failed to save key soft block settings.",
   "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key was saved, but the soft block settings failed to save.",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "Streaming usage rewrite probability must be between 0 and 100.",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "Streaming usage rewrite ratio must be between 0 and 10000.",
   "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis is unavailable; VIP group usage alert settings were not saved.",
   "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "Failed to save VIP group usage alert settings.",
   "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "Notification settings were partially saved, but some runtime settings failed to save."

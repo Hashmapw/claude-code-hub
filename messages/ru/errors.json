@@ -94,6 +94,8 @@
   "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis недоступен; настройки временной блокировки Key не сохранены.",
   "KEY_SOFT_BLOCK_SAVE_FAILED": "Не удалось сохранить настройки временной блокировки Key.",
   "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key сохранен, но настройки временной блокировки сохранить не удалось.",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "Вероятность перезаписи потокового usage должна быть от 0 до 100.",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "Коэффициент перезаписи потокового usage должен быть от 0 до 10000.",
   "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis недоступен; настройки уведомлений об использовании VIP-группы не сохранены.",
   "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "Не удалось сохранить настройки уведомлений об использовании VIP-группы.",
   "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "Настройки уведомлений частично сохранены, но часть runtime-настроек сохранить не удалось."

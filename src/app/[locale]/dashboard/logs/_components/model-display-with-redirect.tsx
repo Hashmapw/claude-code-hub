@@ -51,23 +51,40 @@ export function ModelDisplayWithRedirect({
     [billingModel, tCommon]
   );
 
+  // 代理是否已对客户端隐藏了模型重定向(客户端收到的是请求的原始模型名)。
+  const clientMasked = audit.clientReturnedRequestModel;
+  // 二级行要展示的"真实应答模型":优先用解析出的 actualResponseModel,
+  // 隐藏重定向时回退到重定向后的 currentModel,确保真实模型始终可见。
+  const secondaryBaseModel =
+    audit.secondaryActualModel ?? (clientMasked ? (actualResponseModel ?? currentModel) : null);
+  const showSecondaryLine =
+    Boolean(secondaryBaseModel) && (audit.hasActualMismatch || clientMasked);
+  // 隐藏重定向时,在真实应答模型后面加 `%`,表示已对客户端返回了请求的模型名。
+  const secondaryModelText = secondaryBaseModel
+    ? `${secondaryBaseModel}${clientMasked ? "%" : ""}`
+    : null;
+
   const secondaryLine =
-    audit.hasActualMismatch && audit.secondaryActualModel ? (
+    showSecondaryLine && secondaryModelText ? (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div
               className="flex items-center gap-1 text-xs text-muted-foreground truncate cursor-help"
-              aria-label={tAudit("secondaryLineAriaLabel", {
-                model: audit.secondaryActualModel,
-              })}
+              aria-label={
+                clientMasked
+                  ? tAudit("clientMaskedAriaLabel", { model: secondaryBaseModel ?? "" })
+                  : tAudit("secondaryLineAriaLabel", { model: secondaryBaseModel ?? "" })
+              }
             >
               <span aria-hidden>{tAudit("arrowPrefix")}</span>
-              <span className="truncate">{audit.secondaryActualModel}</span>
+              <span className="truncate">{secondaryModelText}</span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p className="text-xs max-w-xs">{tAudit("mismatchTooltip")}</p>
+            <p className="text-xs max-w-xs">
+              {clientMasked ? tAudit("clientMaskedTooltip") : tAudit("mismatchTooltip")}
+            </p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

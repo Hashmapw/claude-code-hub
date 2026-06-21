@@ -208,6 +208,24 @@ const userKeyListItemSchema = z.object({
   providerGroup: z.string().nullable().optional().describe("密钥供应商分组"),
   softBlockEnabled: z.boolean().optional().describe("是否启用 Redis 临时限制"),
   softBlockMessage: z.string().nullable().optional().describe("Redis 临时限制提示词"),
+  streamUsageAdjustmentEnabled: z.boolean().optional().describe("是否启用流式 usage token 改写"),
+  streamUsageAdjustmentProbability: z.number().optional().describe("请求级命中概率百分比"),
+  streamUsageAdjustmentInputTokensRatio: z
+    .number()
+    .optional()
+    .describe("input_tokens 改写比例百分比"),
+  streamUsageAdjustmentOutputTokensRatio: z
+    .number()
+    .optional()
+    .describe("output_tokens 改写比例百分比"),
+  streamUsageAdjustmentCacheReadInputTokensRatio: z
+    .number()
+    .optional()
+    .describe("cache_read_input_tokens 改写比例百分比"),
+  streamUsageAdjustmentCacheCreationInputTokensRatio: z
+    .number()
+    .optional()
+    .describe("cache_creation_input_tokens 改写比例百分比"),
 });
 
 const userListItemSchema = z.object({
@@ -530,6 +548,12 @@ const { route: addKeyRoute, handler: addKeyHandler } = createActionRoute(
         .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
         .optional(),
       cacheTtlPreference: z.enum(["inherit", "5m", "1h"]).optional(),
+      streamUsageAdjustmentEnabled: z.boolean().optional(),
+      streamUsageAdjustmentProbability: z.number().min(0).max(100).optional(),
+      streamUsageAdjustmentInputTokensRatio: z.number().min(0).max(10000).optional(),
+      streamUsageAdjustmentOutputTokensRatio: z.number().min(0).max(10000).optional(),
+      streamUsageAdjustmentCacheReadInputTokensRatio: z.number().min(0).max(10000).optional(),
+      streamUsageAdjustmentCacheCreationInputTokensRatio: z.number().min(0).max(10000).optional(),
     }),
     responseSchema: z.object({
       generatedKey: z.string(),
@@ -572,6 +596,12 @@ const { route: editKeyRoute, handler: editKeyHandler } = createActionRoute(
         .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
         .optional(),
       cacheTtlPreference: z.enum(["inherit", "5m", "1h"]).optional(),
+      streamUsageAdjustmentEnabled: z.boolean().optional(),
+      streamUsageAdjustmentProbability: z.number().min(0).max(100).optional(),
+      streamUsageAdjustmentInputTokensRatio: z.number().min(0).max(10000).optional(),
+      streamUsageAdjustmentOutputTokensRatio: z.number().min(0).max(10000).optional(),
+      streamUsageAdjustmentCacheReadInputTokensRatio: z.number().min(0).max(10000).optional(),
+      streamUsageAdjustmentCacheCreationInputTokensRatio: z.number().min(0).max(10000).optional(),
     }),
     description: "编辑密钥信息",
     summary: "编辑密钥信息",

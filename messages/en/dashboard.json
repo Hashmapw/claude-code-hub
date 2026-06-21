@@ -257,7 +257,9 @@
         "secondaryLineAriaLabel": "Actual response model: {model}",
         "arrowPrefix": "↳",
         "noSignatureBadge": "No thinking signature",
-        "noSignatureTooltip": "Thinking was enabled but no thinking signature was returned in the stream; the actual response model falls back to the plain model field from message_start."
+        "noSignatureTooltip": "Thinking was enabled but no thinking signature was returned in the stream; the actual response model falls back to the plain model field from message_start.",
+        "clientMaskedTooltip": "The model redirect is hidden from the client, which received the requested model name. Shown here is the model that actually responded (suffixed with %). Billing is still based on the requested model.",
+        "clientMaskedAriaLabel": "Actual response model: {model}; the requested model name was returned to the client"
       },
       "errorMessage": "Error Message",
       "fake200ForwardedNotice": "Note: For streaming requests, this failure may be detected only after the stream ends; the response content may already have been forwarded to the client.",
@@ -2122,6 +2124,19 @@
           "messageLabel": "Block message",
           "messagePlaceholder": "Enter the message returned to clients",
           "messageDescription": "Shown to clients when this key is soft blocked. Up to 500 characters."
+        },
+        "streamUsageAdjustment": {
+          "label": "Streaming usage token rewrite",
+          "descriptionEnabled": "After a probability hit, all four streaming usage token buckets are rewritten by ratio and used for internal stats and billing.",
+          "descriptionDisabled": "When disabled, this key keeps upstream streaming usage token values unchanged.",
+          "probabilityLabel": "Hit probability (%)",
+          "probabilityDescription": "Sample once per request; when it hits, all four token buckets are rewritten together by their ratios.",
+          "inputRatioLabel": "input_tokens ratio (%)",
+          "outputRatioLabel": "output_tokens ratio (%)",
+          "cacheReadRatioLabel": "cache_read_input_tokens ratio (%)",
+          "cacheCreationRatioLabel": "cache_creation_input_tokens ratio (%)",
+          "ratioDescription": "100 keeps the value unchanged, 50 halves it, and 200 doubles it.",
+          "example": "Example: when input_tokens=1000, output_tokens=500, cache_read_input_tokens=200, and cache_creation_input_tokens=100, a hit rewrites all of them by the ratios below."
         }
       },
       "limitRules": {

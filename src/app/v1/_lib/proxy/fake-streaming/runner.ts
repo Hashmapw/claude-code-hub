@@ -1,3 +1,4 @@
+import { maskModelInJsonText } from "../client-model-mask";
 import { emitFinalNonStream, emitFinalStream, emitStreamError } from "./emitters";
 import { type AttemptPerformer, orchestrateFakeStreamingAttempts } from "./orchestrator";
 import type { ProtocolFamily } from "./response-validator";
@@ -13,6 +14,24 @@ export interface FakeStreamingRunInput {
   abortSignal: AbortSignal;
   maxAttempts: number;
   heartbeatIntervalMs: number;
+  /**
+   * 解析"对客户端遮蔽用的原始模型名"。在 orchestrator 完成后才调用——此时 session 才反映出
+   * 本次实际发生的模型重定向状态（ModelRedirector.apply 在 ProxyForwarder.send 内执行）。
+   * 返回 null 表示无需遮蔽（未发生重定向）。
+   */
+  resolveMaskedModel?: () => string | null;
+}
+
+/**
+ * 隐藏模型重定向：把"发回客户端"的缓冲响应体里的 model 字段改写为用户请求的原始模型。
+ * 仅作用于即将发给客户端的副本，不影响统计读取的上游真实内容。
+ */
+function maskClientBody(
+  input: Pick<FakeStreamingRunInput, "resolveMaskedModel">,
+  finalBody: string
+): string {
+  const maskedModel = input.resolveMaskedModel?.();
+  return maskedModel ? maskModelInJsonText(finalBody, maskedModel) : finalBody;
 }
 
 /**
@@ -90,7 +109,12 @@ function buildStreamResponse(input: FakeStreamingRunInput): Response {
           }
           if (result.ok && typeof result.finalBody === "string") {
             try {
-              safeEnqueue(emitFinalStream({ family: input.family, finalBody: result.finalBody }));
+              safeEnqueue(
+                emitFinalStream({
+                  family: input.family,
+                  finalBody: maskClientBody(input, result.finalBody),
+                })
+              );
             } catch {
               safeEnqueue(
                 emitStreamError({
@@ -177,12 +201,18 @@ export async function buildFakeStreamingNonStreamResponse(
   }
 
   if (result.ok && typeof result.finalBody === "string") {
-    return new Response(emitFinalNonStream({ family: input.family, finalBody: result.finalBody }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-      },
-    });
+    return new Response(
+      emitFinalNonStream({
+        family: input.family,
+        finalBody: maskClientBody(input, result.finalBody),
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
+      }
+    );
   }
 
   if (result.errorCode === "client_abort") {

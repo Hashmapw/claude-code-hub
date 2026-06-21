@@ -24,13 +24,16 @@ import { getErrorMessage } from "@/lib/utils/error-messages";
 import { parseProviderGroups } from "@/lib/utils/provider-group";
 import { KeyFormSchema } from "@/lib/validation/schemas";
 import type { KeyDialogUserContext } from "@/types/user";
+import { StreamUsageAdjustmentFields } from "./stream-usage-adjustment-fields";
 
 function getFormErrorMessage(
   message: string | undefined,
   tErrors: (key: string, params?: Record<string, string | number>) => string
 ): string | undefined {
   if (!message) return undefined;
-  if (!message.startsWith("KEY_SOFT_BLOCK_")) return message;
+  if (!message.startsWith("KEY_SOFT_BLOCK_") && !message.startsWith("STREAM_USAGE_ADJUSTMENT_")) {
+    return message;
+  }
   return getErrorMessage(tErrors, message);
 }
 
@@ -50,6 +53,7 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
     "dashboard.userManagement.keyEditSection.fields.balanceQueryPage"
   );
   const tSoftBlock = useTranslations("dashboard.userManagement.keyEditSection.fields.softBlock");
+  const tKeyEdit = useTranslations("dashboard.userManagement.keyEditSection.fields");
   const tUI = useTranslations("ui.tagInput");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
@@ -73,6 +77,12 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
       softBlockMessage: null,
       providerGroup: PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: "inherit",
+      streamUsageAdjustmentEnabled: false,
+      streamUsageAdjustmentProbability: 100,
+      streamUsageAdjustmentInputTokensRatio: 100,
+      streamUsageAdjustmentOutputTokensRatio: 100,
+      streamUsageAdjustmentCacheReadInputTokensRatio: 100,
+      streamUsageAdjustmentCacheCreationInputTokensRatio: 100,
       limit5hUsd: null,
       limit5hResetMode: "rolling" as const,
       limitDailyUsd: null,
@@ -106,6 +116,14 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
           limitTotalUsd: data.limitTotalUsd,
           limitConcurrentSessions: data.limitConcurrentSessions,
           cacheTtlPreference: data.cacheTtlPreference,
+          streamUsageAdjustmentEnabled: data.streamUsageAdjustmentEnabled,
+          streamUsageAdjustmentProbability: data.streamUsageAdjustmentProbability,
+          streamUsageAdjustmentInputTokensRatio: data.streamUsageAdjustmentInputTokensRatio,
+          streamUsageAdjustmentOutputTokensRatio: data.streamUsageAdjustmentOutputTokensRatio,
+          streamUsageAdjustmentCacheReadInputTokensRatio:
+            data.streamUsageAdjustmentCacheReadInputTokensRatio,
+          streamUsageAdjustmentCacheCreationInputTokensRatio:
+            data.streamUsageAdjustmentCacheCreationInputTokensRatio,
           providerGroup: data.providerGroup || PROVIDER_GROUP.DEFAULT,
         };
         // 非管理员走会话定向的自助端点，目标用户由服务端会话决定（U03：
@@ -248,6 +266,59 @@ export function AddKeyForm({ userId, user, isAdmin = false, onSuccess }: AddKeyF
           ) : null}
         </div>
       </div>
+
+      <StreamUsageAdjustmentFields
+        idPrefix="add-key"
+        isAdmin={isAdmin}
+        values={{
+          streamUsageAdjustmentEnabled: form.values.streamUsageAdjustmentEnabled ?? false,
+          streamUsageAdjustmentProbability: form.values.streamUsageAdjustmentProbability ?? 100,
+          streamUsageAdjustmentInputTokensRatio:
+            form.values.streamUsageAdjustmentInputTokensRatio ?? 100,
+          streamUsageAdjustmentOutputTokensRatio:
+            form.values.streamUsageAdjustmentOutputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheReadInputTokensRatio:
+            form.values.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheCreationInputTokensRatio:
+            form.values.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
+        }}
+        onChange={(field, value) => form.setValue(field, value)}
+        errors={{
+          streamUsageAdjustmentProbability: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentProbability,
+            tErrors
+          ),
+          streamUsageAdjustmentInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentInputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentOutputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentOutputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentCacheReadInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentCacheReadInputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentCacheCreationInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentCacheCreationInputTokensRatio,
+            tErrors
+          ),
+        }}
+        translations={{
+          label: tKeyEdit("streamUsageAdjustment.label"),
+          descriptionEnabled: tKeyEdit("streamUsageAdjustment.descriptionEnabled"),
+          descriptionDisabled: tKeyEdit("streamUsageAdjustment.descriptionDisabled"),
+          probabilityLabel: tKeyEdit("streamUsageAdjustment.probabilityLabel"),
+          probabilityDescription: tKeyEdit("streamUsageAdjustment.probabilityDescription"),
+          inputRatioLabel: tKeyEdit("streamUsageAdjustment.inputRatioLabel"),
+          outputRatioLabel: tKeyEdit("streamUsageAdjustment.outputRatioLabel"),
+          cacheReadRatioLabel: tKeyEdit("streamUsageAdjustment.cacheReadRatioLabel"),
+          cacheCreationRatioLabel: tKeyEdit("streamUsageAdjustment.cacheCreationRatioLabel"),
+          ratioDescription: tKeyEdit("streamUsageAdjustment.ratioDescription"),
+          example: tKeyEdit("streamUsageAdjustment.example"),
+        }}
+      />
 
       <TagInputField
         label={t("providerGroup.label")}

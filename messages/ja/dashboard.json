@@ -257,7 +257,9 @@
         "secondaryLineAriaLabel": "実際の応答モデル: {model}",
         "arrowPrefix": "↳",
         "noSignatureBadge": "思考署名なし",
-        "noSignatureTooltip": "思考が有効ですが、応答ストリームに thinking signature が含まれていないため、実際の応答モデルは message_start の平文モデル名にフォールバックしました。"
+        "noSignatureTooltip": "思考が有効ですが、応答ストリームに thinking signature が含まれていないため、実際の応答モデルは message_start の平文モデル名にフォールバックしました。",
+        "clientMaskedTooltip": "モデルのリダイレクトはクライアントに隠され、クライアントはリクエストされたモデル名を受け取ります。ここには実際に応答したモデルを表示します（接尾辞 %）。課金は引き続きリクエストモデルを基準とします。",
+        "clientMaskedAriaLabel": "実際の応答モデル: {model};リクエストされたモデル名がクライアントに返却されました"
       },
       "errorMessage": "エラーメッセージ",
       "fake200ForwardedNotice": "注意：ストリーミング要求では、失敗判定がストリーム終了後になる場合があります。応答内容は既にクライアントへ転送されている可能性があります。",
@@ -2058,6 +2060,19 @@
           "messageLabel": "制限メッセージ",
           "messagePlaceholder": "クライアントに返すメッセージを入力",
           "messageDescription": "Key が一時制限されたときにクライアントへ表示されます。最大 500 文字。"
+        },
+        "streamUsageAdjustment": {
+          "label": "ストリーミング usage token 書き換え",
+          "descriptionEnabled": "確率にヒットすると、ストリーミング応答内の 4 種類の usage token を同時に比率で書き換え、内部統計と課金にも使用します。",
+          "descriptionDisabled": "無効の場合、この Key のストリーミング usage token は上流の値をそのまま使います。",
+          "probabilityLabel": "命中確率（%）",
+          "probabilityDescription": "リクエストごとに 1 回だけサンプリングし、ヒット時は 4 種類の token を同時に各比率で書き換えます。",
+          "inputRatioLabel": "input_tokens 比率（%）",
+          "outputRatioLabel": "output_tokens 比率（%）",
+          "cacheReadRatioLabel": "cache_read_input_tokens 比率（%）",
+          "cacheCreationRatioLabel": "cache_creation_input_tokens 比率（%）",
+          "ratioDescription": "100 は変更なし、50 は半分、200 は 2 倍を意味します。",
+          "example": "例：input_tokens=1000、output_tokens=500、cache_read_input_tokens=200、cache_creation_input_tokens=100 の場合、命中すると以下の比率で同時に書き換えます。"
         }
       },
       "limitRules": {

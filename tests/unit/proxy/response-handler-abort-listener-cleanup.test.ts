@@ -182,6 +182,7 @@ function makeSession(clientAbortSignal: AbortSignal | null, stream: boolean): Pr
     getGroupCostMultiplier: () => 1,
     getOriginalModel: () => "gpt-5.5",
     getCurrentModel: () => "gpt-5.5",
+    isModelRedirected: () => false,
     getProviderChain: () => [],
     getSpecialSettings: () => [],
     shouldPersistSessionDebugArtifacts: () => false,

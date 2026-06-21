@@ -15,6 +15,7 @@ describe("resolveModelAuditDisplay", () => {
     expect(r.secondaryActualModel).toBeNull();
     expect(r.dialogShowsSplitFields).toBe(false);
     expect(r.effectiveRequestModel).toBe("claude-opus-4-7");
+    expect(r.clientReturnedRequestModel).toBe(false);
   });
 
   it("redirect only (originalModel != model, actualResponseModel == model): no mismatch line", () => {
@@ -30,6 +31,8 @@ describe("resolveModelAuditDisplay", () => {
     expect(r.secondaryActualModel).toBeNull();
     expect(r.dialogShowsSplitFields).toBe(false);
     expect(r.effectiveRequestModel).toBe("claude-opus-4-7");
+    // 重定向已对客户端隐藏:客户端收到的是 originalModel
+    expect(r.clientReturnedRequestModel).toBe(true);
   });
 
   it("mismatch only (no redirect): renders secondary line and split fields", () => {

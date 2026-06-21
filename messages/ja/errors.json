@@ -94,6 +94,8 @@
   "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis を利用できないため、Key の一時制限設定は保存されませんでした。",
   "KEY_SOFT_BLOCK_SAVE_FAILED": "Key の一時制限設定の保存に失敗しました。",
   "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key は保存されましたが、一時制限設定の保存に失敗しました。",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "ストリーミング usage の書き換え確率は 0 から 100 の範囲である必要があります。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "ストリーミング usage の書き換え比率は 0 から 10000 の範囲である必要があります。",
   "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis を利用できないため、VIP グループ使用通知設定は保存されませんでした。",
   "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "VIP グループ使用通知設定の保存に失敗しました。",
   "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "通知設定は一部保存されましたが、一部の実行時設定の保存に失敗しました。"

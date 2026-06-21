@@ -81,6 +81,12 @@ export async function tryFakeStreamingPath(
   }
   const abortSignal = session.clientAbortSignal ?? new AbortController().signal;
 
+  // 对客户端隐藏模型重定向：发生重定向时，把发回客户端的响应体 model 改写为请求的原始模型。
+  // 必须惰性解析——ModelRedirector.apply 在 performAttempt 内的 ProxyForwarder.send 时才执行，
+  // 所以只有在 orchestrator 完成后读取 session 才能拿到本次真实的重定向状态。
+  const resolveMaskedModel = () =>
+    session.isModelRedirected() ? session.getOriginalModel() : null;
+
   if (isStream) {
     logger.debug("[FakeStreaming] taking stream path", {
       model: clientModel,
@@ -94,6 +100,7 @@ export async function tryFakeStreamingPath(
       abortSignal,
       maxAttempts: MAX_ATTEMPTS,
       heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
+      resolveMaskedModel,
     });
   }
 
@@ -107,6 +114,7 @@ export async function tryFakeStreamingPath(
     performAttempt,
     abortSignal,
     maxAttempts: MAX_ATTEMPTS,
+    resolveMaskedModel,
   });
 }
 

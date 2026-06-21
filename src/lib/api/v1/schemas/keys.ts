@@ -64,6 +64,40 @@ const KeyMutationFields = {
     .describe("Concurrent session limit."),
   providerGroup: z.string().max(200).nullable().optional().describe("Provider group expression."),
   cacheTtlPreference: CacheTtlPreferenceSchema.optional().describe("Cache TTL preference."),
+  streamUsageAdjustmentEnabled: z
+    .boolean()
+    .optional()
+    .describe("Whether streaming usage token rewriting is enabled for this key."),
+  streamUsageAdjustmentProbability: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe("Request-level hit probability in percent."),
+  streamUsageAdjustmentInputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("input_tokens rewrite ratio in percent; 100 means unchanged."),
+  streamUsageAdjustmentOutputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("output_tokens rewrite ratio in percent; 100 means unchanged."),
+  streamUsageAdjustmentCacheReadInputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("cache_read_input_tokens rewrite ratio in percent; 100 means unchanged."),
+  streamUsageAdjustmentCacheCreationInputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged."),
 };
 
 function requireSoftBlockMessageWhenEnabled(

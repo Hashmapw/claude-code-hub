@@ -433,6 +433,37 @@ export const KeyFormSchemaBase = z.object({
     .optional()
     .default(""),
   cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
+  streamUsageAdjustmentEnabled: z.boolean().optional().default(false),
+  streamUsageAdjustmentProbability: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID")
+    .max(100, "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentOutputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentCacheReadInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentCacheCreationInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
 });
 
 export const KeyFormSchema = KeyFormSchemaBase.superRefine((data, ctx) => {

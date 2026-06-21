@@ -25,6 +25,7 @@ import { type DailyResetMode, LimitRulePicker, type LimitType } from "./limit-ru
 import { type LimitRuleDisplayItem, LimitRulesDisplay } from "./limit-rules-display";
 import { ProviderGroupSelect } from "./provider-group-select";
 import { QuickExpirePicker } from "./quick-expire-picker";
+import { StreamUsageAdjustmentFields } from "./stream-usage-adjustment-fields";
 
 export interface KeyEditSectionProps {
   keyData: {
@@ -37,6 +38,12 @@ export interface KeyEditSectionProps {
     cacheTtlPreference?: "inherit" | "5m" | "1h";
     softBlockEnabled?: boolean;
     softBlockMessage?: string | null;
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
     // 所有限额字段
     limit5hUsd?: number | null;
     limit5hResetMode?: "fixed" | "rolling";
@@ -93,6 +100,19 @@ export interface KeyEditSectionProps {
         messageLabel: string;
         messagePlaceholder: string;
         messageDescription: string;
+      };
+      streamUsageAdjustment: {
+        label: string;
+        descriptionEnabled: string;
+        descriptionDisabled: string;
+        probabilityLabel: string;
+        probabilityDescription: string;
+        inputRatioLabel: string;
+        outputRatioLabel: string;
+        cacheReadRatioLabel: string;
+        cacheCreationRatioLabel: string;
+        ratioDescription: string;
+        example: string;
       };
       enableStatus?: {
         label: string;
@@ -568,6 +588,24 @@ export function KeyEditSection({
           </Select>
         </div>
 
+        <StreamUsageAdjustmentFields
+          idPrefix={`key-${keyData.id}`}
+          isAdmin={isAdmin}
+          values={{
+            streamUsageAdjustmentEnabled: keyData.streamUsageAdjustmentEnabled ?? false,
+            streamUsageAdjustmentProbability: keyData.streamUsageAdjustmentProbability ?? 100,
+            streamUsageAdjustmentInputTokensRatio:
+              keyData.streamUsageAdjustmentInputTokensRatio ?? 100,
+            streamUsageAdjustmentOutputTokensRatio:
+              keyData.streamUsageAdjustmentOutputTokensRatio ?? 100,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              keyData.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              keyData.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
+          }}
+          onChange={(field, value) => onChange(field, value)}
+          translations={translations.fields.streamUsageAdjustment}
+        />
         <div className="space-y-3 rounded-lg border border-dashed border-border bg-background px-4 py-3">
           <div className="flex items-start justify-between gap-4">
             <div>

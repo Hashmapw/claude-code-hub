@@ -94,6 +94,8 @@
   "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis 不可用，Key 临时限制配置未保存。",
   "KEY_SOFT_BLOCK_SAVE_FAILED": "保存 Key 临时限制配置失败。",
   "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key 已保存，但临时限制配置保存失败。",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "流式 usage 改写概率必须在 0 到 100 之间。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "流式 usage 改写比例必须在 0 到 10000 之间。",
   "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis 不可用，VIP 分组使用提醒配置未保存。",
   "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "保存 VIP 分组使用提醒配置失败。",
   "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "通知设置已部分保存，但部分运行时配置保存失败。"

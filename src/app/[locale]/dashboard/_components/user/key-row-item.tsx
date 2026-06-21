@@ -63,6 +63,12 @@ export interface KeyRowItemProps {
     status: "enabled" | "disabled";
     softBlockEnabled?: boolean;
     softBlockMessage?: string | null;
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
     modelStats: Array<{
       model: string;
       callCount: number;

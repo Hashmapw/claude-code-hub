@@ -10,6 +10,7 @@ import { emitActionAudit } from "@/lib/audit/emit";
 import { type AuthSession, getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
 import { getKeySoftBlockConfigs, setKeySoftBlockConfig } from "@/lib/key-soft-block-store";
+import { buildStreamUsageAdjustmentConfigFromForm } from "@/lib/key-stream-usage-adjustment-config";
 import { logger } from "@/lib/logger";
 import { resolveKeyConcurrentSessionLimit } from "@/lib/rate-limit/concurrent-session-limit";
 import { resolveKeyCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
@@ -190,6 +191,12 @@ export async function addKey(data: {
   limitConcurrentSessions?: number;
   providerGroup?: string | null;
   cacheTtlPreference?: "inherit" | "5m" | "1h";
+  streamUsageAdjustmentEnabled?: boolean;
+  streamUsageAdjustmentProbability?: number;
+  streamUsageAdjustmentInputTokensRatio?: number;
+  streamUsageAdjustmentOutputTokensRatio?: number;
+  streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+  streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
 }): Promise<ActionResult<{ id: number; generatedKey: string; name: string }>> {
   try {
     // NOTE(#400): providerGroup 安全模型（废弃 null 语义）：
@@ -266,6 +273,21 @@ export async function addKey(data: {
       limitConcurrentSessions: data.limitConcurrentSessions,
       providerGroup: providerGroupForKey,
       cacheTtlPreference: data.cacheTtlPreference,
+      // streamUsageAdjustment 为 admin-only 字段：非 admin 创建 Key 时一律落到禁用默认值，
+      // 防止普通用户通过自助 Key 配置改写流式 token 用量、绕过计费 / 配额
+      // （与 providerGroup 的 admin-only 口径一致）。
+      ...(isAdmin
+        ? {
+            streamUsageAdjustmentEnabled: data.streamUsageAdjustmentEnabled,
+            streamUsageAdjustmentProbability: data.streamUsageAdjustmentProbability,
+            streamUsageAdjustmentInputTokensRatio: data.streamUsageAdjustmentInputTokensRatio,
+            streamUsageAdjustmentOutputTokensRatio: data.streamUsageAdjustmentOutputTokensRatio,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              data.streamUsageAdjustmentCacheReadInputTokensRatio,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              data.streamUsageAdjustmentCacheCreationInputTokensRatio,
+          }
+        : { streamUsageAdjustmentEnabled: false }),
     });
 
     // 检查是否存在同名的生效key
@@ -435,6 +457,7 @@ export async function addKey(data: {
       limit_concurrent_sessions: validatedData.limitConcurrentSessions,
       provider_group: validatedData.providerGroup,
       cache_ttl_preference: validatedData.cacheTtlPreference,
+      stream_usage_adjustment: buildStreamUsageAdjustmentConfigFromForm(validatedData),
     });
 
     if (
@@ -481,6 +504,7 @@ export async function addKey(data: {
         dailyResetMode: createdKey.dailyResetMode,
         dailyResetTime: createdKey.dailyResetTime,
         cacheTtlPreference: createdKey.cacheTtlPreference,
+        streamUsageAdjustment: createdKey.streamUsageAdjustment,
       },
       success: true,
       redactExtraKeys: ["key"],
@@ -527,6 +551,12 @@ export async function editKey(
     limitConcurrentSessions?: number;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
   }
 ): Promise<ActionResult> {
   try {
@@ -598,6 +628,13 @@ export async function editKey(
     const hasExpiresAtField = Object.hasOwn(data, "expiresAt");
     const hasSoftBlockConfigField =
       Object.hasOwn(data, "softBlockEnabled") || Object.hasOwn(data, "softBlockMessage");
+    const hasStreamUsageAdjustmentConfigField =
+      Object.hasOwn(data, "streamUsageAdjustmentEnabled") ||
+      Object.hasOwn(data, "streamUsageAdjustmentProbability") ||
+      Object.hasOwn(data, "streamUsageAdjustmentInputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentOutputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentCacheReadInputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentCacheCreationInputTokensRatio");
 
     const validatedData = KeyFormSchema.parse(data);
 
@@ -755,6 +792,12 @@ export async function editKey(
           }
         : {}),
       cache_ttl_preference: validatedData.cacheTtlPreference,
+      // streamUsageAdjustment 为 admin-only 字段：非 admin 不允许更新该字段
+      // （防止普通用户改写流式 token 用量、绕过计费 / 配额）。非 admin 携带该字段时静默忽略，
+      // 保留原值，避免影响其它字段的局部更新。
+      ...(isAdmin && hasStreamUsageAdjustmentConfigField
+        ? { stream_usage_adjustment: buildStreamUsageAdjustmentConfigFromForm(validatedData) }
+        : {}),
     });
 
     if (hasSoftBlockConfigField) {
@@ -809,6 +852,7 @@ export async function editKey(
         dailyResetMode: key.dailyResetMode,
         dailyResetTime: key.dailyResetTime,
         cacheTtlPreference: key.cacheTtlPreference,
+        streamUsageAdjustment: key.streamUsageAdjustment,
       },
       after: {
         name: validatedData.name,
@@ -826,6 +870,10 @@ export async function editKey(
         dailyResetMode: validatedData.dailyResetMode,
         dailyResetTime: validatedData.dailyResetTime,
         cacheTtlPreference: validatedData.cacheTtlPreference,
+        streamUsageAdjustment:
+          isAdmin && hasStreamUsageAdjustmentConfigField
+            ? buildStreamUsageAdjustmentConfigFromForm(validatedData)
+            : undefined,
       },
       success: true,
       redactExtraKeys: ["key"],

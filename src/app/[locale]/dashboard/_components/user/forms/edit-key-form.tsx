@@ -38,13 +38,16 @@ import { getErrorMessage } from "@/lib/utils/error-messages";
 import { parseProviderGroups } from "@/lib/utils/provider-group";
 import { KeyFormSchema } from "@/lib/validation/schemas";
 import type { KeyDialogUserContext } from "@/types/user";
+import { StreamUsageAdjustmentFields } from "./stream-usage-adjustment-fields";
 
 function getFormErrorMessage(
   message: string | undefined,
   tErrors: (key: string, params?: Record<string, string | number>) => string
 ): string | undefined {
   if (!message) return undefined;
-  if (!message.startsWith("KEY_SOFT_BLOCK_")) return message;
+  if (!message.startsWith("KEY_SOFT_BLOCK_") && !message.startsWith("STREAM_USAGE_ADJUSTMENT_")) {
+    return message;
+  }
   return getErrorMessage(tErrors, message);
 }
 
@@ -58,6 +61,12 @@ interface EditKeyFormProps {
     softBlockMessage?: string | null;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
     limit5hUsd?: number | null;
     limit5hResetMode?: "fixed" | "rolling";
     limitDailyUsd?: number | null;
@@ -144,6 +153,15 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
       softBlockMessage: keyData?.softBlockMessage ?? null,
       providerGroup: keyData?.providerGroup || PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: keyData?.cacheTtlPreference ?? "inherit",
+      streamUsageAdjustmentEnabled: keyData?.streamUsageAdjustmentEnabled ?? false,
+      streamUsageAdjustmentProbability: keyData?.streamUsageAdjustmentProbability ?? 100,
+      streamUsageAdjustmentInputTokensRatio: keyData?.streamUsageAdjustmentInputTokensRatio ?? 100,
+      streamUsageAdjustmentOutputTokensRatio:
+        keyData?.streamUsageAdjustmentOutputTokensRatio ?? 100,
+      streamUsageAdjustmentCacheReadInputTokensRatio:
+        keyData?.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+      streamUsageAdjustmentCacheCreationInputTokensRatio:
+        keyData?.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
       limit5hUsd: keyData?.limit5hUsd ?? null,
       limit5hResetMode: keyData?.limit5hResetMode ?? "rolling",
       limitDailyUsd: keyData?.limitDailyUsd ?? null,
@@ -169,6 +187,14 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             softBlockEnabled: data.softBlockEnabled,
             softBlockMessage: data.softBlockMessage ?? null,
             cacheTtlPreference: data.cacheTtlPreference,
+            streamUsageAdjustmentEnabled: data.streamUsageAdjustmentEnabled,
+            streamUsageAdjustmentProbability: data.streamUsageAdjustmentProbability,
+            streamUsageAdjustmentInputTokensRatio: data.streamUsageAdjustmentInputTokensRatio,
+            streamUsageAdjustmentOutputTokensRatio: data.streamUsageAdjustmentOutputTokensRatio,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              data.streamUsageAdjustmentCacheReadInputTokensRatio,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              data.streamUsageAdjustmentCacheCreationInputTokensRatio,
             limit5hUsd: data.limit5hUsd,
             limit5hResetMode: data.limit5hResetMode,
             limitDailyUsd: data.limitDailyUsd,
@@ -308,6 +334,59 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
           ) : null}
         </div>
       </div>
+
+      <StreamUsageAdjustmentFields
+        idPrefix="edit-key"
+        isAdmin={isAdmin}
+        values={{
+          streamUsageAdjustmentEnabled: form.values.streamUsageAdjustmentEnabled ?? false,
+          streamUsageAdjustmentProbability: form.values.streamUsageAdjustmentProbability ?? 100,
+          streamUsageAdjustmentInputTokensRatio:
+            form.values.streamUsageAdjustmentInputTokensRatio ?? 100,
+          streamUsageAdjustmentOutputTokensRatio:
+            form.values.streamUsageAdjustmentOutputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheReadInputTokensRatio:
+            form.values.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheCreationInputTokensRatio:
+            form.values.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
+        }}
+        onChange={(field, value) => form.setValue(field, value)}
+        errors={{
+          streamUsageAdjustmentProbability: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentProbability,
+            tErrors
+          ),
+          streamUsageAdjustmentInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentInputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentOutputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentOutputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentCacheReadInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentCacheReadInputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentCacheCreationInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentCacheCreationInputTokensRatio,
+            tErrors
+          ),
+        }}
+        translations={{
+          label: tKeyEdit("streamUsageAdjustment.label"),
+          descriptionEnabled: tKeyEdit("streamUsageAdjustment.descriptionEnabled"),
+          descriptionDisabled: tKeyEdit("streamUsageAdjustment.descriptionDisabled"),
+          probabilityLabel: tKeyEdit("streamUsageAdjustment.probabilityLabel"),
+          probabilityDescription: tKeyEdit("streamUsageAdjustment.probabilityDescription"),
+          inputRatioLabel: tKeyEdit("streamUsageAdjustment.inputRatioLabel"),
+          outputRatioLabel: tKeyEdit("streamUsageAdjustment.outputRatioLabel"),
+          cacheReadRatioLabel: tKeyEdit("streamUsageAdjustment.cacheReadRatioLabel"),
+          cacheCreationRatioLabel: tKeyEdit("streamUsageAdjustment.cacheCreationRatioLabel"),
+          ratioDescription: tKeyEdit("streamUsageAdjustment.ratioDescription"),
+          example: tKeyEdit("streamUsageAdjustment.example"),
+        }}
+      />
 
       <TagInputField
         label={t("providerGroup.label")}

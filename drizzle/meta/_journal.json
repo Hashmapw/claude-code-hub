@@ -750,6 +750,13 @@
       "when": 1781461863543,
       "tag": "0106_organic_squadron_supreme",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1781725776219,
+      "tag": "0107_heavy_rafael_vega",
+      "breakpoints": true
     }
   ]
 }

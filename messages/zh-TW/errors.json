@@ -94,6 +94,8 @@
   "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis 不可用，Key 暫時限制設定未儲存。",
   "KEY_SOFT_BLOCK_SAVE_FAILED": "儲存 Key 暫時限制設定失敗。",
   "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key 已儲存，但暫時限制設定儲存失敗。",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "串流 usage 改寫機率必須介於 0 到 100 之間。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "串流 usage 改寫比例必須介於 0 到 10000 之間。",
   "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis 不可用，VIP 分組使用提醒設定未儲存。",
   "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "儲存 VIP 分組使用提醒設定失敗。",
   "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "通知設定已部分儲存，但部分執行階段設定儲存失敗。"

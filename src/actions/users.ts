@@ -308,6 +308,16 @@ async function buildUserDisplays(
             limitConcurrentSessions: key.limitConcurrentSessions || 0,
             costResetAt: key.costResetAt?.toISOString() ?? null,
             providerGroup: key.providerGroup,
+            streamUsageAdjustmentEnabled: key.streamUsageAdjustment?.enabled ?? false,
+            streamUsageAdjustmentProbability: key.streamUsageAdjustment?.probability ?? 100,
+            streamUsageAdjustmentInputTokensRatio:
+              key.streamUsageAdjustment?.inputTokensRatio ?? 100,
+            streamUsageAdjustmentOutputTokensRatio:
+              key.streamUsageAdjustment?.outputTokensRatio ?? 100,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              key.streamUsageAdjustment?.cacheReadInputTokensRatio ?? 100,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              key.streamUsageAdjustment?.cacheCreationInputTokensRatio ?? 100,
           };
         }),
       };

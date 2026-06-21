@@ -38,7 +38,9 @@ function getFormErrorMessage(
   tErrors: (key: string, params?: Record<string, string | number>) => string
 ): string | null {
   if (!message) return null;
-  if (!message.startsWith("KEY_SOFT_BLOCK_")) return message;
+  if (!message.startsWith("KEY_SOFT_BLOCK_") && !message.startsWith("STREAM_USAGE_ADJUSTMENT_")) {
+    return message;
+  }
   return getErrorMessage(tErrors, message);
 }
 
@@ -122,6 +124,12 @@ function buildDefaultValues(): CreateFormValues {
       softBlockMessage: null,
       providerGroup: PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: "inherit" as const,
+      streamUsageAdjustmentEnabled: false,
+      streamUsageAdjustmentProbability: 100,
+      streamUsageAdjustmentInputTokensRatio: 100,
+      streamUsageAdjustmentOutputTokensRatio: 100,
+      streamUsageAdjustmentCacheReadInputTokensRatio: 100,
+      streamUsageAdjustmentCacheCreationInputTokensRatio: 100,
       limit5hUsd: null,
       limit5hResetMode: "rolling",
       limitDailyUsd: null,
@@ -204,6 +212,14 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
             softBlockMessage: data.key.softBlockMessage ?? null,
             providerGroup: normalizeProviderGroup(data.key.providerGroup),
             cacheTtlPreference: data.key.cacheTtlPreference,
+            streamUsageAdjustmentEnabled: data.key.streamUsageAdjustmentEnabled,
+            streamUsageAdjustmentProbability: data.key.streamUsageAdjustmentProbability,
+            streamUsageAdjustmentInputTokensRatio: data.key.streamUsageAdjustmentInputTokensRatio,
+            streamUsageAdjustmentOutputTokensRatio: data.key.streamUsageAdjustmentOutputTokensRatio,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              data.key.streamUsageAdjustmentCacheReadInputTokensRatio,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              data.key.streamUsageAdjustmentCacheCreationInputTokensRatio,
             limit5hUsd: data.key.limit5hUsd,
             limit5hResetMode: data.key.limit5hResetMode,
             limitDailyUsd: data.key.limitDailyUsd,
@@ -430,6 +446,17 @@ function CreateUserDialogInner({ onOpenChange, onSuccess }: CreateUserDialogProp
               softBlockMessage: currentKeyDraft.softBlockMessage ?? null,
               providerGroup: normalizeProviderGroup(currentKeyDraft.providerGroup),
               cacheTtlPreference: currentKeyDraft.cacheTtlPreference ?? "inherit",
+              streamUsageAdjustmentEnabled: currentKeyDraft.streamUsageAdjustmentEnabled ?? false,
+              streamUsageAdjustmentProbability:
+                currentKeyDraft.streamUsageAdjustmentProbability ?? 100,
+              streamUsageAdjustmentInputTokensRatio:
+                currentKeyDraft.streamUsageAdjustmentInputTokensRatio ?? 100,
+              streamUsageAdjustmentOutputTokensRatio:
+                currentKeyDraft.streamUsageAdjustmentOutputTokensRatio ?? 100,
+              streamUsageAdjustmentCacheReadInputTokensRatio:
+                currentKeyDraft.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+              streamUsageAdjustmentCacheCreationInputTokensRatio:
+                currentKeyDraft.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
               limit5hUsd: currentKeyDraft.limit5hUsd ?? null,
               limit5hResetMode: currentKeyDraft.limit5hResetMode ?? "rolling",
               limitDailyUsd: currentKeyDraft.limitDailyUsd ?? null,

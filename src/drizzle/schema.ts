@@ -21,6 +21,7 @@ import type { AllowedModelRuleInput, ProviderModelRedirectRule, ProviderType } f
 import type { FilterOperation } from "@/lib/request-filter-types";
 import type { IpExtractionConfig } from "@/types/ip-extraction";
 import type { AuditCategory } from "@/types/audit-log";
+import type { StreamUsageAdjustmentConfig } from "@/lib/key-stream-usage-adjustment-config";
 
 // Enums
 export const dailyResetModeEnum = pgEnum('daily_reset_mode', ['fixed', 'rolling']);
@@ -141,6 +142,9 @@ export const keys = pgTable('keys', {
 
   // Cache TTL override：null/NULL 表示遵循供应商或客户端请求
   cacheTtlPreference: varchar('cache_ttl_preference', { length: 10 }),
+
+  // Key-level streaming usage token rewrite config. Percent values, e.g. 100 = unchanged.
+  streamUsageAdjustment: jsonb('stream_usage_adjustment').$type<StreamUsageAdjustmentConfig>(),
 
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
