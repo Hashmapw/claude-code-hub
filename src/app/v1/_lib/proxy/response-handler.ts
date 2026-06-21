@@ -1044,8 +1044,9 @@ export class ProxyResponseHandler {
   }
 
   /**
-   * 隐藏模型重定向（非流式）：当本次请求发生了模型重定向时，把"发回客户端"的 JSON 响应体里的
-   * model 字段改写为用户请求的原始模型，使客户端始终看到自己请求的模型名。
+   * 让客户端始终看到自己请求的模型（非流式）：把"发回客户端"的 JSON 响应体里的 model 字段改写为
+   * 用户请求的原始模型。无论是配置重定向、还是上游直接返回了不同的模型名，只要与请求模型不一致就改回；
+   * 模型本来就一致时改写为零操作（值相同不变）。
    *
    * 内部统计/计费分支读取的是上游真实响应（responseForLog 克隆），actualResponseModel 等审计字段
    * 仍记录上游真实模型，因此使用记录依旧能正确显示请求模型与真实模型的不一致。
@@ -1054,7 +1055,6 @@ export class ProxyResponseHandler {
     session: ProxySession,
     response: Response
   ): Promise<Response> {
-    if (!session.isModelRedirected()) return response;
     const maskedModel = session.getOriginalModel();
     if (!maskedModel) return response;
 
@@ -1081,12 +1081,12 @@ export class ProxyResponseHandler {
   }
 
   /**
-   * 隐藏模型重定向（流式）：当本次请求发生了模型重定向时，把"发回客户端"的 SSE 响应体里的
-   * model 字段改写为用户请求的原始模型。仅作用于客户端分支（handleStream 内部已 tee 出独立的统计
-   * 分支），不影响内部审计读取的上游真实内容。
+   * 让客户端始终看到自己请求的模型（流式）：把"发回客户端"的 SSE 响应体里的 model 字段改写为
+   * 用户请求的原始模型（与上游真实模型不一致时才会变，一致时为零操作）。仅作用于客户端分支
+   * （handleStream 内部已 tee 出独立的统计分支），不影响内部审计读取的上游真实内容。
    */
   private static maskClientModelForStream(session: ProxySession, response: Response): Response {
-    if (!session.isModelRedirected() || !response.body) return response;
+    if (!response.body) return response;
     const maskedModel = session.getOriginalModel();
     if (!maskedModel) return response;
 

@@ -48,6 +48,8 @@ describe("resolveModelAuditDisplay", () => {
     expect(r.secondaryActualModel).toBe("gpt-4.1-2025-04-14");
     expect(r.dialogShowsSplitFields).toBe(true);
     expect(r.effectiveRequestModel).toBe("gpt-4.1");
+    // 上游返回了不同的模型(无配置重定向):客户端被改回请求模型 -> 记录里应带 %
+    expect(r.clientReturnedRequestModel).toBe(true);
   });
 
   it("triple-difference (originalModel -> model -> actualResponseModel): redirect and mismatch both shown", () => {

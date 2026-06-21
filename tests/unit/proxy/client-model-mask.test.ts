@@ -88,6 +88,11 @@ describe("rewriteModelFieldsInPlace", () => {
     expect(obj.model).toBe(123);
   });
 
+  it("is a no-op when the model already equals the masked model (returns false)", () => {
+    const obj: Record<string, unknown> = { id: "x", model: MASK, message: { model: MASK } };
+    expect(rewriteModelFieldsInPlace(obj, MASK)).toBe(false);
+  });
+
   it("returns false for non-objects / arrays / null", () => {
     expect(rewriteModelFieldsInPlace(null, MASK)).toBe(false);
     expect(rewriteModelFieldsInPlace("str", MASK)).toBe(false);
@@ -122,6 +127,11 @@ describe("maskModelInJsonText", () => {
     const input = JSON.stringify({ candidates: [], modelVersion: "gemini-2.5-pro" });
     const out = JSON.parse(maskModelInJsonText(input, MASK));
     expect(out.modelVersion).toBe(MASK);
+  });
+
+  it("returns input unchanged when the model already equals the masked model", () => {
+    const input = JSON.stringify({ id: "x", model: MASK, choices: [] });
+    expect(maskModelInJsonText(input, MASK)).toBe(input);
   });
 });
 
@@ -185,5 +195,11 @@ describe("createClientModelMaskTransform", () => {
     const out = await maskStream([sse]);
     expect(out).toContain(MASK);
     expect(out).not.toContain("glm-4.6");
+  });
+
+  it("passes a chunk through verbatim when its model already equals the masked model", async () => {
+    const sse = `data: ${JSON.stringify({ id: "c", model: MASK, choices: [] })}\n\n`;
+    const out = await maskStream([sse]);
+    expect(out).toBe(sse);
   });
 });

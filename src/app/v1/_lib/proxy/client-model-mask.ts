@@ -31,8 +31,10 @@ export function rewriteModelFieldsInPlace(value: unknown, maskedModel: string): 
   const obj = value as Record<string, unknown>;
   let changed = false;
 
+  // 仅当字段当前为字符串且与目标值不同才覆盖：值已经一致时返回未改写，
+  // 让上层跳过 JSON 重新序列化（masking 现在对所有请求生效，匹配是常态，必须保持廉价）。
   // Claude Messages（非流式）/ OpenAI Chat chunk & completion / OpenAI Responses（非流式）顶层
-  if (typeof obj.model === "string") {
+  if (typeof obj.model === "string" && obj.model !== maskedModel) {
     obj.model = maskedModel;
     changed = true;
   }
@@ -41,7 +43,7 @@ export function rewriteModelFieldsInPlace(value: unknown, maskedModel: string): 
   const message = obj.message;
   if (message && typeof message === "object" && !Array.isArray(message)) {
     const messageObj = message as Record<string, unknown>;
-    if (typeof messageObj.model === "string") {
+    if (typeof messageObj.model === "string" && messageObj.model !== maskedModel) {
       messageObj.model = maskedModel;
       changed = true;
     }
@@ -51,18 +53,18 @@ export function rewriteModelFieldsInPlace(value: unknown, maskedModel: string): 
   const response = obj.response;
   if (response && typeof response === "object" && !Array.isArray(response)) {
     const responseObj = response as Record<string, unknown>;
-    if (typeof responseObj.model === "string") {
+    if (typeof responseObj.model === "string" && responseObj.model !== maskedModel) {
       responseObj.model = maskedModel;
       changed = true;
     }
   }
 
   // Gemini：modelVersion / model_version
-  if (typeof obj.modelVersion === "string") {
+  if (typeof obj.modelVersion === "string" && obj.modelVersion !== maskedModel) {
     obj.modelVersion = maskedModel;
     changed = true;
   }
-  if (typeof obj.model_version === "string") {
+  if (typeof obj.model_version === "string" && obj.model_version !== maskedModel) {
     obj.model_version = maskedModel;
     changed = true;
   }
