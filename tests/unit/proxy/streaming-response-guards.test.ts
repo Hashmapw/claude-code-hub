@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { ProxyError } from "@/app/v1/_lib/proxy/errors";
 import {
+  bufferStreamingHeadForEarlyErrorGuard,
+  getStreamingResponseGuardErrorType,
   hasExplicitZeroUsage,
   responseTextHasExplicitZeroUsage,
   shouldRejectStreamingContentLength,
@@ -64,5 +67,82 @@ describe("streaming response guards", () => {
     ].join("\n");
 
     expect(responseTextHasExplicitZeroUsage(sseText)).toBe(true);
+  });
+});
+
+describe("streaming early-error head gate", () => {
+  function makeProvider(rejectStreamingEarlyError: boolean) {
+    return {
+      id: 1,
+      name: "p1",
+      providerType: "codex" as const,
+      rejectStreamingContentLength: false,
+      rejectStreamingZeroUsage: false,
+      rejectStreamingEarlyError,
+    };
+  }
+
+  function sseResponse(chunks: string[], contentType = "text/event-stream"): Response {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      },
+    });
+    return new Response(stream, { status: 200, headers: { "content-type": contentType } });
+  }
+
+  const ENVELOPE_1 =
+    'data: {"type":"response.created","response":{"status":"in_progress","output":[]}}\n\n';
+  const ENVELOPE_2 = 'data: {"type":"response.in_progress","response":{"output":[]}}\n\n';
+  const ERROR_EVENT =
+    'event: error\ndata: {"type":"error","code":"request_failed","message":"request temporarily unavailable, please try again later"}\n\n';
+  const CONTENT_EVENT = 'data: {"type":"response.output_item.added","item":{"type":"message"}}\n\n';
+
+  test("returns the response unchanged when the toggle is off", async () => {
+    const res = sseResponse([ENVELOPE_1, ERROR_EVENT]);
+    const out = await bufferStreamingHeadForEarlyErrorGuard({
+      response: res,
+      provider: makeProvider(false),
+    });
+    expect(out).toBe(res);
+  });
+
+  test("returns unchanged for non-SSE content-type", async () => {
+    const res = sseResponse(['{"type":"error"}'], "application/json");
+    const out = await bufferStreamingHeadForEarlyErrorGuard({
+      response: res,
+      provider: makeProvider(true),
+    });
+    expect(out).toBe(res);
+  });
+
+  test("fails over with a 503 guard error when an error event precedes content", async () => {
+    const res = sseResponse([ENVELOPE_1, ENVELOPE_2, ERROR_EVENT]);
+    let caught: unknown;
+    try {
+      await bufferStreamingHeadForEarlyErrorGuard({ response: res, provider: makeProvider(true) });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ProxyError);
+    expect((caught as ProxyError).statusCode).toBe(503);
+    expect(getStreamingResponseGuardErrorType(caught as ProxyError)).toBe(
+      "streaming_early_error_rejected"
+    );
+  });
+
+  test("passes through and reconstructs the full stream once real content starts", async () => {
+    const chunks = [ENVELOPE_1, CONTENT_EVENT, 'data: {"type":"response.completed"}\n\n'];
+    const res = sseResponse(chunks);
+    const out = await bufferStreamingHeadForEarlyErrorGuard({
+      response: res,
+      provider: makeProvider(true),
+    });
+    expect(out).not.toBe(res);
+    expect(await out.text()).toBe(chunks.join(""));
   });
 });

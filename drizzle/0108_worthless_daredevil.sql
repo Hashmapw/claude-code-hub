@@ -1,0 +1,1 @@
+ALTER TABLE "providers" ADD COLUMN "reject_streaming_early_error" boolean DEFAULT false NOT NULL;

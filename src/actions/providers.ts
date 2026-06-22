@@ -335,6 +335,7 @@ export async function getProviders(): Promise<ProviderDisplay[]> {
         disableSessionReuse: provider.disableSessionReuse,
         rejectStreamingContentLength: provider.rejectStreamingContentLength,
         rejectStreamingZeroUsage: provider.rejectStreamingZeroUsage,
+        rejectStreamingEarlyError: provider.rejectStreamingEarlyError,
         modelRedirects: provider.modelRedirects,
         activeTimeStart: provider.activeTimeStart,
         activeTimeEnd: provider.activeTimeEnd,
@@ -537,6 +538,7 @@ export async function addProvider(data: {
   disable_session_reuse?: boolean;
   reject_streaming_content_length?: boolean;
   reject_streaming_zero_usage?: boolean;
+  reject_streaming_early_error?: boolean;
   model_redirects?: ProviderModelRedirectRule[] | null;
   active_time_start?: string | null;
   active_time_end?: string | null;
@@ -753,6 +755,7 @@ export async function editProvider(
     disable_session_reuse?: boolean;
     reject_streaming_content_length?: boolean;
     reject_streaming_zero_usage?: boolean;
+    reject_streaming_early_error?: boolean;
     model_redirects?: ProviderModelRedirectRule[] | null;
     active_time_start?: string | null;
     active_time_end?: string | null;
@@ -1466,6 +1469,7 @@ const SINGLE_EDIT_PREIMAGE_FIELD_TO_PROVIDER_KEY: Record<string, keyof Provider>
   disable_session_reuse: "disableSessionReuse",
   reject_streaming_content_length: "rejectStreamingContentLength",
   reject_streaming_zero_usage: "rejectStreamingZeroUsage",
+  reject_streaming_early_error: "rejectStreamingEarlyError",
   active_time_start: "activeTimeStart",
   active_time_end: "activeTimeEnd",
   model_redirects: "modelRedirects",
@@ -1643,6 +1647,9 @@ function mapApplyUpdatesToRepositoryFormat(
   if (applyUpdates.reject_streaming_zero_usage !== undefined) {
     result.rejectStreamingZeroUsage = applyUpdates.reject_streaming_zero_usage;
   }
+  if (applyUpdates.reject_streaming_early_error !== undefined) {
+    result.rejectStreamingEarlyError = applyUpdates.reject_streaming_early_error;
+  }
   if (applyUpdates.active_time_start !== undefined) {
     result.activeTimeStart = applyUpdates.active_time_start;
   }
@@ -1767,6 +1774,7 @@ const PATCH_FIELD_TO_PROVIDER_KEY: Record<ProviderBatchPatchField, keyof Provide
   disable_session_reuse: "disableSessionReuse",
   reject_streaming_content_length: "rejectStreamingContentLength",
   reject_streaming_zero_usage: "rejectStreamingZeroUsage",
+  reject_streaming_early_error: "rejectStreamingEarlyError",
   active_time_start: "activeTimeStart",
   active_time_end: "activeTimeEnd",
   group_priorities: "groupPriorities",
@@ -2392,6 +2400,7 @@ export interface BatchUpdateProvidersParams {
     blocked_clients?: string[];
     reject_streaming_content_length?: boolean;
     reject_streaming_zero_usage?: boolean;
+    reject_streaming_early_error?: boolean;
     limit_5h_usd?: number | null;
     limit_5h_reset_mode?: "fixed" | "rolling";
     limit_daily_usd?: number | null;
@@ -2484,6 +2493,9 @@ export async function batchUpdateProviders(
     }
     if (updates.reject_streaming_zero_usage !== undefined) {
       repositoryUpdates.rejectStreamingZeroUsage = updates.reject_streaming_zero_usage;
+    }
+    if (updates.reject_streaming_early_error !== undefined) {
+      repositoryUpdates.rejectStreamingEarlyError = updates.reject_streaming_early_error;
     }
     if (updates.limit_5h_usd !== undefined) {
       repositoryUpdates.limit5hUsd =

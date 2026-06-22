@@ -622,6 +622,7 @@ function sanitizeProvider(
     disableSessionReuse: provider.disableSessionReuse,
     rejectStreamingContentLength: provider.rejectStreamingContentLength,
     rejectStreamingZeroUsage: provider.rejectStreamingZeroUsage,
+    rejectStreamingEarlyError: provider.rejectStreamingEarlyError,
     modelRedirects: provider.modelRedirects,
     activeTimeStart: provider.activeTimeStart,
     activeTimeEnd: provider.activeTimeEnd,

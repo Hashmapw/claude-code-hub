@@ -127,6 +127,23 @@ export function OptionsSection({ subSectionRefs }: OptionsSectionProps) {
                 />
               </ToggleRow>
 
+              <ToggleRow
+                label={t("sections.routing.rejectStreamingEarlyError.label")}
+                description={t("sections.routing.rejectStreamingEarlyError.desc")}
+              >
+                <Switch
+                  id={isEdit ? "edit-reject-streaming-early-error" : "reject-streaming-early-error"}
+                  checked={state.routing.rejectStreamingEarlyError}
+                  onCheckedChange={(checked) =>
+                    dispatch({
+                      type: "SET_REJECT_STREAMING_EARLY_ERROR",
+                      payload: checked,
+                    })
+                  }
+                  disabled={state.ui.isPending}
+                />
+              </ToggleRow>
+
               {/* Swap Cache TTL Billing */}
               <ToggleRow
                 label={t("sections.routing.swapCacheTtlBilling.label")}

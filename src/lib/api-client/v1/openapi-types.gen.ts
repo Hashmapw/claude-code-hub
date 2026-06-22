@@ -4356,6 +4356,8 @@ export interface operations {
                             rejectStreamingContentLength: boolean;
                             /** @description Whether streaming responses with explicit zero usage are rejected. */
                             rejectStreamingZeroUsage: boolean;
+                            /** @description Whether streaming responses with an early upstream error event fail over. */
+                            rejectStreamingEarlyError: boolean;
                             /** @description Model redirect rules. */
                             modelRedirects: unknown[] | null;
                             /** @description Scheduled active start time in HH:mm. */
@@ -4669,6 +4671,8 @@ export interface operations {
                     reject_streaming_content_length?: boolean;
                     /** @description Whether streaming responses with explicit zero usage are rejected. */
                     reject_streaming_zero_usage?: boolean;
+                    /** @description Whether streaming responses with an early upstream error event fail over. */
+                    reject_streaming_early_error?: boolean;
                     /** @description Model redirect rules. */
                     model_redirects?: unknown[] | null;
                     /** @description Scheduled active start time. */
@@ -4819,6 +4823,8 @@ export interface operations {
                         rejectStreamingContentLength: boolean;
                         /** @description Whether streaming responses with explicit zero usage are rejected. */
                         rejectStreamingZeroUsage: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        rejectStreamingEarlyError: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -5140,6 +5146,8 @@ export interface operations {
                         rejectStreamingContentLength: boolean;
                         /** @description Whether streaming responses with explicit zero usage are rejected. */
                         rejectStreamingZeroUsage: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        rejectStreamingEarlyError: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -5628,6 +5636,8 @@ export interface operations {
                     reject_streaming_content_length?: boolean;
                     /** @description Whether streaming responses with explicit zero usage are rejected. */
                     reject_streaming_zero_usage?: boolean;
+                    /** @description Whether streaming responses with an early upstream error event fail over. */
+                    reject_streaming_early_error?: boolean;
                     /** @description Model redirect rules. */
                     model_redirects?: unknown[] | null;
                     /** @description Scheduled active start time. */
@@ -5784,6 +5794,8 @@ export interface operations {
                         rejectStreamingContentLength: boolean;
                         /** @description Whether streaming responses with explicit zero usage are rejected. */
                         rejectStreamingZeroUsage: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        rejectStreamingEarlyError: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -7673,6 +7685,8 @@ export interface operations {
                         reject_streaming_content_length?: boolean;
                         /** @description Whether streaming responses with explicit zero usage are rejected. */
                         reject_streaming_zero_usage?: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        reject_streaming_early_error?: boolean;
                         /** @description Five-hour USD limit. */
                         limit_5h_usd?: number | null;
                         /**

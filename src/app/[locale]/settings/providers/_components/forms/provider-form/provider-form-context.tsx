@@ -80,6 +80,7 @@ const ACTION_TO_FIELD_PATH: Partial<Record<ProviderFormActionWith5hResetMode["ty
   SET_DISABLE_SESSION_REUSE: "routing.disableSessionReuse",
   SET_REJECT_STREAMING_CONTENT_LENGTH: "routing.rejectStreamingContentLength",
   SET_REJECT_STREAMING_ZERO_USAGE: "routing.rejectStreamingZeroUsage",
+  SET_REJECT_STREAMING_EARLY_ERROR: "routing.rejectStreamingEarlyError",
   SET_MODEL_REDIRECTS: "routing.modelRedirects",
   SET_ALLOWED_MODELS: "routing.allowedModels",
   SET_ALLOWED_CLIENTS: "routing.allowedClients",
@@ -168,6 +169,10 @@ export function createInitialState(
         rejectStreamingZeroUsage:
           analysis.routing.rejectStreamingZeroUsage.status === "uniform"
             ? analysis.routing.rejectStreamingZeroUsage.value
+            : false,
+        rejectStreamingEarlyError:
+          analysis.routing.rejectStreamingEarlyError.status === "uniform"
+            ? analysis.routing.rejectStreamingEarlyError.value
             : false,
         modelRedirects:
           analysis.routing.modelRedirects.status === "uniform"
@@ -358,6 +363,7 @@ export function createInitialState(
         disableSessionReuse: false,
         rejectStreamingContentLength: false,
         rejectStreamingZeroUsage: false,
+        rejectStreamingEarlyError: false,
         modelRedirects: [],
         allowedModels: [],
         allowedClients: [],
@@ -437,6 +443,7 @@ export function createInitialState(
       disableSessionReuse: sourceProvider?.disableSessionReuse ?? false,
       rejectStreamingContentLength: sourceProvider?.rejectStreamingContentLength ?? false,
       rejectStreamingZeroUsage: sourceProvider?.rejectStreamingZeroUsage ?? false,
+      rejectStreamingEarlyError: sourceProvider?.rejectStreamingEarlyError ?? false,
       modelRedirects: normalizeProviderModelRedirectRules(sourceProvider?.modelRedirects) ?? [],
       allowedModels: normalizeAllowedModelRules(sourceProvider?.allowedModels) ?? [],
       allowedClients: sourceProvider?.allowedClients ?? [],
@@ -552,6 +559,11 @@ export function providerFormReducer(
       return {
         ...state,
         routing: { ...state.routing, rejectStreamingZeroUsage: action.payload },
+      };
+    case "SET_REJECT_STREAMING_EARLY_ERROR":
+      return {
+        ...state,
+        routing: { ...state.routing, rejectStreamingEarlyError: action.payload },
       };
     case "SET_MODEL_REDIRECTS":
       return { ...state, routing: { ...state.routing, modelRedirects: action.payload } };

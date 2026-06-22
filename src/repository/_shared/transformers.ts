@@ -109,6 +109,7 @@ export function toProvider(dbProvider: any): Provider {
     disableSessionReuse: dbProvider?.disableSessionReuse ?? false,
     rejectStreamingContentLength: dbProvider?.rejectStreamingContentLength ?? false,
     rejectStreamingZeroUsage: dbProvider?.rejectStreamingZeroUsage ?? false,
+    rejectStreamingEarlyError: dbProvider?.rejectStreamingEarlyError ?? false,
     modelRedirects: normalizeProviderModelRedirectRules(dbProvider?.modelRedirects),
     activeTimeStart: dbProvider?.activeTimeStart ?? null,
     activeTimeEnd: dbProvider?.activeTimeEnd ?? null,

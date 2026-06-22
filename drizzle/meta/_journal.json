@@ -757,6 +757,13 @@
       "when": 1781725776219,
       "tag": "0107_heavy_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1782112041961,
+      "tag": "0108_worthless_daredevil",
+      "breakpoints": true
     }
   ]
 }

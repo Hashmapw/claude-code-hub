@@ -222,6 +222,8 @@ export const providers = pgTable('providers', {
   rejectStreamingContentLength: boolean('reject_streaming_content_length').notNull().default(false),
   // 禁止流式响应显式返回 0 用量
   rejectStreamingZeroUsage: boolean('reject_streaming_zero_usage').notNull().default(false),
+  // 流式首包错误故障转移：扣住 SSE 流头部探测，出真实内容前若上游报错则按 503 切换后续供应商
+  rejectStreamingEarlyError: boolean('reject_streaming_early_error').notNull().default(false),
 
   // 模型重定向：将请求的模型名称重定向到另一个模型
   modelRedirects: jsonb('model_redirects').$type<

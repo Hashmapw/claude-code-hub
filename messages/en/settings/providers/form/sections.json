@@ -389,6 +389,10 @@
       "label": "Reject zero-usage streams",
       "desc": "When enabled, an SSE stream with explicit usage fields all equal to 0 is fully buffered, interrupted before reaching the client, and treated as a 503 provider failure. Missing usage is ignored."
     },
+    "rejectStreamingEarlyError": {
+      "label": "Stream early-error failover",
+      "desc": "When enabled, the SSE stream head is held and inspected; if the upstream returns an error event before any real content, the provider is interrupted as a 503 failure and the request fails over to the next provider. Healthy streams are released as soon as content starts."
+    },
     "options": {
       "title": "Options",
       "desc": "Additional provider options and overrides"

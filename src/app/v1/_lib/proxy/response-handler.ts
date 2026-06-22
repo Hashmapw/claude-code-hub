@@ -649,7 +649,11 @@ async function finalizeDeferredStreamingFinalizationIfNeeded(
   let statusCodeInferred = false;
   let statusCodeInferenceMatcherId: string | undefined;
   if (detected.isError) {
-    const inferred = inferUpstreamErrorStatusCodeFromText(allContent);
+    // 优先扫整段（前 64KB），未命中时再用检测出的错误 detail（如 error 事件的 message）兜底，
+    // 避免巨型 envelope 把错误关键字顶到 64KB 之外、导致 503 误回退成 502。
+    const inferred =
+      inferUpstreamErrorStatusCodeFromText(allContent) ??
+      (detected.detail ? inferUpstreamErrorStatusCodeFromText(detected.detail) : null);
     if (inferred) {
       effectiveStatusCode = inferred.statusCode;
       statusCodeInferred = true;

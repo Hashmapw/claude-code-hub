@@ -1,11 +1,17 @@
 import { logger } from "@/lib/logger";
 import { isSSEText, parseSSEData } from "@/lib/utils/sse";
+import { detectUpstreamErrorFromSseOrJsonText } from "@/lib/utils/upstream-error-detection";
 import type { Provider } from "@/types/provider";
 import { ProxyError } from "./errors";
 
 type StreamingGuardProvider = Pick<
   Provider,
-  "id" | "name" | "providerType" | "rejectStreamingContentLength" | "rejectStreamingZeroUsage"
+  | "id"
+  | "name"
+  | "providerType"
+  | "rejectStreamingContentLength"
+  | "rejectStreamingZeroUsage"
+  | "rejectStreamingEarlyError"
 >;
 
 type StreamingBufferGuardOptions = {
@@ -20,7 +26,21 @@ type StreamingBufferGuardOptions = {
 
 export type StreamingResponseGuardErrorType =
   | "streaming_content_length_rejected"
-  | "streaming_zero_usage_rejected";
+  | "streaming_zero_usage_rejected"
+  | "streaming_early_error_rejected";
+
+// 首包闸门预算：扣住 SSE 流头部探测，最多等到时间或字节上限就放行（避免无限扣住健康但慢的流）。
+const EARLY_ERROR_HEAD_TIME_BUDGET_MS = 2000;
+const EARLY_ERROR_HEAD_BYTE_BUDGET = 512 * 1024;
+
+// "信封/状态"事件：出现这些不代表已出真实内容，继续等待错误或真实内容。
+const STREAM_ENVELOPE_EVENT_TYPES = new Set<string>([
+  "response.created",
+  "response.in_progress",
+  "response.queued",
+  "message_start",
+  "ping",
+]);
 
 type ExplicitUsageAnalysis = {
   hasInputTokens: boolean;
@@ -114,6 +134,25 @@ export function buildStreamingZeroUsageRejectedError(
   });
 }
 
+export function buildStreamingEarlyErrorRejectedError(
+  provider: Pick<StreamingGuardProvider, "id" | "name">,
+  detail?: string
+): ProxyError {
+  const base = "Provider streaming response emitted an error before any content";
+  const message = detail ? `${base}: ${detail}` : base;
+  return new ProxyError(message, 503, {
+    body: buildGuardErrorBody("streaming_early_error_rejected", message),
+    parsed: {
+      error: {
+        type: "streaming_early_error_rejected",
+        message,
+      },
+    },
+    providerId: provider.id,
+    providerName: provider.name,
+  });
+}
+
 export function getStreamingResponseGuardErrorType(
   error: ProxyError
 ): StreamingResponseGuardErrorType | null {
@@ -129,7 +168,11 @@ export function getStreamingResponseGuardErrorType(
   }
 
   const type = (errorObject as Record<string, unknown>).type;
-  if (type === "streaming_content_length_rejected" || type === "streaming_zero_usage_rejected") {
+  if (
+    type === "streaming_content_length_rejected" ||
+    type === "streaming_zero_usage_rejected" ||
+    type === "streaming_early_error_rejected"
+  ) {
     return type;
   }
 
@@ -489,6 +532,196 @@ export async function bufferStreamingResponseForZeroUsageGuard({
   }
 
   return new Response(bodyBytes.slice(), {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+/**
+ * 判断已攒的 SSE 流头部里是否“已经开始出真实内容”（非错误、非信封事件）。
+ * 一旦出现真实内容就认定本次流健康、放行透传。
+ */
+function streamingHeadHasContent(headText: string): boolean {
+  if (!isSSEText(headText)) {
+    return false;
+  }
+  for (const evt of parseSSEData(headText)) {
+    if (evt.data === "[DONE]") {
+      return true;
+    }
+    if (!evt.data || typeof evt.data !== "object") {
+      continue;
+    }
+    const type = (evt.data as Record<string, unknown>).type;
+    // 错误事件由 detectUpstreamError 单独处理，这里不算“内容”。
+    if (type === "error") {
+      continue;
+    }
+    if (typeof type === "string" && STREAM_ENVELOPE_EVENT_TYPES.has(type)) {
+      continue;
+    }
+    // 其它结构化事件（含无 type 的 OpenAI chat chunk / Gemini candidates）= 已出内容。
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 首包闸门：开关开启时，扣住 SSE 流头部探测——
+ * - 出真实内容前若上游报错（detectUpstreamError 命中，含 {"type":"error"} / event:error）→ 抛 503 guard
+ *   错误，forwarder 切换到后续供应商（本次请求级故障转移，客户端看不到这个错误）；
+ * - 出现第一个真实内容事件 / 超过时间或字节预算 → 判健康，把“已攒头部 + 剩余流”重组成新 Response 放行透传。
+ *
+ * 仅作用于 SSE（text/event-stream）响应；开关关闭、无 body 或非 SSE 时原样返回，零改动。首包延迟有上界
+ * （EARLY_ERROR_HEAD_TIME_BUDGET_MS）。和现有 guard 一样在 forwarder 内同步处理、不发心跳。
+ */
+export async function bufferStreamingHeadForEarlyErrorGuard({
+  response,
+  provider,
+  onFirstChunk,
+}: {
+  response: Response;
+  provider: StreamingGuardProvider;
+  onFirstChunk?: (chunkSize: number) => void;
+}): Promise<Response> {
+  const contentType = response.headers.get("content-type") || "";
+  if (
+    provider.rejectStreamingEarlyError !== true ||
+    !response.body ||
+    !contentType.includes("text/event-stream")
+  ) {
+    return response;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const headChunks: Uint8Array[] = [];
+  let headBytes = 0;
+  let headText = "";
+  let sawFirstChunk = false;
+  const startTime = Date.now();
+
+  const buildEarlyErrorAndCancel = async (detail: string): Promise<ProxyError> => {
+    await reader.cancel("streaming_early_error_rejected").catch(() => {
+      // ignore
+    });
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
+    }
+    return buildStreamingEarlyErrorRejectedError(provider, detail.slice(0, 200) || undefined);
+  };
+
+  try {
+    while (true) {
+      if (
+        Date.now() - startTime >= EARLY_ERROR_HEAD_TIME_BUDGET_MS ||
+        headBytes >= EARLY_ERROR_HEAD_BYTE_BUDGET
+      ) {
+        // 预算用尽：按健康放行（更靠后的错误属于“已出头部之后”，不在本闸门范围）。
+        break;
+      }
+
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (!value || value.byteLength === 0) {
+        continue;
+      }
+
+      if (!sawFirstChunk) {
+        sawFirstChunk = true;
+        try {
+          onFirstChunk?.(value.byteLength);
+        } catch {
+          // ignore
+        }
+      }
+
+      headChunks.push(value);
+      headBytes += value.byteLength;
+      headText += decoder.decode(value, { stream: true });
+
+      const detected = detectUpstreamErrorFromSseOrJsonText(headText);
+      if (detected.isError) {
+        logger.info("ProxyForwarder: streaming head-gate caught early error, failing over", {
+          providerId: provider.id,
+          providerName: provider.name,
+          code: detected.code,
+        });
+        throw await buildEarlyErrorAndCancel(detected.detail ?? detected.code);
+      }
+      if (streamingHeadHasContent(headText)) {
+        break;
+      }
+    }
+  } catch (error) {
+    if (error instanceof ProxyError) {
+      throw error;
+    }
+    // 读流出错（上游中断等）：释放锁后交回 forwarder 按常规错误处理。
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
+    }
+    throw error;
+  }
+
+  // flush 末尾多字节，并对完整头部再判一次（覆盖 done / 预算路径）。
+  headText += decoder.decode();
+  const finalDetected = detectUpstreamErrorFromSseOrJsonText(headText);
+  if (finalDetected.isError) {
+    logger.info("ProxyForwarder: streaming head-gate caught early error (final), failing over", {
+      providerId: provider.id,
+      providerName: provider.name,
+      code: finalDetected.code,
+    });
+    throw await buildEarlyErrorAndCancel(finalDetected.detail ?? finalDetected.code);
+  }
+
+  // 健康：重组 = 已攒头部 + 剩余未读流，放行透传。
+  const rebuiltStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of headChunks) {
+        controller.enqueue(chunk);
+      }
+    },
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          try {
+            reader.releaseLock();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        if (value && value.byteLength > 0) {
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        controller.error(error);
+        try {
+          reader.releaseLock();
+        } catch {
+          // ignore
+        }
+      }
+    },
+    cancel(reason) {
+      reader.cancel(reason).catch(() => {
+        // ignore
+      });
+    },
+  });
+
+  return new Response(rebuiltStream, {
     status: response.status,
     statusText: response.statusText,
     headers: response.headers,

@@ -53,6 +53,7 @@ export interface RoutingState {
   disableSessionReuse: boolean;
   rejectStreamingContentLength: boolean;
   rejectStreamingZeroUsage: boolean;
+  rejectStreamingEarlyError: boolean;
   modelRedirects: ProviderModelRedirectRule[];
   allowedModels: AllowedModelRule[];
   allowedClients: string[];
@@ -150,6 +151,7 @@ export type ProviderFormAction =
   | { type: "SET_DISABLE_SESSION_REUSE"; payload: boolean }
   | { type: "SET_REJECT_STREAMING_CONTENT_LENGTH"; payload: boolean }
   | { type: "SET_REJECT_STREAMING_ZERO_USAGE"; payload: boolean }
+  | { type: "SET_REJECT_STREAMING_EARLY_ERROR"; payload: boolean }
   | { type: "SET_MODEL_REDIRECTS"; payload: ProviderModelRedirectRule[] }
   | { type: "SET_ALLOWED_MODELS"; payload: AllowedModelRule[] }
   | { type: "SET_ALLOWED_CLIENTS"; payload: string[] }

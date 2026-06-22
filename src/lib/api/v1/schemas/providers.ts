@@ -42,6 +42,9 @@ export const ProviderSummarySchema = z
     rejectStreamingZeroUsage: z
       .boolean()
       .describe("Whether streaming responses with explicit zero usage are rejected."),
+    rejectStreamingEarlyError: z
+      .boolean()
+      .describe("Whether streaming responses with an early upstream error event fail over."),
     modelRedirects: z.array(z.unknown()).nullable().describe("Model redirect rules."),
     activeTimeStart: NullableStringSchema.describe("Scheduled active start time in HH:mm."),
     activeTimeEnd: NullableStringSchema.describe("Scheduled active end time in HH:mm."),
@@ -215,6 +218,10 @@ const ProviderBatchUpdateFieldsSchema = z
       .boolean()
       .optional()
       .describe("Whether streaming responses with explicit zero usage are rejected."),
+    reject_streaming_early_error: z
+      .boolean()
+      .optional()
+      .describe("Whether streaming responses with an early upstream error event fail over."),
     limit_5h_usd: z.number().min(0).nullable().optional().describe("Five-hour USD limit."),
     limit_5h_reset_mode: z.enum(["fixed", "rolling"]).optional().describe("Five-hour reset mode."),
     limit_daily_usd: z.number().min(0).nullable().optional().describe("Daily USD limit."),
@@ -384,6 +391,10 @@ export const ProviderCreateSchema = z
       .boolean()
       .optional()
       .describe("Whether streaming responses with explicit zero usage are rejected."),
+    reject_streaming_early_error: z
+      .boolean()
+      .optional()
+      .describe("Whether streaming responses with an early upstream error event fail over."),
     model_redirects: z.array(z.unknown()).nullable().optional().describe("Model redirect rules."),
     active_time_start: TimeOfDaySchema.nullable()
       .optional()

@@ -338,6 +338,7 @@ function ProviderFormContent({
           disable_session_reuse: state.routing.disableSessionReuse,
           reject_streaming_content_length: state.routing.rejectStreamingContentLength,
           reject_streaming_zero_usage: state.routing.rejectStreamingZeroUsage,
+          reject_streaming_early_error: state.routing.rejectStreamingEarlyError,
           model_redirects:
             state.routing.modelRedirects.length > 0 ? state.routing.modelRedirects : null,
           allowed_models:

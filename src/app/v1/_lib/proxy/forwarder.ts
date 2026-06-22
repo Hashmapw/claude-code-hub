@@ -95,6 +95,7 @@ import { finalizeHedgeLoserBilling } from "./response-handler";
 import type { ProxySession } from "./session";
 import { setDeferredStreamingFinalization } from "./stream-finalization";
 import {
+  bufferStreamingHeadForEarlyErrorGuard,
   bufferStreamingResponseForZeroUsageGuard,
   getStreamingResponseGuardErrorType,
   rejectStreamingContentLengthIfNeeded,
@@ -240,13 +241,27 @@ async function applyStreamingResponseGuards(
   await rejectStreamingContentLengthIfNeeded(response, provider);
 
   const runtime = session as ProxySessionWithAttemptRuntime;
-  return bufferStreamingResponseForZeroUsageGuard({
+  // 去重：首包闸门与 zero-usage guard 都可能消费"第一块"，onFirstChunk 只生效一次
+  // （清响应超时 + 上报）。闸门关闭时它会原样返回、不触发，仍由后续 guard 处理。
+  let firstChunkHandled = false;
+  const handleFirstChunk = (chunkSize: number) => {
+    if (firstChunkHandled) return;
+    firstChunkHandled = true;
+    runtime.clearResponseTimeout?.();
+    options?.onFirstChunk?.(chunkSize);
+  };
+
+  // 首包闸门（rejectStreamingEarlyError）：扣住 SSE 流头部，出真实内容前若上游报错则按 503 切换后续供应商。
+  const headGatedResponse = await bufferStreamingHeadForEarlyErrorGuard({
     response,
     provider,
-    onFirstChunk: (chunkSize) => {
-      runtime.clearResponseTimeout?.();
-      options?.onFirstChunk?.(chunkSize);
-    },
+    onFirstChunk: handleFirstChunk,
+  });
+
+  return bufferStreamingResponseForZeroUsageGuard({
+    response: headGatedResponse,
+    provider,
+    onFirstChunk: handleFirstChunk,
     firstByteTimeoutMs: provider.firstByteTimeoutStreamingMs,
     idleTimeoutMs: provider.streamingIdleTimeoutMs,
     onIdleTimeout: () => runtime.responseController?.abort(new Error("streaming_idle_timeout")),

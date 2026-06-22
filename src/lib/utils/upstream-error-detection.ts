@@ -74,12 +74,17 @@ const FAKE_200_CODES = {
   JSON_ERROR_NON_EMPTY: "FAKE_200_JSON_ERROR_NON_EMPTY",
   JSON_ERROR_MESSAGE_NON_EMPTY: "FAKE_200_JSON_ERROR_MESSAGE_NON_EMPTY",
   JSON_MESSAGE_KEYWORD_MATCH: "FAKE_200_JSON_MESSAGE_KEYWORD_MATCH",
+  // SSE 错误事件：{"type":"error",...}（OpenAI Responses / Codex 流式 error 事件）
+  SSE_ERROR_EVENT: "FAKE_200_SSE_ERROR_EVENT",
 } as const;
 
 // SSE 快速过滤：仅当文本里“看起来存在 JSON key”时才进入 parseSSEData（避免无谓解析）。
 // 注意：这里必须是 `"key"\s*:` 形式，避免误命中 JSON 字符串内容里的 `\"key\"`。
 const MAY_HAVE_JSON_ERROR_KEY = /"error"\s*:/;
 const MAY_HAVE_JSON_MESSAGE_KEY = /"message"\s*:/;
+// `event: error` 形式的 SSE 错误事件，其 data 形如 {"type":"error",...}：error 是 type 的值而非 error 键，
+// 且 message 可能不含 "error" 关键字（如 "request temporarily unavailable"），需单独识别。
+const MAY_HAVE_JSON_TYPE_ERROR = /"type"\s*:\s*"error"/;
 
 const HTML_DOC_SNIFF_MAX_CHARS = 1024;
 const HTML_DOCTYPE_RE = /^<!doctype\s+html[\s>]/i;
@@ -305,6 +310,22 @@ function detectFromJsonObject(
     return { isError: true, code: FAKE_200_CODES.JSON_ERROR_NON_EMPTY };
   }
 
+  // SSE 错误事件形状：{"type":"error","code":"...","message":"..."}
+  // （OpenAI Responses / Codex：error 是 type 的值而非 error 键，message 可能不含 "error" 关键字）
+  if (obj.type === "error") {
+    const detailSource =
+      typeof obj.message === "string" && obj.message.trim()
+        ? obj.message
+        : typeof obj.code === "string" && obj.code.trim()
+          ? obj.code
+          : undefined;
+    return {
+      isError: true,
+      code: FAKE_200_CODES.SSE_ERROR_EVENT,
+      detail: detailSource ? truncateForDetail(detailSource) : undefined,
+    };
+  }
+
   if (rawJsonChars < options.maxJsonCharsForMessageCheck) {
     const message = typeof obj.message === "string" ? obj.message : null;
 
@@ -387,9 +408,13 @@ export function detectUpstreamErrorFromSseOrJsonText(
     return { isError: false };
   }
 
-  // 情况 2：SSE 文本。快速过滤：既无 "error"/"message" key 时跳过解析
+  // 情况 2：SSE 文本。快速过滤：既无 "error"/"message" key、也无 `"type":"error"` 时跳过解析
   // 注意：这里要求 key 命中 `"key"\s*:`，尽量避免误命中 JSON 字符串内容里的 `\"error\"`。
-  if (!MAY_HAVE_JSON_ERROR_KEY.test(text) && !MAY_HAVE_JSON_MESSAGE_KEY.test(text)) {
+  if (
+    !MAY_HAVE_JSON_ERROR_KEY.test(text) &&
+    !MAY_HAVE_JSON_MESSAGE_KEY.test(text) &&
+    !MAY_HAVE_JSON_TYPE_ERROR.test(text)
+  ) {
     return { isError: false };
   }
 

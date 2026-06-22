@@ -316,4 +316,49 @@ describe("inferUpstreamErrorStatusCodeFromText", () => {
   test("仅包含泛化 error 字样时不推断（避免误判）", () => {
     expect(inferUpstreamErrorStatusCodeFromText('{"message":"some error happened"}')).toBeNull();
   });
+
+  test('SSE event:error / {"type":"error"} 形状被识别（OpenAI Responses / Codex）', () => {
+    const sse = [
+      "event: error",
+      'data: {"type":"error","code":"request_failed","message":"request temporarily unavailable, please try again later"}',
+      "",
+      "",
+    ].join("\n");
+    const res = detectUpstreamErrorFromSseOrJsonText(sse);
+    if (!res.isError) throw new Error("expected isError=true");
+    expect(res.code).toBe("FAKE_200_SSE_ERROR_EVENT");
+    expect(res.detail).toContain("temporarily unavailable");
+  });
+
+  test('纯 JSON {"type":"error"} 也被识别（message 不含 error 关键字）', () => {
+    const res = detectUpstreamErrorFromSseOrJsonText(
+      '{"type":"error","code":"request_failed","message":"request temporarily unavailable"}'
+    );
+    if (!res.isError) throw new Error("expected isError=true");
+    expect(res.code).toBe("FAKE_200_SSE_ERROR_EVENT");
+  });
+
+  test("response.created/in_progress 信封后跟 error 事件：识别为错误且推断 503", () => {
+    const sse = [
+      'data: {"type":"response.created","response":{"status":"in_progress","output":[]}}',
+      "",
+      'data: {"type":"response.in_progress","response":{"output":[]}}',
+      "",
+      "event: error",
+      'data: {"type":"error","code":"request_failed","message":"request temporarily unavailable, please try again later"}',
+      "",
+      "",
+    ].join("\n");
+    const res = detectUpstreamErrorFromSseOrJsonText(sse);
+    if (!res.isError) throw new Error("expected isError=true");
+    expect(inferUpstreamErrorStatusCodeFromText(sse)).toEqual({
+      statusCode: 503,
+      matcherId: "service_unavailable",
+    });
+    // 兜底：即便错误被巨型 envelope 顶到 64KB 之外，也能用 detail（错误 message）推断 503
+    expect(inferUpstreamErrorStatusCodeFromText(res.detail ?? "")).toEqual({
+      statusCode: 503,
+      matcherId: "service_unavailable",
+    });
+  });
 });

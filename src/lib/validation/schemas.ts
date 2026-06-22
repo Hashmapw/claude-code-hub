@@ -540,6 +540,7 @@ export const CreateProviderSchema = z
     disable_session_reuse: z.boolean().optional().default(false),
     reject_streaming_content_length: z.boolean().optional().default(false),
     reject_streaming_zero_usage: z.boolean().optional().default(false),
+    reject_streaming_early_error: z.boolean().optional().default(false),
     model_redirects: PROVIDER_MODEL_REDIRECT_RULES_SCHEMA,
     // Scheduled active time window (HH:mm format)
     active_time_start: z
@@ -787,6 +788,7 @@ export const UpdateProviderSchema = z
     disable_session_reuse: z.boolean().optional(),
     reject_streaming_content_length: z.boolean().optional(),
     reject_streaming_zero_usage: z.boolean().optional(),
+    reject_streaming_early_error: z.boolean().optional(),
     model_redirects: PROVIDER_MODEL_REDIRECT_RULES_SCHEMA,
     active_time_start: z
       .string()
