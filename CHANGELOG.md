@@ -4,6 +4,20 @@
 
 ---
 
+## v0.8.7.5 (2026-07-03)
+
+### 新增
+
+- Codex 供应商参数覆写新增 `service_tier = none`：选择 `none` 时会在转发前删除请求体中的 `service_tier` 字段；`inherit` 仍保持跟随客户端，`auto/default/flex/priority` 仍按原语义强制覆写。
+- 使用记录新增 MiMo 模型族图标：`mimo*` 模型会显示小米 2021 版 Logo，并同步支持公开状态页 `vendorIconKey = "mimo"` 与 generic fallback 前缀识别。
+
+### 优化
+
+- Key 流式 Usage Token 改写命中时，客户端流式响应、计费、Redis 限流与 session 实时观测仍使用改写后的 usage；使用记录中的 token 字段改为记录改写前的实际 upstream usage，避免管理员查看记录时看到放大后的 token。
+- 编辑 Key 后会刷新用户列表查询缓存，修复管理员保存「流式 Usage Token 改写」后重新打开表单仍看到旧配置的问题。
+
+---
+
 ## v0.8.7.4 (2026-06-22)
 
 ### 新增

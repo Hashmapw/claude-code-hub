@@ -132,6 +132,7 @@ function createSession(opts: {
   pathname?: string;
   providerType?: "claude" | "codex";
   originalFormat?: "claude" | "response";
+  streamUsageAdjustment?: unknown;
 }): ProxySession {
   const {
     originalModel,
@@ -141,6 +142,7 @@ function createSession(opts: {
     pathname = "/v1/messages",
     providerType = "claude",
     originalFormat = "claude",
+    streamUsageAdjustment = null,
   } = opts;
 
   const session = Object.create(ProxySession.prototype) as ProxySession;
@@ -232,6 +234,7 @@ function createSession(opts: {
     name: "test-key",
     dailyResetTime: "00:00",
     dailyResetMode: "fixed",
+    streamUsageAdjustment,
   } as unknown;
 
   session.setProvider(provider);
@@ -374,6 +377,56 @@ describe("Lease Budget Decrement after trackCostToRedis", () => {
 
     // Should have exactly 12 calls (4 windows x 3 entity types)
     expect(calls.length).toBe(12);
+  });
+
+  it("should persist actual stream usage while key usage adjustment affects client and billing", async () => {
+    const session = createSession({
+      originalModel,
+      redirectedModel: originalModel,
+      sessionId: "sess-key-usage-adjustment-actual-record",
+      messageId: 5022,
+      streamUsageAdjustment: {
+        enabled: true,
+        probability: 100,
+        inputTokensRatio: 50,
+        outputTokensRatio: 200,
+        cacheReadInputTokensRatio: 100,
+        cacheCreationInputTokensRatio: 100,
+      },
+    });
+
+    const response = createStreamResponse(usage);
+    const clientResponse = await ProxyResponseHandler.dispatch(session, response);
+    const clientText = await clientResponse.text();
+    await drainAsyncTasks();
+
+    const dataLine = clientText.split("\n").find((line) => line.startsWith("data: "));
+    expect(dataLine).toBeDefined();
+    const clientPayload = JSON.parse(dataLine?.slice("data: ".length) ?? "{}");
+
+    expect(clientPayload.usage).toEqual({
+      input_tokens: 500,
+      output_tokens: 1000,
+    });
+    expect(updateMessageRequestDetails).toHaveBeenCalledWith(
+      5022,
+      expect.objectContaining({
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        specialSettings: expect.arrayContaining([
+          expect.objectContaining({
+            type: "key_stream_usage_adjustment",
+            hit: true,
+          }),
+        ]),
+      })
+    );
+
+    const calls = vi.mocked(RateLimitService.decrementLeaseBudget).mock.calls;
+    expect(calls.length).toBe(12);
+    for (const call of calls) {
+      expect(call[3]).toBeCloseTo(0.0165, 4);
+    }
   });
 
   it("should NOT call decrementLeaseBudget when cost is zero", async () => {

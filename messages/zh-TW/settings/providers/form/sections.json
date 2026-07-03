@@ -217,13 +217,14 @@
         }
       },
       "serviceTier": {
-        "help": "控制 Codex（Responses API）請求的 OpenAI service_tier。priority 對應 fast 模式；「跟隨客戶端」不改寫 service_tier，其他值會強制覆寫。若上游不支援所選檔位，可能返回錯誤。",
+        "help": "控制 Codex（Responses API）請求的 OpenAI service_tier。priority 對應 fast 模式；「跟隨客戶端」不改寫 service_tier；選擇 none 會從請求體刪除 service_tier；其他值會強制覆寫。若上游不支援所選檔位，可能返回錯誤。",
         "label": "Service Tier 覆寫",
         "options": {
           "auto": "auto（專案預設）",
           "default": "default（標準檔）",
           "flex": "flex（彈性）",
           "inherit": "不覆寫（跟隨客戶端）",
+          "none": "none（刪除 service_tier）",
           "priority": "priority（fast）"
         }
       },

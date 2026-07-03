@@ -83,6 +83,7 @@ export const MODEL_VENDOR_RULES = [
   { prefix: "abab", hasColor: true, i18nKey: "minimax" },
   { prefix: "grok", hasColor: false, i18nKey: "xai", litellmProvider: "xai" },
   { prefix: "kimi", hasColor: true, i18nKey: "kimi" },
+  { prefix: "mimo", hasColor: true, i18nKey: "mimo" },
   { prefix: "pplx", hasColor: true, i18nKey: "perplexity" },
   { prefix: "qwen", hasColor: true, i18nKey: "qwen" },
   {

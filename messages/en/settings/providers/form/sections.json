@@ -217,13 +217,14 @@
         }
       },
       "serviceTier": {
-        "help": "Controls the OpenAI service_tier for Codex (Responses API) requests. \"priority\" corresponds to fast mode. \"inherit\" follows the client request; other values force override service_tier. Unsupported tiers may cause upstream errors.",
+        "help": "Controls the OpenAI service_tier for Codex (Responses API) requests. \"priority\" corresponds to fast mode. \"inherit\" follows the client request; \"none\" removes service_tier from the request body; other values force override service_tier. Unsupported tiers may cause upstream errors.",
         "label": "Service Tier Override",
         "options": {
           "auto": "auto (project default)",
           "default": "default (standard)",
           "flex": "flex (best-effort)",
           "inherit": "No override (follow client)",
+          "none": "none (remove service_tier)",
           "priority": "priority (fast)"
         }
       },

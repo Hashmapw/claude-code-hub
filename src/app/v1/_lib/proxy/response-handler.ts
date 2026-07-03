@@ -80,6 +80,33 @@ function releaseSessionAgent(session: ProxySession): void {
   }
 }
 
+function createStreamTextCapture(): {
+  stream: TransformStream<Uint8Array, Uint8Array>;
+  getText: () => string;
+} {
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+
+  return {
+    stream: new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        const text = decoder.decode(chunk, { stream: true });
+        if (text) {
+          chunks.push(text);
+        }
+        controller.enqueue(chunk);
+      },
+      flush() {
+        const text = decoder.decode();
+        if (text) {
+          chunks.push(text);
+        }
+      },
+    }),
+    getText: () => chunks.join(""),
+  };
+}
+
 function takeBeforeResponseBodySnapshotSource(session: ProxySession): Response | null {
   const snapshotSession = session as ProxySession & {
     detailSnapshotResponseBeforeSource?: Response | null;
@@ -1816,6 +1843,7 @@ export class ProxyResponseHandler {
     }
 
     let processedStream: ReadableStream<Uint8Array> = response.body;
+    let getPreKeyStreamUsageAdjustmentContent: (() => string) | null = null;
     const keyStreamUsageAdjustmentDecision = resolveKeyStreamUsageAdjustmentDecision(session);
     if (keyStreamUsageAdjustmentDecision) {
       session.addSpecialSetting(keyStreamUsageAdjustmentDecision.audit);
@@ -2381,6 +2409,12 @@ export class ProxyResponseHandler {
       }
     }
 
+    if (keyStreamUsageAdjustmentDecision?.hit) {
+      const preKeyUsageAdjustmentCapture = createStreamTextCapture();
+      processedStream = processedStream.pipeThrough(preKeyUsageAdjustmentCapture.stream);
+      getPreKeyStreamUsageAdjustmentContent = preKeyUsageAdjustmentCapture.getText;
+    }
+
     processedStream = applyKeyStreamUsageAdjustmentToStream(
       processedStream,
       keyStreamUsageAdjustmentDecision
@@ -2619,6 +2653,21 @@ export class ProxyResponseHandler {
             provider.swapCacheTtlBilling
           );
         }
+        let usageForRequestRecord = usageForCost;
+        const preKeyUsageAdjustmentContent = getPreKeyStreamUsageAdjustmentContent?.() ?? "";
+        if (preKeyUsageAdjustmentContent) {
+          const actualUsageResult = parseUsageFromResponseText(
+            preKeyUsageAdjustmentContent,
+            provider.providerType
+          );
+          if (actualUsageResult.usageMetrics) {
+            usageForRequestRecord = normalizeUsageWithSwap(
+              actualUsageResult.usageMetrics,
+              session,
+              provider.swapCacheTtlBilling
+            );
+          }
+        }
 
         maybeSetCodexContext1m(session, provider, usageForCost?.input_tokens);
 
@@ -2803,14 +2852,14 @@ export class ProxyResponseHandler {
         // 保存扩展信息（status code, tokens, provider chain）
         await updateMessageRequestDetails(messageContext.id, {
           statusCode: effectiveStatusCode,
-          inputTokens: usageForCost?.input_tokens,
-          outputTokens: usageForCost?.output_tokens,
+          inputTokens: usageForRequestRecord?.input_tokens,
+          outputTokens: usageForRequestRecord?.output_tokens,
           ttfbMs: session.ttfbMs,
-          cacheCreationInputTokens: usageForCost?.cache_creation_input_tokens,
-          cacheReadInputTokens: usageForCost?.cache_read_input_tokens,
-          cacheCreation5mInputTokens: usageForCost?.cache_creation_5m_input_tokens,
-          cacheCreation1hInputTokens: usageForCost?.cache_creation_1h_input_tokens,
-          cacheTtlApplied: usageForCost?.cache_ttl ?? null,
+          cacheCreationInputTokens: usageForRequestRecord?.cache_creation_input_tokens,
+          cacheReadInputTokens: usageForRequestRecord?.cache_read_input_tokens,
+          cacheCreation5mInputTokens: usageForRequestRecord?.cache_creation_5m_input_tokens,
+          cacheCreation1hInputTokens: usageForRequestRecord?.cache_creation_1h_input_tokens,
+          cacheTtlApplied: usageForRequestRecord?.cache_ttl ?? null,
           providerChain: session.getProviderChain(),
           ...(streamErrorMessage ? { errorMessage: streamErrorMessage } : {}),
           model: currentRequestedModel ?? undefined, // 更新重定向后的模型

@@ -33,6 +33,7 @@ import {
   Yi,
   Zhipu,
 } from "@lobehub/icons";
+import { MimoIcon } from "@/lib/mimo-icon";
 import {
   getModelVendor as getModelVendorRule,
   type ModelVendorRule,
@@ -52,6 +53,7 @@ const MODEL_VENDOR_ICON_BY_KEY: Record<string, React.ComponentType<{ className?:
   internlm: InternLM.Color,
   kimi: Kimi.Color,
   meta: Meta.Color,
+  mimo: MimoIcon,
   minimax: Minimax.Color,
   mistral: Mistral.Color,
   moonshot: Moonshot,

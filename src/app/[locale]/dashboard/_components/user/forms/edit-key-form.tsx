@@ -214,8 +214,11 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             return;
           }
           toast.success(t("success"));
-          queryClient.invalidateQueries({ queryKey: ["userKeyGroups"] });
-          queryClient.invalidateQueries({ queryKey: ["userTags"] });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["users"] }),
+            queryClient.invalidateQueries({ queryKey: ["userKeyGroups"] }),
+            queryClient.invalidateQueries({ queryKey: ["userTags"] }),
+          ]);
           onSuccess?.();
           router.refresh();
         } catch (err) {

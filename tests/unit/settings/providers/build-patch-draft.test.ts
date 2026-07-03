@@ -334,6 +334,16 @@ describe("buildPatchDraftFromFormState", () => {
     expect(draft.codex_service_tier_preference).toEqual({ set: "priority" });
   });
 
+  it("sets codexServiceTierPreference to none instead of clearing it", () => {
+    const state = createBatchState();
+    state.routing.codexServiceTierPreference = "none";
+    const dirty = new Set(["routing.codexServiceTierPreference"]);
+
+    const draft = buildPatchDraftFromFormState(state, dirty);
+
+    expect(draft.codex_service_tier_preference).toEqual({ set: "none" });
+  });
+
   it("clears anthropicThinkingBudgetPreference when dirty and inherit", () => {
     const state = createBatchState();
     const dirty = new Set(["routing.anthropicThinkingBudgetPreference"]);

@@ -217,13 +217,14 @@
         }
       },
       "serviceTier": {
-        "help": "Управляет OpenAI service_tier для запросов Codex (Responses API). Значение priority соответствует fast mode. Режим \"следовать клиенту\" не переписывает service_tier, остальные значения принудительно его переопределяют. Неподдерживаемый tier может вызвать ошибку upstream.",
+        "help": "Управляет OpenAI service_tier для запросов Codex (Responses API). Значение priority соответствует fast mode. Режим \"следовать клиенту\" не переписывает service_tier; \"none\" удаляет service_tier из тела запроса; остальные значения принудительно его переопределяют. Неподдерживаемый tier может вызвать ошибку upstream.",
         "label": "Переопределение Service Tier",
         "options": {
           "auto": "auto (по умолчанию проекта)",
           "default": "default (стандартный)",
           "flex": "flex (best-effort)",
           "inherit": "Не переопределять (следовать клиенту)",
+          "none": "none (удалить service_tier)",
           "priority": "priority (fast)"
         }
       },

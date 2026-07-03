@@ -49,6 +49,8 @@ describe("getModelVendor", () => {
     { modelId: "abab-6.5", expectedKey: "minimax" },
     // Kimi
     { modelId: "kimi-k1.5", expectedKey: "kimi" },
+    // MiMo
+    { modelId: "mimo-vl-7b", expectedKey: "mimo" },
     // Moonshot
     { modelId: "moonshot-v1-8k", expectedKey: "moonshot" },
     // Yi

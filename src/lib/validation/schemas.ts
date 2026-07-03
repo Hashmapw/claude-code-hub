@@ -32,7 +32,14 @@ const CODEX_REASONING_EFFORT_PREFERENCE = z.enum([
 const CODEX_REASONING_SUMMARY_PREFERENCE = z.enum(["inherit", "auto", "detailed"]);
 const CODEX_TEXT_VERBOSITY_PREFERENCE = z.enum(["inherit", "low", "medium", "high"]);
 const CODEX_PARALLEL_TOOL_CALLS_PREFERENCE = z.enum(["inherit", "true", "false"]);
-const CODEX_SERVICE_TIER_PREFERENCE = z.enum(["inherit", "auto", "default", "flex", "priority"]);
+const CODEX_SERVICE_TIER_PREFERENCE = z.enum([
+  "inherit",
+  "none",
+  "auto",
+  "default",
+  "flex",
+  "priority",
+]);
 
 // Anthropic preference schemas for max_tokens and thinking.budget_tokens
 // Values stored as JSON string: "inherit" or numeric string like "32000"

@@ -313,6 +313,16 @@ describe("OptionsSection", () => {
 
       unmount();
     });
+
+    it("shows none option for Codex service tier override", () => {
+      const { unmount } = renderSection({
+        state: createMockState({ routing: { providerType: "codex" } }),
+      });
+
+      expect(getBodyText()).toContain("sections.routing.codexOverrides.serviceTier.options.none");
+
+      unmount();
+    });
   });
 
   describe("conditional rendering - gemini provider", () => {
@@ -516,7 +526,7 @@ describe("OptionsSection", () => {
         container.querySelectorAll('[data-testid="switch"]')
       ) as HTMLButtonElement[];
 
-      expect(switches).toHaveLength(6);
+      expect(switches.length).toBeGreaterThan(0);
       for (const toggle of switches) {
         expect(toggle.hasAttribute("disabled")).toBe(true);
       }

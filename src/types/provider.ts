@@ -29,7 +29,14 @@ export type CodexTextVerbosityPreference = "inherit" | "low" | "medium" | "high"
 // 由于 Select 的 value 需要是字符串，这里用 "true"/"false" 表示布尔值
 export type CodexParallelToolCallsPreference = "inherit" | "true" | "false";
 
-export type CodexServiceTierPreference = "inherit" | "auto" | "default" | "flex" | "priority";
+// service_tier 的 "none" 表示删除请求体字段，不是写入字符串 "none"
+export type CodexServiceTierPreference =
+  | "inherit"
+  | "none"
+  | "auto"
+  | "default"
+  | "flex"
+  | "priority";
 
 // Anthropic (Messages API) parameter overrides
 // - "inherit": follow client request (default)

@@ -33,4 +33,19 @@ describe("provider-patch-contract - codex service tier", () => {
 
     expect(updates.data.codex_service_tier_preference).toBe("priority");
   });
+
+  it("accepts none as an active codex_service_tier_preference override", () => {
+    const normalized = normalizeProviderBatchPatchDraft({
+      codex_service_tier_preference: { set: "none" },
+    });
+
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok) return;
+
+    const updates = buildProviderBatchApplyUpdates(normalized.data);
+    expect(updates.ok).toBe(true);
+    if (!updates.ok) return;
+
+    expect(updates.data.codex_service_tier_preference).toBe("none");
+  });
 });

@@ -381,11 +381,13 @@ export function OptionsSection({ subSectionRefs }: OptionsSectionProps) {
                             />
                           </SelectTrigger>
                           <SelectContent>
-                            {["inherit", "auto", "default", "flex", "priority"].map((val) => (
-                              <SelectItem key={val} value={val}>
-                                {t(`sections.routing.codexOverrides.serviceTier.options.${val}`)}
-                              </SelectItem>
-                            ))}
+                            {["inherit", "none", "auto", "default", "flex", "priority"].map(
+                              (val) => (
+                                <SelectItem key={val} value={val}>
+                                  {t(`sections.routing.codexOverrides.serviceTier.options.${val}`)}
+                                </SelectItem>
+                              )
+                            )}
                           </SelectContent>
                         </Select>
                         <Info

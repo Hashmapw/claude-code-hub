@@ -277,6 +277,7 @@ function isValidSetValue(field: ProviderBatchPatchField, value: unknown): boolea
     case "codex_service_tier_preference":
       return (
         value === "inherit" ||
+        value === "none" ||
         value === "auto" ||
         value === "default" ||
         value === "flex" ||
