@@ -259,7 +259,9 @@
         "secondaryLineAriaLabel": "Фактическая модель ответа: {model}",
         "arrowPrefix": "↳",
         "noSignatureBadge": "Нет подписи мышления",
-        "noSignatureTooltip": "Мышление было включено, но в потоке ответа не была возвращена подпись мышления; фактическая модель ответа берётся из обычного поля model в message_start."
+        "noSignatureTooltip": "Мышление было включено, но в потоке ответа не была возвращена подпись мышления; фактическая модель ответа берётся из обычного поля model в message_start.",
+        "clientMaskedTooltip": "Перенаправление модели скрыто от клиента: клиент получил запрошенное имя модели. Здесь показана модель, которая фактически ответила (с суффиксом %). Тарификация по-прежнему ведётся по запрошенной модели.",
+        "clientMaskedAriaLabel": "Фактическая модель ответа: {model}; клиенту возвращено запрошенное имя модели"
       },
       "errorMessage": "Сообщение об ошибке",
       "fake200ForwardedNotice": "Примечание: для потоковых запросов эта ошибка может быть обнаружена только после завершения потока; содержимое ответа могло уже быть передано клиенту.",
@@ -1952,7 +1954,9 @@
       "clickToDisableKey": "Нажмите, чтобы отключить ключ",
       "clickToEnableKey": "Нажмите, чтобы включить ключ",
       "operationFailed": "Операция не удалась",
-      "clickToQuickRenew": "Нажмите для быстрого продления"
+      "clickToQuickRenew": "Нажмите для быстрого продления",
+      "softBlocked": "Временно заблокирован",
+      "softBlockedDescription": "Этот Key временно заблокирован runtime-политикой."
     },
     "userStatus": {
       "enabled": "Включён",
@@ -2098,6 +2102,27 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Временная блокировка Key",
+          "descriptionEnabled": "Запросы с этим Key будут отклоняться с настроенным сообщением.",
+          "descriptionDisabled": "Если отключено, Key следует обычному состоянию включения/отключения.",
+          "messageLabel": "Сообщение блокировки",
+          "messagePlaceholder": "Введите сообщение для клиентов",
+          "messageDescription": "Показывается клиентам, когда Key временно заблокирован. До 500 символов."
+        },
+        "streamUsageAdjustment": {
+          "label": "Перезапись streaming usage tokens",
+          "descriptionEnabled": "После срабатывания вероятности все четыре счетчика usage token в streaming-ответе переписываются по коэффициентам и используются во внутренней статистике и биллинге.",
+          "descriptionDisabled": "Если выключено, этот Key оставляет streaming usage token из upstream без изменений.",
+          "probabilityLabel": "Вероятность срабатывания (%)",
+          "probabilityDescription": "Выборка выполняется один раз на запрос; при срабатывании все четыре счетчика token переписываются вместе по своим коэффициентам.",
+          "inputRatioLabel": "Коэффициент input_tokens (%)",
+          "outputRatioLabel": "Коэффициент output_tokens (%)",
+          "cacheReadRatioLabel": "Коэффициент cache_read_input_tokens (%)",
+          "cacheCreationRatioLabel": "Коэффициент cache_creation_input_tokens (%)",
+          "ratioDescription": "100 означает без изменений, 50 уменьшает вдвое, 200 увеличивает вдвое.",
+          "example": "Пример: если input_tokens=1000, output_tokens=500, cache_read_input_tokens=200 и cache_creation_input_tokens=100, при срабатывании все они одновременно переписываются по коэффициентам ниже."
         }
       },
       "limitRules": {

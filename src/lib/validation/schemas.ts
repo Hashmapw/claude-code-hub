@@ -34,7 +34,14 @@ const CODEX_REASONING_SUMMARY_PREFERENCE = z.enum(["inherit", "auto", "detailed"
 const CODEX_TEXT_VERBOSITY_PREFERENCE = z.enum(["inherit", "low", "medium", "high"]);
 const CODEX_PARALLEL_TOOL_CALLS_PREFERENCE = z.enum(["inherit", "true", "false"]);
 const CODEX_IMAGE_GENERATION_PREFERENCE = z.enum(CODEX_IMAGE_GENERATION_PREFERENCE_VALUES);
-const CODEX_SERVICE_TIER_PREFERENCE = z.enum(["inherit", "auto", "default", "flex", "priority"]);
+const CODEX_SERVICE_TIER_PREFERENCE = z.enum([
+  "inherit",
+  "none",
+  "auto",
+  "default",
+  "flex",
+  "priority",
+]);
 
 // Anthropic preference schemas for max_tokens and thinking.budget_tokens
 // Values stored as JSON string: "inherit" or numeric string like "32000"
@@ -366,7 +373,7 @@ export const UpdateUserSchema = z.object({
 /**
  * 密钥表单数据验证schema
  */
-export const KeyFormSchema = z.object({
+export const KeyFormSchemaBase = z.object({
   name: z.string().min(1, "密钥名称不能为空").max(64, "密钥名称不能超过64个字符"),
   expiresAt: z
     .string()
@@ -375,6 +382,14 @@ export const KeyFormSchema = z.object({
     .transform((val) => (val === "" ? undefined : val)),
   // Web UI 登录权限控制
   canLoginWebUi: z.boolean().optional().default(true),
+  // Redis-only runtime soft block config
+  softBlockEnabled: z.boolean().optional().default(false),
+  softBlockMessage: z
+    .string()
+    .trim()
+    .max(500, "KEY_SOFT_BLOCK_MESSAGE_TOO_LONG")
+    .nullable()
+    .optional(),
   // 金额限流配置
   limit5hUsd: z.coerce
     .number()
@@ -427,6 +442,47 @@ export const KeyFormSchema = z.object({
     .optional()
     .default(""),
   cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
+  streamUsageAdjustmentEnabled: z.boolean().optional().default(false),
+  streamUsageAdjustmentProbability: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID")
+    .max(100, "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentOutputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentCacheReadInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentCacheCreationInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+});
+
+export const KeyFormSchema = KeyFormSchemaBase.superRefine((data, ctx) => {
+  if (data.softBlockEnabled && !data.softBlockMessage) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["softBlockMessage"],
+      message: "KEY_SOFT_BLOCK_MESSAGE_REQUIRED",
+    });
+  }
 });
 
 // 共享：静态自定义请求头的 zod 校验器，复用 normalizeCustomHeadersRecord 中的全部规则。
@@ -491,6 +547,9 @@ export const CreateProviderSchema = z
       .default("claude"),
     preserve_client_ip: z.boolean().optional().default(false),
     disable_session_reuse: z.boolean().optional().default(false),
+    reject_streaming_content_length: z.boolean().optional().default(false),
+    reject_streaming_zero_usage: z.boolean().optional().default(false),
+    reject_streaming_early_error: z.boolean().optional().default(false),
     model_redirects: PROVIDER_MODEL_REDIRECT_RULES_SCHEMA,
     // Scheduled active time window (HH:mm format)
     active_time_start: z
@@ -739,6 +798,9 @@ export const UpdateProviderSchema = z
       .optional(),
     preserve_client_ip: z.boolean().optional(),
     disable_session_reuse: z.boolean().optional(),
+    reject_streaming_content_length: z.boolean().optional(),
+    reject_streaming_zero_usage: z.boolean().optional(),
+    reject_streaming_early_error: z.boolean().optional(),
     model_redirects: PROVIDER_MODEL_REDIRECT_RULES_SCHEMA,
     active_time_start: z
       .string()

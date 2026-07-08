@@ -226,13 +226,14 @@
         }
       },
       "serviceTier": {
-        "help": "Controls the OpenAI service_tier for Codex (Responses API) requests. \"priority\" corresponds to fast mode. \"inherit\" follows the client request; other values force override service_tier. Unsupported tiers may cause upstream errors.",
+        "help": "Controls the OpenAI service_tier for Codex (Responses API) requests. \"priority\" corresponds to fast mode. \"inherit\" follows the client request; \"none\" removes service_tier from the request body; other values force override service_tier. Unsupported tiers may cause upstream errors.",
         "label": "Service Tier Override",
         "options": {
           "auto": "auto (project default)",
           "default": "default (standard)",
           "flex": "flex (best-effort)",
           "inherit": "No override (follow client)",
+          "none": "none (remove service_tier)",
           "priority": "priority (fast)"
         }
       },
@@ -389,6 +390,18 @@
     "disableSessionReuse": {
       "label": "Skip session reuse",
       "desc": "When enabled, the next request will ignore this provider's sticky binding and rerun priority and health checks. Useful when a cheap higher-priority provider should be retried as soon as it recovers."
+    },
+    "rejectStreamingContentLength": {
+      "label": "Reject streaming Content-Length",
+      "desc": "When enabled, an upstream SSE response that includes a Content-Length header is interrupted and treated as a 503 provider failure so the next provider can be tried."
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "Reject zero-usage streams",
+      "desc": "When enabled, an SSE stream with explicit usage fields all equal to 0 is fully buffered, interrupted before reaching the client, and treated as a 503 provider failure. Missing usage is ignored."
+    },
+    "rejectStreamingEarlyError": {
+      "label": "Stream early-error failover",
+      "desc": "When enabled, the SSE stream head is held and inspected; if the upstream returns an error event before any real content, the provider is interrupted as a 503 failure and the request fails over to the next provider. Healthy streams are released as soon as content starts."
     },
     "options": {
       "title": "Options",

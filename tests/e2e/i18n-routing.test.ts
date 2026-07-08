@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { localeCookieName } from "@/i18n/config";
 
-const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:13500";
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
 
 async function fetchRedirect(path: string, cookie?: string) {
   return fetch(`${APP_BASE_URL}${path}`, {

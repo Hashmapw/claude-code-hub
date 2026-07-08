@@ -90,6 +90,61 @@ export function OptionsSection({ subSectionRefs }: OptionsSectionProps) {
                 />
               </ToggleRow>
 
+              <ToggleRow
+                label={t("sections.routing.rejectStreamingContentLength.label")}
+                description={t("sections.routing.rejectStreamingContentLength.desc")}
+              >
+                <Switch
+                  id={
+                    isEdit
+                      ? "edit-reject-streaming-content-length"
+                      : "reject-streaming-content-length"
+                  }
+                  checked={state.routing.rejectStreamingContentLength}
+                  onCheckedChange={(checked) =>
+                    dispatch({
+                      type: "SET_REJECT_STREAMING_CONTENT_LENGTH",
+                      payload: checked,
+                    })
+                  }
+                  disabled={state.ui.isPending}
+                />
+              </ToggleRow>
+
+              <ToggleRow
+                label={t("sections.routing.rejectStreamingZeroUsage.label")}
+                description={t("sections.routing.rejectStreamingZeroUsage.desc")}
+              >
+                <Switch
+                  id={isEdit ? "edit-reject-streaming-zero-usage" : "reject-streaming-zero-usage"}
+                  checked={state.routing.rejectStreamingZeroUsage}
+                  onCheckedChange={(checked) =>
+                    dispatch({
+                      type: "SET_REJECT_STREAMING_ZERO_USAGE",
+                      payload: checked,
+                    })
+                  }
+                  disabled={state.ui.isPending}
+                />
+              </ToggleRow>
+
+              <ToggleRow
+                label={t("sections.routing.rejectStreamingEarlyError.label")}
+                description={t("sections.routing.rejectStreamingEarlyError.desc")}
+              >
+                <Switch
+                  id={isEdit ? "edit-reject-streaming-early-error" : "reject-streaming-early-error"}
+                  checked={state.routing.rejectStreamingEarlyError}
+                  onCheckedChange={(checked) =>
+                    dispatch({
+                      type: "SET_REJECT_STREAMING_EARLY_ERROR",
+                      payload: checked,
+                    })
+                  }
+                  disabled={state.ui.isPending}
+                />
+              </ToggleRow>
+
               {/* Swap Cache TTL Billing */}
               <ToggleRow
                 label={t("sections.routing.swapCacheTtlBilling.label")}
@@ -374,11 +429,13 @@ export function OptionsSection({ subSectionRefs }: OptionsSectionProps) {
                             />
                           </SelectTrigger>
                           <SelectContent>
-                            {["inherit", "auto", "default", "flex", "priority"].map((val) => (
-                              <SelectItem key={val} value={val}>
-                                {t(`sections.routing.codexOverrides.serviceTier.options.${val}`)}
-                              </SelectItem>
-                            ))}
+                            {["inherit", "none", "auto", "default", "flex", "priority"].map(
+                              (val) => (
+                                <SelectItem key={val} value={val}>
+                                  {t(`sections.routing.codexOverrides.serviceTier.options.${val}`)}
+                                </SelectItem>
+                              )
+                            )}
                           </SelectContent>
                         </Select>
                         <Info

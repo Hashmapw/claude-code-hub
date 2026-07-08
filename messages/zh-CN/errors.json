@@ -1,29 +1,23 @@
 {
   "_comment": "Error messages for Chinese Simplified",
-
   "REQUIRED_FIELD": "{field}不能为空",
   "USER_NAME_REQUIRED": "用户名不能为空",
   "API_KEY_REQUIRED": "API密钥不能为空",
   "PROVIDER_NAME_REQUIRED": "服务商名称不能为空",
   "PROVIDER_URL_REQUIRED": "服务商URL不能为空",
-
   "MIN_LENGTH": "{field}长度不能少于{min}个字符",
   "MAX_LENGTH": "{field}长度不能超过{max}个字符",
   "INVALID_EMAIL": "请输入有效的邮箱地址",
   "INVALID_URL": "请输入有效的URL地址",
-
   "MIN_VALUE": "{field}不能低于{min}",
   "MAX_VALUE": "{field}不能超过{max}",
   "MUST_BE_INTEGER": "{field}必须是整数",
   "MUST_BE_POSITIVE": "{field}必须是正数",
-
   "INVALID_TYPE": "{field}类型不正确",
   "INVALID_FORMAT": "{field}格式不正确",
-
   "DUPLICATE_NAME": "名称'{name}'已存在",
   "INVALID_RANGE": "{field}必须在{min}到{max}之间",
   "EMPTY_UPDATE": "更新内容为空",
-
   "UNAUTHORIZED": "未授权，请先登录",
   "INVALID_CREDENTIALS": "用户名或密码错误",
   "SESSION_EXPIRED": "会话已过期，请重新登录",
@@ -33,7 +27,6 @@
   "PROXY_INVALID_API_KEY": "API 密钥无效。提供的密钥不存在或已被删除。",
   "PROXY_API_KEY_DISABLED": "API 密钥已被禁用。请联系管理员重新启用，或使用其他可用密钥。",
   "PROXY_API_KEY_EXPIRED": "API 密钥已过期。请联系管理员续期或更换密钥。",
-
   "INTERNAL_ERROR": "系统内部错误，请稍后重试",
   "DATABASE_ERROR": "数据库错误",
   "NOT_FOUND": "资源不存在",
@@ -48,11 +41,9 @@
   "CREATE_FAILED": "创建失败，请稍后重试",
   "UPDATE_FAILED": "更新失败，请稍后重试",
   "DELETE_FAILED": "删除失败，请稍后重试",
-
   "CONNECTION_FAILED": "连接失败",
   "TIMEOUT": "请求超时",
   "NETWORK_ERROR": "网络错误",
-
   "QUOTA_EXCEEDED": "配额已用尽",
   "BATCH_SIZE_EXCEEDED": "批量操作不能超过 {max} 个项目",
   "RATE_LIMIT_EXCEEDED": "请求过于频繁，请稍后重试",
@@ -69,7 +60,6 @@
   "INVALID_STATE": "当前状态不允许此操作",
   "CONFLICT": "操作冲突",
   "ENDPOINT_REFERENCED_BY_ENABLED_PROVIDERS": "该端点仍被 {count} 个启用中的供应商引用：{providers}",
-
   "USER_NOT_FOUND": "用户不存在",
   "USER_CANNOT_MODIFY_SENSITIVE_FIELDS": "普通用户不能修改账户限额和供应商分组",
   "CREATE_USER_FAILED": "创建用户失败，请稍后重试",
@@ -81,7 +71,6 @@
   "EXPIRES_AT_MUST_BE_FUTURE": "过期时间必须是未来时间",
   "EXPIRES_AT_TOO_FAR": "过期时间不能超过10年",
   "CANNOT_DISABLE_SELF": "不能禁用自己的账户",
-
   "KEY_NOT_FOUND": "密钥不存在",
   "CREATE_KEY_FAILED": "创建密钥失败，请稍后重试",
   "UPDATE_KEY_FAILED": "更新密钥失败，请稍后重试",
@@ -96,5 +85,18 @@
   "KEY_LIMIT_TOTAL_EXCEEDS_USER_LIMIT": "Key的总消费上限（{keyLimit}）不能超过用户限额（{userLimit}）",
   "KEY_LIMIT_CONCURRENT_EXCEEDS_USER_LIMIT": "Key的并发Session上限（{keyLimit}）不能超过用户限额（{userLimit}）",
   "NO_DEFAULT_GROUP_PERMISSION": "无权使用 default 分组，您当前没有 default 分组的 Key",
-  "NO_GROUP_PERMISSION": "无权使用以下分组: {groups}"
+  "NO_GROUP_PERMISSION": "无权使用以下分组: {groups}",
+  "PROXY_USER_DISABLED": "用户账户已被禁用。请联系管理员。",
+  "PROXY_USER_EXPIRED": "用户账户已过期。请联系管理员。",
+  "PROXY_KEY_SOFT_BLOCKED": "此 API Key 已被临时限制。请联系管理员。",
+  "KEY_SOFT_BLOCK_MESSAGE_TOO_LONG": "临时限制提示词不能超过 500 个字符。",
+  "KEY_SOFT_BLOCK_MESSAGE_REQUIRED": "启用临时限制时必须填写提示词。",
+  "KEY_SOFT_BLOCK_REDIS_UNAVAILABLE": "Redis 不可用，Key 临时限制配置未保存。",
+  "KEY_SOFT_BLOCK_SAVE_FAILED": "保存 Key 临时限制配置失败。",
+  "KEY_SOFT_BLOCK_PARTIAL_FAILURE": "Key 已保存，但临时限制配置保存失败。",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "流式 usage 改写概率必须在 0 到 100 之间。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "流式 usage 改写比例必须在 0 到 10000 之间。",
+  "VIP_GROUP_USAGE_CONFIG_REDIS_UNAVAILABLE": "Redis 不可用，VIP 分组使用提醒配置未保存。",
+  "VIP_GROUP_USAGE_CONFIG_SAVE_FAILED": "保存 VIP 分组使用提醒配置失败。",
+  "NOTIFICATION_SETTINGS_PARTIAL_FAILURE": "通知设置已部分保存，但部分运行时配置保存失败。"
 }

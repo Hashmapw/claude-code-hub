@@ -14,9 +14,14 @@ import { formatCostForStorage } from "@/lib/utils/currency";
 import type { HedgeLoserBilling, StoredCostBreakdown } from "@/types/cost-breakdown";
 import type { CreateMessageRequestData, MessageRequest, ProviderChainItem } from "@/types/message";
 import type { SpecialSetting } from "@/types/special-settings";
+import type { BillingModelSource } from "@/types/system-config";
 import { LEDGER_BILLING_CONDITION } from "./_shared/ledger-conditions";
 import { EXCLUDE_WARMUP_CONDITION } from "./_shared/message-request-conditions";
 import { toMessageRequest } from "./_shared/transformers";
+import {
+  buildLedgerBillingModelField,
+  buildMessageBillingModelField,
+} from "./_shared/usage-model-field";
 import { enqueueMessageRequestUpdate } from "./message-write-buffer";
 
 type PublicStatusRequestSeed = {
@@ -1305,10 +1310,19 @@ export async function findUsageLogs(params: {
   startDate?: Date;
   endDate?: Date;
   model?: string;
+  billingModelSource?: BillingModelSource;
   page?: number;
   pageSize?: number;
 }): Promise<{ logs: MessageRequest[]; total: number }> {
-  const { userId, startDate, endDate, model, page = 1, pageSize = 50 } = params;
+  const {
+    userId,
+    startDate,
+    endDate,
+    model,
+    billingModelSource = "original",
+    page = 1,
+    pageSize = 50,
+  } = params;
 
   const conditions = [isNull(messageRequest.deletedAt)];
 
@@ -1328,7 +1342,7 @@ export async function findUsageLogs(params: {
   }
 
   if (model) {
-    conditions.push(eq(messageRequest.model, model));
+    conditions.push(sql`${buildMessageBillingModelField(billingModelSource)} = ${model}`);
   }
 
   // 查询总数
@@ -1374,7 +1388,7 @@ export async function findUsageLogs(params: {
   }
 
   if (model) {
-    ledgerConditions.push(eq(usageLedger.model, model));
+    ledgerConditions.push(sql`${buildLedgerBillingModelField(billingModelSource)} = ${model}`);
   }
 
   const [ledgerCountResult] = await db

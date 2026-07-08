@@ -259,7 +259,9 @@
         "secondaryLineAriaLabel": "實際回應模型：{model}",
         "arrowPrefix": "↳",
         "noSignatureBadge": "無思考簽名",
-        "noSignatureTooltip": "請求啟用了思考但回應流中沒有 thinking signature，實際回應模型回退到 message_start 明文欄位。"
+        "noSignatureTooltip": "請求啟用了思考但回應流中沒有 thinking signature，實際回應模型回退到 message_start 明文欄位。",
+        "clientMaskedTooltip": "已對用戶端隱藏模型重新導向：用戶端收到的是所請求的模型名稱。此處顯示實際回應的模型（帶 % 後綴）。計費仍以請求的模型為準。",
+        "clientMaskedAriaLabel": "實際回應模型：{model}；已向用戶端回傳所請求的模型名稱"
       },
       "errorMessage": "錯誤訊息",
       "fake200ForwardedNotice": "提示：對於串流請求，此失敗可能在串流結束後才被識別；回應內容可能已原樣透傳給用戶端。",
@@ -1913,7 +1915,9 @@
       "clickToDisableKey": "點擊停用密鑰",
       "clickToEnableKey": "點擊啟用密鑰",
       "operationFailed": "操作失敗",
-      "clickToQuickRenew": "點擊快速續期"
+      "clickToQuickRenew": "點擊快速續期",
+      "softBlocked": "暫時限制",
+      "softBlockedDescription": "此 Key 目前被執行階段策略暫時限制。"
     },
     "userStatus": {
       "enabled": "啟用",
@@ -2058,6 +2062,27 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Key 暫時限制",
+          "descriptionEnabled": "使用此 Key 的請求會被拒絕，並返回設定的提示文字。",
+          "descriptionDisabled": "關閉後，此 Key 只遵循一般啟用/停用狀態。",
+          "messageLabel": "限制提示文字",
+          "messagePlaceholder": "輸入返回給客戶端的提示文字",
+          "messageDescription": "Key 被暫時限制時顯示給客戶端，最多 500 個字元。"
+        },
+        "streamUsageAdjustment": {
+          "label": "串流 Usage Token 改寫",
+          "descriptionEnabled": "命中機率後，會在串流回傳中同時按比例改寫四類 usage token，並用於內部統計與計費。",
+          "descriptionDisabled": "關閉後，此 Key 的串流 usage token 保持上游原始值。",
+          "probabilityLabel": "命中機率（%）",
+          "probabilityDescription": "每次請求只取樣一次；命中後四類 token 同時按各自比例改寫。",
+          "inputRatioLabel": "input_tokens 比例（%）",
+          "outputRatioLabel": "output_tokens 比例（%）",
+          "cacheReadRatioLabel": "cache_read_input_tokens 比例（%）",
+          "cacheCreationRatioLabel": "cache_creation_input_tokens 比例（%）",
+          "ratioDescription": "100 表示不變，50 表示減半，200 表示翻倍。",
+          "example": "範例：input_tokens=1000、output_tokens=500、cache_read_input_tokens=200、cache_creation_input_tokens=100 時，命中後按下面比例同時改寫。"
         }
       },
       "limitRules": {

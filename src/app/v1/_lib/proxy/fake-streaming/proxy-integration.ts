@@ -81,6 +81,11 @@ export async function tryFakeStreamingPath(
   }
   const abortSignal = session.clientAbortSignal ?? new AbortController().signal;
 
+  // 让客户端始终看到自己请求的模型：把发回客户端的响应体 model 改写为请求的原始模型
+  // （与上游真实模型不一致时才变，一致时为零操作）。惰性解析——getOriginalModel 在 message context
+  // 创建时已固定为请求模型，这里在 orchestrator 完成后读取即可。
+  const resolveMaskedModel = () => session.getOriginalModel();
+
   if (isStream) {
     logger.debug("[FakeStreaming] taking stream path", {
       model: clientModel,
@@ -94,6 +99,7 @@ export async function tryFakeStreamingPath(
       abortSignal,
       maxAttempts: MAX_ATTEMPTS,
       heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
+      resolveMaskedModel,
     });
   }
 
@@ -107,6 +113,7 @@ export async function tryFakeStreamingPath(
     performAttempt,
     abortSignal,
     maxAttempts: MAX_ATTEMPTS,
+    resolveMaskedModel,
   });
 }
 

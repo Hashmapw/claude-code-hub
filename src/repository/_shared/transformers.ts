@@ -1,4 +1,5 @@
 import { PROVIDER_TIMEOUT_DEFAULTS } from "@/lib/constants/provider.constants";
+import { normalizeStreamUsageAdjustmentConfig } from "@/lib/key-stream-usage-adjustment-config";
 import { normalizeProviderModelRedirectRules } from "@/lib/provider-model-redirects";
 import { formatCostForStorage } from "@/lib/utils/currency";
 import type { Key } from "@/types/key";
@@ -86,6 +87,7 @@ export function toKey(dbKey: any): Key {
     limitConcurrentSessions: dbKey?.limitConcurrentSessions ?? 0,
     providerGroup: dbKey?.providerGroup ?? null,
     cacheTtlPreference: dbKey?.cacheTtlPreference ?? null,
+    streamUsageAdjustment: normalizeStreamUsageAdjustmentConfig(dbKey?.streamUsageAdjustment),
     createdAt: dbKey?.createdAt ? new Date(dbKey.createdAt) : new Date(),
     updatedAt: dbKey?.updatedAt ? new Date(dbKey.updatedAt) : new Date(),
   };
@@ -105,6 +107,9 @@ export function toProvider(dbProvider: any): Provider {
     providerType: dbProvider?.providerType ?? "claude",
     preserveClientIp: dbProvider?.preserveClientIp ?? false,
     disableSessionReuse: dbProvider?.disableSessionReuse ?? false,
+    rejectStreamingContentLength: dbProvider?.rejectStreamingContentLength ?? false,
+    rejectStreamingZeroUsage: dbProvider?.rejectStreamingZeroUsage ?? false,
+    rejectStreamingEarlyError: dbProvider?.rejectStreamingEarlyError ?? false,
     modelRedirects: normalizeProviderModelRedirectRules(dbProvider?.modelRedirects),
     activeTimeStart: dbProvider?.activeTimeStart ?? null,
     activeTimeEnd: dbProvider?.activeTimeEnd ?? null,

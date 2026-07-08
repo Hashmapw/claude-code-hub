@@ -246,7 +246,14 @@ jobs:
         run: |
           NEW_TAG="${{ steps.next_version.outputs.new_tag }}"
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin HEAD:main "$NEW_TAG"
+          if [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            TARGET_BRANCH="${GITHUB_REF#refs/heads/}"
+            echo "Pushing release commit back to branch: $TARGET_BRANCH"
+            git push origin "HEAD:${TARGET_BRANCH}" "$NEW_TAG"
+          else
+            echo "Current ref is not a branch; pushing tag only"
+            git push origin "$NEW_TAG"
+          fi
 
       - name: Prepare image names
         id: image_names
@@ -418,7 +425,7 @@ jobs:
 
       # 同步 main 分支到 dev 分支 (rebase dev onto main) - 仅正式版本触发
       - name: Sync main to dev branch
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.next_version.outputs.is_prerelease != 'true' && success()
         id: sync_dev
         continue-on-error: true
         env:
@@ -487,37 +494,23 @@ jobs:
               exit 1
             fi
           else
-            echo "::warning::Rebase failed due to conflicts, will trigger autofix"
+            echo "::warning::Rebase failed due to conflicts, manual dev sync is required"
             git rebase --abort
             echo "sync_status=conflict" >> $GITHUB_OUTPUT
             echo "sync_reason=merge conflicts detected" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-      # 如果同步失败(冲突)，触发 autofix workflow
-      - name: Trigger autofix for sync conflicts
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.sync_dev.outputs.sync_status == 'conflict' && success()
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+      # 如果同步失败(冲突)，记录人工处理指引
+      - name: Report sync conflicts
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.sync_dev.outputs.sync_status == 'conflict' && success()
         run: |
-          echo "Triggering Claude CI Auto-Fix workflow for dev sync..."
-
-          # 使用 workflow 文件名而非名称，避免重命名后触发失败
-          if gh workflow run claude-ci-autofix.yml \
-              --field task_type=sync-dev \
-              --field target_branch=dev \
-              --field source_branch=main \
-              --field release_tag=${{ steps.next_version.outputs.new_tag }}; then
-            echo "::notice::Autofix workflow triggered to resolve conflicts"
-          else
-            echo "::error::Failed to trigger autofix workflow. Manual intervention required."
-            echo "::error::Please run: gh workflow run claude-ci-autofix.yml --field task_type=sync-dev --field target_branch=dev --field source_branch=main"
-            exit 1
-          fi
+          echo "::warning::Dev branch sync has conflicts and requires manual resolution."
+          echo "::warning::Suggested steps: fetch origin/main and origin/dev, rebase dev onto main, resolve conflicts, then push dev with --force-with-lease."
 
       # 同步结果汇总 - 仅正式版本显示
       - name: Sync summary
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && always()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && steps.next_version.outputs.is_prerelease != 'true' && always()
         run: |
           echo "=========================================="
           echo "Dev Branch Sync Summary"
@@ -537,9 +530,9 @@ jobs:
               echo "Reason: $SYNC_REASON"
               ;;
             "conflict")
-              echo "Status: CONFLICT - Autofix triggered"
+              echo "Status: CONFLICT - manual sync required"
               echo "Reason: $SYNC_REASON"
-              echo "The Claude CI Auto-Fix workflow has been triggered to resolve conflicts"
+              echo "Rebase dev onto main manually, resolve conflicts, then push with --force-with-lease"
               ;;
             "push_failed")
               echo "Status: PUSH FAILED"

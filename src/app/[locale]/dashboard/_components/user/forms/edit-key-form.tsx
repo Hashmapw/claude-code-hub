@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { editKey, resetKeyLimitsOnly } from "@/lib/api-client/v1/actions/keys";
 import { getAvailableProviderGroups } from "@/lib/api-client/v1/actions/providers";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
@@ -37,6 +38,18 @@ import { getErrorMessage } from "@/lib/utils/error-messages";
 import { parseProviderGroups } from "@/lib/utils/provider-group";
 import { KeyFormSchema } from "@/lib/validation/schemas";
 import type { KeyDialogUserContext } from "@/types/user";
+import { StreamUsageAdjustmentFields } from "./stream-usage-adjustment-fields";
+
+function getFormErrorMessage(
+  message: string | undefined,
+  tErrors: (key: string, params?: Record<string, string | number>) => string
+): string | undefined {
+  if (!message) return undefined;
+  if (!message.startsWith("KEY_SOFT_BLOCK_") && !message.startsWith("STREAM_USAGE_ADJUSTMENT_")) {
+    return message;
+  }
+  return getErrorMessage(tErrors, message);
+}
 
 interface EditKeyFormProps {
   keyData?: {
@@ -44,8 +57,16 @@ interface EditKeyFormProps {
     name: string;
     expiresAt: string;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
     limit5hUsd?: number | null;
     limit5hResetMode?: "fixed" | "rolling";
     limitDailyUsd?: number | null;
@@ -128,8 +149,19 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
       name: keyData?.name || "",
       expiresAt: formatExpiresAt(keyData?.expiresAt || ""),
       canLoginWebUi: keyData?.canLoginWebUi ?? true,
+      softBlockEnabled: keyData?.softBlockEnabled ?? false,
+      softBlockMessage: keyData?.softBlockMessage ?? null,
       providerGroup: keyData?.providerGroup || PROVIDER_GROUP.DEFAULT,
       cacheTtlPreference: keyData?.cacheTtlPreference ?? "inherit",
+      streamUsageAdjustmentEnabled: keyData?.streamUsageAdjustmentEnabled ?? false,
+      streamUsageAdjustmentProbability: keyData?.streamUsageAdjustmentProbability ?? 100,
+      streamUsageAdjustmentInputTokensRatio: keyData?.streamUsageAdjustmentInputTokensRatio ?? 100,
+      streamUsageAdjustmentOutputTokensRatio:
+        keyData?.streamUsageAdjustmentOutputTokensRatio ?? 100,
+      streamUsageAdjustmentCacheReadInputTokensRatio:
+        keyData?.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+      streamUsageAdjustmentCacheCreationInputTokensRatio:
+        keyData?.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
       limit5hUsd: keyData?.limit5hUsd ?? null,
       limit5hResetMode: keyData?.limit5hResetMode ?? "rolling",
       limitDailyUsd: keyData?.limitDailyUsd ?? null,
@@ -152,7 +184,17 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             // 重要：清除到期时间时用空字符串表达，避免 undefined 在 Server Action 序列化时被丢弃
             expiresAt: data.expiresAt ?? "",
             canLoginWebUi: data.canLoginWebUi,
+            softBlockEnabled: data.softBlockEnabled,
+            softBlockMessage: data.softBlockMessage ?? null,
             cacheTtlPreference: data.cacheTtlPreference,
+            streamUsageAdjustmentEnabled: data.streamUsageAdjustmentEnabled,
+            streamUsageAdjustmentProbability: data.streamUsageAdjustmentProbability,
+            streamUsageAdjustmentInputTokensRatio: data.streamUsageAdjustmentInputTokensRatio,
+            streamUsageAdjustmentOutputTokensRatio: data.streamUsageAdjustmentOutputTokensRatio,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              data.streamUsageAdjustmentCacheReadInputTokensRatio,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              data.streamUsageAdjustmentCacheCreationInputTokensRatio,
             limit5hUsd: data.limit5hUsd,
             limit5hResetMode: data.limit5hResetMode,
             limitDailyUsd: data.limitDailyUsd,
@@ -172,8 +214,11 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
             return;
           }
           toast.success(t("success"));
-          queryClient.invalidateQueries({ queryKey: ["userKeyGroups"] });
-          queryClient.invalidateQueries({ queryKey: ["userTags"] });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["users"] }),
+            queryClient.invalidateQueries({ queryKey: ["userKeyGroups"] }),
+            queryClient.invalidateQueries({ queryKey: ["userTags"] }),
+          ]);
           onSuccess?.();
           router.refresh();
         } catch (err) {
@@ -251,6 +296,100 @@ export function EditKeyForm({ keyData, user, isAdmin = false, onSuccess }: EditK
           onCheckedChange={(checked) => form.setValue("canLoginWebUi", !checked)}
         />
       </div>
+
+      <div className="space-y-2 rounded-lg border border-dashed border-border px-4 py-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label htmlFor="soft-block-enabled" className="text-sm font-medium">
+              {tKeyEdit("softBlock.label")}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {form.values.softBlockEnabled
+                ? tKeyEdit("softBlock.descriptionEnabled")
+                : tKeyEdit("softBlock.descriptionDisabled")}
+            </p>
+          </div>
+          <Switch
+            id="soft-block-enabled"
+            checked={form.values.softBlockEnabled ?? false}
+            onCheckedChange={(checked) => form.setValue("softBlockEnabled", checked)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="soft-block-message">{tKeyEdit("softBlock.messageLabel")}</Label>
+          <Textarea
+            id="soft-block-message"
+            value={form.values.softBlockMessage ?? ""}
+            onChange={(event) => form.setValue("softBlockMessage", event.target.value)}
+            placeholder={tKeyEdit("softBlock.messagePlaceholder")}
+            maxLength={500}
+            rows={4}
+            disabled={!(form.values.softBlockEnabled ?? false)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {tKeyEdit("softBlock.messageDescription")}
+          </p>
+          {form.errors.softBlockMessage ? (
+            <p className="text-xs text-destructive" role="alert">
+              {getFormErrorMessage(form.errors.softBlockMessage, tErrors)}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <StreamUsageAdjustmentFields
+        idPrefix="edit-key"
+        isAdmin={isAdmin}
+        values={{
+          streamUsageAdjustmentEnabled: form.values.streamUsageAdjustmentEnabled ?? false,
+          streamUsageAdjustmentProbability: form.values.streamUsageAdjustmentProbability ?? 100,
+          streamUsageAdjustmentInputTokensRatio:
+            form.values.streamUsageAdjustmentInputTokensRatio ?? 100,
+          streamUsageAdjustmentOutputTokensRatio:
+            form.values.streamUsageAdjustmentOutputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheReadInputTokensRatio:
+            form.values.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheCreationInputTokensRatio:
+            form.values.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
+        }}
+        onChange={(field, value) => form.setValue(field, value)}
+        errors={{
+          streamUsageAdjustmentProbability: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentProbability,
+            tErrors
+          ),
+          streamUsageAdjustmentInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentInputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentOutputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentOutputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentCacheReadInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentCacheReadInputTokensRatio,
+            tErrors
+          ),
+          streamUsageAdjustmentCacheCreationInputTokensRatio: getFormErrorMessage(
+            form.errors.streamUsageAdjustmentCacheCreationInputTokensRatio,
+            tErrors
+          ),
+        }}
+        translations={{
+          label: tKeyEdit("streamUsageAdjustment.label"),
+          descriptionEnabled: tKeyEdit("streamUsageAdjustment.descriptionEnabled"),
+          descriptionDisabled: tKeyEdit("streamUsageAdjustment.descriptionDisabled"),
+          probabilityLabel: tKeyEdit("streamUsageAdjustment.probabilityLabel"),
+          probabilityDescription: tKeyEdit("streamUsageAdjustment.probabilityDescription"),
+          inputRatioLabel: tKeyEdit("streamUsageAdjustment.inputRatioLabel"),
+          outputRatioLabel: tKeyEdit("streamUsageAdjustment.outputRatioLabel"),
+          cacheReadRatioLabel: tKeyEdit("streamUsageAdjustment.cacheReadRatioLabel"),
+          cacheCreationRatioLabel: tKeyEdit("streamUsageAdjustment.cacheCreationRatioLabel"),
+          ratioDescription: tKeyEdit("streamUsageAdjustment.ratioDescription"),
+          example: tKeyEdit("streamUsageAdjustment.example"),
+        }}
+      />
 
       <TagInputField
         label={t("providerGroup.label")}

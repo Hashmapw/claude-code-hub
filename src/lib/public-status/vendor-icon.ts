@@ -34,6 +34,7 @@ import {
 } from "@lobehub/icons";
 import { Bot } from "lucide-react";
 import type { ComponentType } from "react";
+import { MimoIcon } from "@/lib/mimo-icon";
 import {
   type PublicStatusVendorIconKey,
   resolvePublicStatusVendorIconKey,
@@ -58,6 +59,7 @@ const PUBLIC_STATUS_VENDOR_ICON_REGISTRY: Record<
   internlm: InternLM.Color,
   kimi: Kimi.Color,
   meta: Meta.Color,
+  xiaomi: MimoIcon,
   minimax: Minimax.Color,
   mistral: Mistral.Color,
   moonshot: Moonshot,

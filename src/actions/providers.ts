@@ -334,6 +334,9 @@ export async function getProviders(): Promise<ProviderDisplay[]> {
         providerVendorId: provider.providerVendorId,
         preserveClientIp: provider.preserveClientIp,
         disableSessionReuse: provider.disableSessionReuse,
+        rejectStreamingContentLength: provider.rejectStreamingContentLength,
+        rejectStreamingZeroUsage: provider.rejectStreamingZeroUsage,
+        rejectStreamingEarlyError: provider.rejectStreamingEarlyError,
         modelRedirects: provider.modelRedirects,
         activeTimeStart: provider.activeTimeStart,
         activeTimeEnd: provider.activeTimeEnd,
@@ -535,6 +538,9 @@ export async function addProvider(data: {
   provider_type?: ProviderType;
   preserve_client_ip?: boolean;
   disable_session_reuse?: boolean;
+  reject_streaming_content_length?: boolean;
+  reject_streaming_zero_usage?: boolean;
+  reject_streaming_early_error?: boolean;
   model_redirects?: ProviderModelRedirectRule[] | null;
   active_time_start?: string | null;
   active_time_end?: string | null;
@@ -751,6 +757,9 @@ export async function editProvider(
     provider_type?: ProviderType;
     preserve_client_ip?: boolean;
     disable_session_reuse?: boolean;
+    reject_streaming_content_length?: boolean;
+    reject_streaming_zero_usage?: boolean;
+    reject_streaming_early_error?: boolean;
     model_redirects?: ProviderModelRedirectRule[] | null;
     active_time_start?: string | null;
     active_time_end?: string | null;
@@ -1463,6 +1472,9 @@ const SINGLE_EDIT_PREIMAGE_FIELD_TO_PROVIDER_KEY: Record<string, keyof Provider>
   provider_type: "providerType",
   preserve_client_ip: "preserveClientIp",
   disable_session_reuse: "disableSessionReuse",
+  reject_streaming_content_length: "rejectStreamingContentLength",
+  reject_streaming_zero_usage: "rejectStreamingZeroUsage",
+  reject_streaming_early_error: "rejectStreamingEarlyError",
   active_time_start: "activeTimeStart",
   active_time_end: "activeTimeEnd",
   model_redirects: "modelRedirects",
@@ -1635,6 +1647,15 @@ function mapApplyUpdatesToRepositoryFormat(
   if (applyUpdates.disable_session_reuse !== undefined) {
     result.disableSessionReuse = applyUpdates.disable_session_reuse;
   }
+  if (applyUpdates.reject_streaming_content_length !== undefined) {
+    result.rejectStreamingContentLength = applyUpdates.reject_streaming_content_length;
+  }
+  if (applyUpdates.reject_streaming_zero_usage !== undefined) {
+    result.rejectStreamingZeroUsage = applyUpdates.reject_streaming_zero_usage;
+  }
+  if (applyUpdates.reject_streaming_early_error !== undefined) {
+    result.rejectStreamingEarlyError = applyUpdates.reject_streaming_early_error;
+  }
   if (applyUpdates.active_time_start !== undefined) {
     result.activeTimeStart = applyUpdates.active_time_start;
   }
@@ -1760,6 +1781,9 @@ const PATCH_FIELD_TO_PROVIDER_KEY: Record<ProviderBatchPatchField, keyof Provide
   anthropic_adaptive_thinking: "anthropicAdaptiveThinking",
   preserve_client_ip: "preserveClientIp",
   disable_session_reuse: "disableSessionReuse",
+  reject_streaming_content_length: "rejectStreamingContentLength",
+  reject_streaming_zero_usage: "rejectStreamingZeroUsage",
+  reject_streaming_early_error: "rejectStreamingEarlyError",
   active_time_start: "activeTimeStart",
   active_time_end: "activeTimeEnd",
   group_priorities: "groupPriorities",
@@ -2387,6 +2411,9 @@ export interface BatchUpdateProvidersParams {
     allowed_models?: AllowedModelRuleInput[] | null;
     allowed_clients?: string[];
     blocked_clients?: string[];
+    reject_streaming_content_length?: boolean;
+    reject_streaming_zero_usage?: boolean;
+    reject_streaming_early_error?: boolean;
     limit_5h_usd?: number | null;
     limit_5h_reset_mode?: "fixed" | "rolling";
     limit_daily_usd?: number | null;
@@ -2474,6 +2501,15 @@ export async function batchUpdateProviders(
     }
     if (updates.blocked_clients !== undefined) {
       repositoryUpdates.blockedClients = updates.blocked_clients;
+    }
+    if (updates.reject_streaming_content_length !== undefined) {
+      repositoryUpdates.rejectStreamingContentLength = updates.reject_streaming_content_length;
+    }
+    if (updates.reject_streaming_zero_usage !== undefined) {
+      repositoryUpdates.rejectStreamingZeroUsage = updates.reject_streaming_zero_usage;
+    }
+    if (updates.reject_streaming_early_error !== undefined) {
+      repositoryUpdates.rejectStreamingEarlyError = updates.reject_streaming_early_error;
     }
     if (updates.limit_5h_usd !== undefined) {
       repositoryUpdates.limit5hUsd =

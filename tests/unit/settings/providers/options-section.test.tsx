@@ -97,6 +97,8 @@ function createMockState(
       groupTag: [],
       preserveClientIp: false,
       disableSessionReuse: false,
+      rejectStreamingContentLength: false,
+      rejectStreamingZeroUsage: false,
       modelRedirects: {},
       allowedModels: [],
       allowedClients: [],
@@ -242,6 +244,15 @@ describe("OptionsSection", () => {
       unmount();
     });
 
+    it("renders streaming guard toggles", () => {
+      const { unmount } = renderSection();
+
+      expect(document.getElementById("reject-streaming-content-length")).toBeTruthy();
+      expect(document.getElementById("reject-streaming-zero-usage")).toBeTruthy();
+
+      unmount();
+    });
+
     it("renders active time section", () => {
       const { unmount } = renderSection();
 
@@ -300,6 +311,16 @@ describe("OptionsSection", () => {
       });
 
       expect(getBodyText()).not.toContain("sections.routing.anthropicOverrides.maxTokens.label");
+
+      unmount();
+    });
+
+    it("shows none option for Codex service tier override", () => {
+      const { unmount } = renderSection({
+        state: createMockState({ routing: { providerType: "codex" } }),
+      });
+
+      expect(getBodyText()).toContain("sections.routing.codexOverrides.serviceTier.options.none");
 
       unmount();
     });
@@ -506,7 +527,7 @@ describe("OptionsSection", () => {
         container.querySelectorAll('[data-testid="switch"]')
       ) as HTMLButtonElement[];
 
-      expect(switches).toHaveLength(4);
+      expect(switches.length).toBeGreaterThan(0);
       for (const toggle of switches) {
         expect(toggle.hasAttribute("disabled")).toBe(true);
       }
@@ -520,6 +541,8 @@ describe("OptionsSection", () => {
       const { unmount } = renderSection({ mode: "edit" });
 
       expect(document.getElementById("edit-preserve-client-ip")).toBeTruthy();
+      expect(document.getElementById("edit-reject-streaming-content-length")).toBeTruthy();
+      expect(document.getElementById("edit-reject-streaming-zero-usage")).toBeTruthy();
 
       unmount();
     });

@@ -43,6 +43,9 @@ const PATCH_FIELDS: ProviderBatchPatchField[] = [
   "active_time_end",
   "preserve_client_ip",
   "disable_session_reuse",
+  "reject_streaming_content_length",
+  "reject_streaming_zero_usage",
+  "reject_streaming_early_error",
   "group_priorities",
   "cache_ttl_preference",
   "swap_cache_ttl_billing",
@@ -99,6 +102,9 @@ const CLEARABLE_FIELDS: Record<ProviderBatchPatchField, boolean> = {
   active_time_end: true,
   preserve_client_ip: false,
   disable_session_reuse: false,
+  reject_streaming_content_length: false,
+  reject_streaming_zero_usage: false,
+  reject_streaming_early_error: false,
   group_priorities: true,
   cache_ttl_preference: true,
   swap_cache_ttl_billing: false,
@@ -213,6 +219,9 @@ function isValidSetValue(field: ProviderBatchPatchField, value: unknown): boolea
     case "is_enabled":
     case "preserve_client_ip":
     case "disable_session_reuse":
+    case "reject_streaming_content_length":
+    case "reject_streaming_zero_usage":
+    case "reject_streaming_early_error":
     case "swap_cache_ttl_billing":
     case "proxy_fallback_to_direct":
       return typeof value === "boolean";
@@ -272,6 +281,7 @@ function isValidSetValue(field: ProviderBatchPatchField, value: unknown): boolea
     case "codex_service_tier_preference":
       return (
         value === "inherit" ||
+        value === "none" ||
         value === "auto" ||
         value === "default" ||
         value === "flex" ||
@@ -472,6 +482,24 @@ export function normalizeProviderBatchPatchDraft(
   );
   if (!disableSessionReuse.ok) return disableSessionReuse;
 
+  const rejectStreamingContentLength = normalizePatchField(
+    "reject_streaming_content_length",
+    typedDraft.reject_streaming_content_length
+  );
+  if (!rejectStreamingContentLength.ok) return rejectStreamingContentLength;
+
+  const rejectStreamingZeroUsage = normalizePatchField(
+    "reject_streaming_zero_usage",
+    typedDraft.reject_streaming_zero_usage
+  );
+  if (!rejectStreamingZeroUsage.ok) return rejectStreamingZeroUsage;
+
+  const rejectStreamingEarlyError = normalizePatchField(
+    "reject_streaming_early_error",
+    typedDraft.reject_streaming_early_error
+  );
+  if (!rejectStreamingEarlyError.ok) return rejectStreamingEarlyError;
+
   const groupPriorities = normalizePatchField("group_priorities", typedDraft.group_priorities);
   if (!groupPriorities.ok) return groupPriorities;
 
@@ -654,6 +682,9 @@ export function normalizeProviderBatchPatchDraft(
       active_time_end: activeTimeEnd.data,
       preserve_client_ip: preserveClientIp.data,
       disable_session_reuse: disableSessionReuse.data,
+      reject_streaming_content_length: rejectStreamingContentLength.data,
+      reject_streaming_zero_usage: rejectStreamingZeroUsage.data,
+      reject_streaming_early_error: rejectStreamingEarlyError.data,
       group_priorities: groupPriorities.data,
       cache_ttl_preference: cacheTtlPref.data,
       swap_cache_ttl_billing: swapCacheTtlBilling.data,
@@ -757,6 +788,18 @@ function applyPatchField<T>(
       case "disable_session_reuse":
         updates.disable_session_reuse =
           patch.value as ProviderBatchApplyUpdates["disable_session_reuse"];
+        return { ok: true, data: undefined };
+      case "reject_streaming_content_length":
+        updates.reject_streaming_content_length =
+          patch.value as ProviderBatchApplyUpdates["reject_streaming_content_length"];
+        return { ok: true, data: undefined };
+      case "reject_streaming_zero_usage":
+        updates.reject_streaming_zero_usage =
+          patch.value as ProviderBatchApplyUpdates["reject_streaming_zero_usage"];
+        return { ok: true, data: undefined };
+      case "reject_streaming_early_error":
+        updates.reject_streaming_early_error =
+          patch.value as ProviderBatchApplyUpdates["reject_streaming_early_error"];
         return { ok: true, data: undefined };
       case "group_priorities":
         updates.group_priorities = patch.value as ProviderBatchApplyUpdates["group_priorities"];
@@ -1005,6 +1048,9 @@ export function buildProviderBatchApplyUpdates(
     ["active_time_end", patch.active_time_end],
     ["preserve_client_ip", patch.preserve_client_ip],
     ["disable_session_reuse", patch.disable_session_reuse],
+    ["reject_streaming_content_length", patch.reject_streaming_content_length],
+    ["reject_streaming_zero_usage", patch.reject_streaming_zero_usage],
+    ["reject_streaming_early_error", patch.reject_streaming_early_error],
     ["group_priorities", patch.group_priorities],
     ["cache_ttl_preference", patch.cache_ttl_preference],
     ["swap_cache_ttl_billing", patch.swap_cache_ttl_billing],
@@ -1074,6 +1120,9 @@ export function hasProviderBatchPatchChanges(patch: ProviderBatchPatch): boolean
     patch.active_time_end.mode !== "no_change" ||
     patch.preserve_client_ip.mode !== "no_change" ||
     patch.disable_session_reuse.mode !== "no_change" ||
+    patch.reject_streaming_content_length.mode !== "no_change" ||
+    patch.reject_streaming_zero_usage.mode !== "no_change" ||
+    patch.reject_streaming_early_error.mode !== "no_change" ||
     patch.group_priorities.mode !== "no_change" ||
     patch.cache_ttl_preference.mode !== "no_change" ||
     patch.swap_cache_ttl_billing.mode !== "no_change" ||

@@ -15,6 +15,7 @@ describe("resolveModelAuditDisplay", () => {
     expect(r.secondaryActualModel).toBeNull();
     expect(r.dialogShowsSplitFields).toBe(false);
     expect(r.effectiveRequestModel).toBe("claude-opus-4-7");
+    expect(r.clientReturnedRequestModel).toBe(false);
   });
 
   it("redirect only (originalModel != model, actualResponseModel == model): no mismatch line", () => {
@@ -30,6 +31,8 @@ describe("resolveModelAuditDisplay", () => {
     expect(r.secondaryActualModel).toBeNull();
     expect(r.dialogShowsSplitFields).toBe(false);
     expect(r.effectiveRequestModel).toBe("claude-opus-4-7");
+    // 重定向已对客户端隐藏:客户端收到的是 originalModel
+    expect(r.clientReturnedRequestModel).toBe(true);
   });
 
   it("mismatch only (no redirect): renders secondary line and split fields", () => {
@@ -45,6 +48,8 @@ describe("resolveModelAuditDisplay", () => {
     expect(r.secondaryActualModel).toBe("gpt-4.1-2025-04-14");
     expect(r.dialogShowsSplitFields).toBe(true);
     expect(r.effectiveRequestModel).toBe("gpt-4.1");
+    // 上游返回了不同的模型(无配置重定向):客户端被改回请求模型 -> 记录里应带 %
+    expect(r.clientReturnedRequestModel).toBe(true);
   });
 
   it("triple-difference (originalModel -> model -> actualResponseModel): redirect and mismatch both shown", () => {

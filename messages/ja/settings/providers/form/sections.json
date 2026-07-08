@@ -226,13 +226,14 @@
         }
       },
       "serviceTier": {
-        "help": "Codex（Responses API）リクエストの OpenAI service_tier を制御します。priority は fast モードに相当します。「クライアントに従う」は service_tier を上書きせず、その他の値は強制上書きします。上流が未対応の tier ではエラーになる場合があります。",
+        "help": "Codex（Responses API）リクエストの OpenAI service_tier を制御します。priority は fast モードに相当します。「クライアントに従う」は service_tier を上書きせず、none はリクエスト本文から service_tier を削除し、その他の値は強制上書きします。上流が未対応の tier ではエラーになる場合があります。",
         "label": "Service Tier オーバーライド",
         "options": {
           "auto": "auto（プロジェクト既定）",
           "default": "default（標準）",
           "flex": "flex（ベストエフォート）",
           "inherit": "オーバーライドしない（クライアントに従う）",
+          "none": "none（service_tier を削除）",
           "priority": "priority（fast）"
         }
       },
@@ -389,6 +390,18 @@
     "disableSessionReuse": {
       "label": "セッション再利用をスキップ",
       "desc": "有効にすると、次回リクエストではこのプロバイダーの sticky binding を再利用せず、優先度とヘルスチェックをやり直します。安価な高優先度プロバイダーの復旧後に早く戻したい場合に適しています。"
+    },
+    "rejectStreamingContentLength": {
+      "label": "Content-Length 付きストリームを拒否",
+      "desc": "有効にすると、上流の SSE ストリーム応答に Content-Length ヘッダーが含まれる場合、そのプロバイダーを中断し、503 の失敗として次のプロバイダーを試します。"
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "使用量 0 のストリームを拒否",
+      "desc": "有効にすると、SSE ストリーム内の明示的な使用量フィールドがすべて 0 の場合、完全にバッファしてクライアントへ送る前に中断し、503 の失敗として扱います。使用量がない場合は無視します。"
+    },
+    "rejectStreamingEarlyError": {
+      "label": "ストリーム先頭エラーのフェイルオーバー",
+      "desc": "有効にすると、SSE ストリームの先頭を保持して検査します。実際のコンテンツが出る前に上流がエラーイベントを返した場合、503 失敗としてそのプロバイダを中断し、次のプロバイダにフェイルオーバーします。正常なストリームはコンテンツ開始時に解放されます。"
     },
     "options": {
       "title": "オプション",

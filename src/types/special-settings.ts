@@ -24,6 +24,7 @@ export type SpecialSetting =
   | PricingResolutionSpecialSetting
   | CodexServiceTierResultSpecialSetting
   | ResponseInputRectifierSpecialSetting
+  | KeyStreamUsageAdjustmentSpecialSetting
   | ThinkingSignatureModelDetectionSpecialSetting;
 
 export type SpecialSettingChangeValue = string | number | boolean | null;
@@ -332,6 +333,21 @@ export type ResponseInputRectifierSpecialSetting = {
  * `hit` 仅在 `fallback_no_signature_with_thinking` 时为 true(异常告警语义),
  * 与现有 rectifier hit 语义一致。
  */
+
+export type KeyStreamUsageAdjustmentSpecialSetting = {
+  type: "key_stream_usage_adjustment";
+  scope: "response";
+  hit: boolean;
+  keyId: number | null;
+  probability: number;
+  ratios: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
+  };
+};
+
 export type ThinkingSignatureModelDetectionSpecialSetting = {
   type: "thinking_signature_model_detection";
   scope: "response";

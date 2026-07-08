@@ -656,6 +656,18 @@ export function UserKeyTableRow({
                     expiresAt: key.expiresAt,
                     status: key.status,
                     modelStats: key.modelStats,
+                    softBlockEnabled: key.softBlockEnabled ?? false,
+                    softBlockMessage: key.softBlockMessage ?? null,
+                    streamUsageAdjustmentEnabled: key.streamUsageAdjustmentEnabled ?? false,
+                    streamUsageAdjustmentProbability: key.streamUsageAdjustmentProbability ?? 100,
+                    streamUsageAdjustmentInputTokensRatio:
+                      key.streamUsageAdjustmentInputTokensRatio ?? 100,
+                    streamUsageAdjustmentOutputTokensRatio:
+                      key.streamUsageAdjustmentOutputTokensRatio ?? 100,
+                    streamUsageAdjustmentCacheReadInputTokensRatio:
+                      key.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+                    streamUsageAdjustmentCacheCreationInputTokensRatio:
+                      key.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
                   }}
                   userProviderGroup={user.providerGroup ?? null}
                   isMultiSelectMode={isMultiSelectMode}
@@ -712,6 +724,7 @@ export function UserKeyTableRow({
                 expiresAt: editingKey.expiresAt,
                 canLoginWebUi: editingKey.canLoginWebUi,
                 providerGroup: editingKey.providerGroup ?? null,
+                cacheTtlPreference: editingKey.cacheTtlPreference ?? "inherit",
                 limit5hUsd: editingKey.limit5hUsd,
                 limitDailyUsd: editingKey.limitDailyUsd,
                 dailyResetMode: editingKey.dailyResetMode,
@@ -720,6 +733,19 @@ export function UserKeyTableRow({
                 limitMonthlyUsd: editingKey.limitMonthlyUsd,
                 limitTotalUsd: editingKey.limitTotalUsd,
                 limitConcurrentSessions: editingKey.limitConcurrentSessions,
+                softBlockEnabled: editingKey.softBlockEnabled ?? false,
+                softBlockMessage: editingKey.softBlockMessage ?? null,
+                streamUsageAdjustmentEnabled: editingKey.streamUsageAdjustmentEnabled ?? false,
+                streamUsageAdjustmentProbability:
+                  editingKey.streamUsageAdjustmentProbability ?? 100,
+                streamUsageAdjustmentInputTokensRatio:
+                  editingKey.streamUsageAdjustmentInputTokensRatio ?? 100,
+                streamUsageAdjustmentOutputTokensRatio:
+                  editingKey.streamUsageAdjustmentOutputTokensRatio ?? 100,
+                streamUsageAdjustmentCacheReadInputTokensRatio:
+                  editingKey.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+                streamUsageAdjustmentCacheCreationInputTokensRatio:
+                  editingKey.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
                 costResetAt:
                   typeof editingKey.costResetAt === "string"
                     ? editingKey.costResetAt

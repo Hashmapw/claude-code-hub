@@ -54,6 +54,9 @@ export interface NotificationSettingsState {
   cacheHitRateAlertDropAbs: number;
   cacheHitRateAlertCooldownMinutes: number;
   cacheHitRateAlertTopN: number;
+
+  vipGroupUsageEnabled: boolean;
+  vipGroupUsageCooldownSeconds: number;
 }
 
 export interface WebhookTestResult {
@@ -114,6 +117,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   "daily_leaderboard",
   "cost_alert",
   "cache_hit_rate_alert",
+  "vip_group_usage",
 ];
 
 const INT32_MAX = 2_147_483_647;
@@ -205,6 +209,9 @@ function toClientSettings(raw: any): NotificationSettingsState {
       1440
     ),
     cacheHitRateAlertTopN: toBoundedInt(raw?.cacheHitRateAlertTopN, 10, 1, 100),
+    vipGroupUsageEnabled:
+      raw?.vipGroupUsageEnabled === undefined ? true : Boolean(raw.vipGroupUsageEnabled),
+    vipGroupUsageCooldownSeconds: toBoundedInt(raw?.vipGroupUsageCooldownSeconds, 300, 1, 86400),
   };
 }
 
@@ -218,6 +225,7 @@ export function useNotificationsPageData() {
     daily_leaderboard: [],
     cost_alert: [],
     cache_hit_rate_alert: [],
+    vip_group_usage: [],
   }));
 
   const [isLoading, setIsLoading] = useState(true);
@@ -380,6 +388,16 @@ export function useNotificationsPageData() {
         const nextValue = normalizeIntPatch(patch.cacheHitRateAlertTopN, 1, 100);
         if (nextValue !== undefined) {
           payload.cacheHitRateAlertTopN = nextValue;
+        }
+      }
+
+      if (patch.vipGroupUsageEnabled !== undefined) {
+        payload.vipGroupUsageEnabled = patch.vipGroupUsageEnabled;
+      }
+      if (patch.vipGroupUsageCooldownSeconds !== undefined) {
+        const nextValue = normalizeIntPatch(patch.vipGroupUsageCooldownSeconds, 1, 86400);
+        if (nextValue !== undefined) {
+          payload.vipGroupUsageCooldownSeconds = nextValue;
         }
       }
 

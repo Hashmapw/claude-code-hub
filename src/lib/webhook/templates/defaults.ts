@@ -34,6 +34,17 @@ export const DEFAULT_TEMPLATES = {
     usagePercent: "{{usage_percent}}",
   },
 
+  vip_group_usage: {
+    title: "{{title}}",
+    userId: "{{user_id}}",
+    userName: "{{user_name}}",
+    providerId: "{{provider_id}}",
+    providerName: "{{provider_name}}",
+    providerGroupTag: "{{provider_group_tag}}",
+    model: "{{model}}",
+    sessionId: "{{session_id}}",
+  },
+
   cache_hit_rate_alert: {
     title: "{{title}}",
     windowMode: "{{window_mode}}",
@@ -59,4 +70,5 @@ export const DEFAULT_TEMPLATE_BY_NOTIFICATION_TYPE: Record<
   daily_leaderboard: DEFAULT_TEMPLATES.daily_leaderboard,
   cost_alert: DEFAULT_TEMPLATES.cost_alert,
   cache_hit_rate_alert: DEFAULT_TEMPLATES.cache_hit_rate_alert,
+  vip_group_usage: DEFAULT_TEMPLATES.vip_group_usage,
 };

@@ -91,7 +91,7 @@ describe("login page site title", () => {
     });
   };
 
-  it("reads branding from the public-safe metadata endpoint instead of the admin settings API", async () => {
+  it("reads branding from the public-safe site info endpoint instead of the admin settings API", async () => {
     const requestedPaths: string[] = [];
 
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
@@ -99,7 +99,7 @@ describe("login page site title", () => {
         const path = getRequestPath(input);
         requestedPaths.push(path);
 
-        if (path === "/api/public-site-meta") {
+        if (path === "/api/public/site-info") {
           return Promise.resolve(mockJsonResponse({ siteTitle: "Acme AI Hub" }));
         }
 
@@ -114,7 +114,7 @@ describe("login page site title", () => {
       (heading) => heading.textContent?.trim() || ""
     );
 
-    expect(requestedPaths).toContain("/api/public-site-meta");
+    expect(requestedPaths).toContain("/api/public/site-info");
     expect(requestedPaths).not.toContain("/api/system-settings");
     expect(headings).toContain("Acme AI Hub");
     expect(
@@ -127,7 +127,7 @@ describe("login page site title", () => {
       (input: string | URL | Request) => {
         const path = getRequestPath(input);
 
-        if (path === "/api/public-site-meta") {
+        if (path === "/api/public/site-info") {
           return Promise.resolve(mockJsonResponse({ siteTitle: "   " }));
         }
 

@@ -4161,7 +4161,7 @@ export interface operations {
                      * @description Notification type used for sending a test webhook message.
                      * @enum {string}
                      */
-                    notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                    notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
                 };
             };
         };
@@ -4352,6 +4352,12 @@ export interface operations {
                             preserveClientIp: boolean;
                             /** @description Whether sticky session reuse is disabled. */
                             disableSessionReuse: boolean;
+                            /** @description Whether streaming responses with Content-Length are rejected. */
+                            rejectStreamingContentLength: boolean;
+                            /** @description Whether streaming responses with explicit zero usage are rejected. */
+                            rejectStreamingZeroUsage: boolean;
+                            /** @description Whether streaming responses with an early upstream error event fail over. */
+                            rejectStreamingEarlyError: boolean;
                             /** @description Model redirect rules. */
                             modelRedirects: unknown[] | null;
                             /** @description Scheduled active start time in HH:mm. */
@@ -4666,6 +4672,12 @@ export interface operations {
                     preserve_client_ip?: boolean;
                     /** @description Whether sticky session reuse is disabled. */
                     disable_session_reuse?: boolean;
+                    /** @description Whether streaming responses with Content-Length are rejected. */
+                    reject_streaming_content_length?: boolean;
+                    /** @description Whether streaming responses with explicit zero usage are rejected. */
+                    reject_streaming_zero_usage?: boolean;
+                    /** @description Whether streaming responses with an early upstream error event fail over. */
+                    reject_streaming_early_error?: boolean;
                     /** @description Model redirect rules. */
                     model_redirects?: unknown[] | null;
                     /** @description Scheduled active start time. */
@@ -4817,6 +4829,12 @@ export interface operations {
                         preserveClientIp: boolean;
                         /** @description Whether sticky session reuse is disabled. */
                         disableSessionReuse: boolean;
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        rejectStreamingContentLength: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        rejectStreamingZeroUsage: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        rejectStreamingEarlyError: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -5139,6 +5157,12 @@ export interface operations {
                         preserveClientIp: boolean;
                         /** @description Whether sticky session reuse is disabled. */
                         disableSessionReuse: boolean;
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        rejectStreamingContentLength: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        rejectStreamingZeroUsage: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        rejectStreamingEarlyError: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -5628,6 +5652,12 @@ export interface operations {
                     preserve_client_ip?: boolean;
                     /** @description Whether sticky session reuse is disabled. */
                     disable_session_reuse?: boolean;
+                    /** @description Whether streaming responses with Content-Length are rejected. */
+                    reject_streaming_content_length?: boolean;
+                    /** @description Whether streaming responses with explicit zero usage are rejected. */
+                    reject_streaming_zero_usage?: boolean;
+                    /** @description Whether streaming responses with an early upstream error event fail over. */
+                    reject_streaming_early_error?: boolean;
                     /** @description Model redirect rules. */
                     model_redirects?: unknown[] | null;
                     /** @description Scheduled active start time. */
@@ -5785,6 +5815,12 @@ export interface operations {
                         preserveClientIp: boolean;
                         /** @description Whether sticky session reuse is disabled. */
                         disableSessionReuse: boolean;
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        rejectStreamingContentLength: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        rejectStreamingZeroUsage: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        rejectStreamingEarlyError: boolean;
                         /** @description Model redirect rules. */
                         modelRedirects: unknown[] | null;
                         /** @description Scheduled active start time in HH:mm. */
@@ -7675,6 +7711,12 @@ export interface operations {
                         allowed_clients?: string[];
                         /** @description Blocked client patterns. */
                         blocked_clients?: string[];
+                        /** @description Whether streaming responses with Content-Length are rejected. */
+                        reject_streaming_content_length?: boolean;
+                        /** @description Whether streaming responses with explicit zero usage are rejected. */
+                        reject_streaming_zero_usage?: boolean;
+                        /** @description Whether streaming responses with an early upstream error event fail over. */
+                        reject_streaming_early_error?: boolean;
                         /** @description Five-hour USD limit. */
                         limit_5h_usd?: number | null;
                         /**
@@ -10941,6 +10983,10 @@ export interface operations {
                         cacheHitRateAlertCooldownMinutes: number | null;
                         /** @description Top N cache hit-rate alerts. */
                         cacheHitRateAlertTopN: number | null;
+                        /** @description Whether VIP group usage alerts are enabled. */
+                        vipGroupUsageEnabled: boolean;
+                        /** @description VIP group usage alert cooldown in seconds. */
+                        vipGroupUsageCooldownSeconds: number;
                         /**
                          * Format: date-time
                          * @description Creation time.
@@ -11128,6 +11174,10 @@ export interface operations {
                     cacheHitRateAlertCooldownMinutes?: number | null;
                     /** @description Top N cache hit-rate alerts. */
                     cacheHitRateAlertTopN?: number | null;
+                    /** @description Whether VIP group usage alerts are enabled. */
+                    vipGroupUsageEnabled?: boolean;
+                    /** @description VIP group usage alert cooldown in seconds. */
+                    vipGroupUsageCooldownSeconds?: number;
                 };
             };
         };
@@ -11189,6 +11239,10 @@ export interface operations {
                         cacheHitRateAlertCooldownMinutes: number | null;
                         /** @description Top N cache hit-rate alerts. */
                         cacheHitRateAlertTopN: number | null;
+                        /** @description Whether VIP group usage alerts are enabled. */
+                        vipGroupUsageEnabled: boolean;
+                        /** @description VIP group usage alert cooldown in seconds. */
+                        vipGroupUsageCooldownSeconds: number;
                         /**
                          * Format: date-time
                          * @description Creation time.
@@ -11337,7 +11391,7 @@ export interface operations {
                      * @description Notification job type.
                      * @enum {string}
                      */
-                    type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                    type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
                 };
             };
         };
@@ -11475,7 +11529,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Notification job type. */
-                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
             };
             cookie?: never;
         };
@@ -11496,7 +11550,7 @@ export interface operations {
                              * @description Notification job type.
                              * @enum {string}
                              */
-                            notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                            notificationType: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
                             /** @description Webhook target id. */
                             targetId: number;
                             /** @description Whether this binding is enabled. */
@@ -11698,7 +11752,7 @@ export interface operations {
             };
             path: {
                 /** @description Notification job type. */
-                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert";
+                type: "circuit_breaker" | "daily_leaderboard" | "cost_alert" | "cache_hit_rate_alert" | "vip_group_usage";
             };
             cookie?: never;
         };
@@ -32892,6 +32946,10 @@ export interface operations {
                     isEnabled?: boolean;
                     /** @description Whether this key can login to the Web UI. */
                     canLoginWebUi?: boolean;
+                    /** @description Whether to temporarily soft-block this key via Redis. */
+                    softBlockEnabled?: boolean;
+                    /** @description Optional soft-block message returned to clients. */
+                    softBlockMessage?: string | null;
                     /** @description Five-hour USD quota. */
                     limit5hUsd?: number | null;
                     /**
@@ -32923,6 +32981,18 @@ export interface operations {
                      * @enum {string}
                      */
                     cacheTtlPreference?: "inherit" | "5m" | "1h";
+                    /** @description Whether streaming usage token rewriting is enabled for this key. */
+                    streamUsageAdjustmentEnabled?: boolean;
+                    /** @description Request-level hit probability in percent. */
+                    streamUsageAdjustmentProbability?: number;
+                    /** @description input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentInputTokensRatio?: number;
+                    /** @description output_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentOutputTokensRatio?: number;
+                    /** @description cache_read_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+                    /** @description cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
                 };
             };
         };
@@ -33109,6 +33179,10 @@ export interface operations {
                     isEnabled?: boolean;
                     /** @description Whether this key can login to the Web UI. */
                     canLoginWebUi?: boolean;
+                    /** @description Whether to temporarily soft-block this key via Redis. */
+                    softBlockEnabled?: boolean;
+                    /** @description Optional soft-block message returned to clients. */
+                    softBlockMessage?: string | null;
                     /** @description Five-hour USD quota. */
                     limit5hUsd?: number | null;
                     /**
@@ -33140,6 +33214,18 @@ export interface operations {
                      * @enum {string}
                      */
                     cacheTtlPreference?: "inherit" | "5m" | "1h";
+                    /** @description Whether streaming usage token rewriting is enabled for this key. */
+                    streamUsageAdjustmentEnabled?: boolean;
+                    /** @description Request-level hit probability in percent. */
+                    streamUsageAdjustmentProbability?: number;
+                    /** @description input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentInputTokensRatio?: number;
+                    /** @description output_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentOutputTokensRatio?: number;
+                    /** @description cache_read_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+                    /** @description cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
                 };
             };
         };
@@ -34216,6 +34302,10 @@ export interface operations {
                     isEnabled?: boolean;
                     /** @description Whether this key can login to the Web UI. */
                     canLoginWebUi?: boolean;
+                    /** @description Whether to temporarily soft-block this key via Redis. */
+                    softBlockEnabled?: boolean;
+                    /** @description Optional soft-block message returned to clients. */
+                    softBlockMessage?: string | null;
                     /** @description Five-hour USD quota. */
                     limit5hUsd?: number | null;
                     /**
@@ -34247,6 +34337,18 @@ export interface operations {
                      * @enum {string}
                      */
                     cacheTtlPreference?: "inherit" | "5m" | "1h";
+                    /** @description Whether streaming usage token rewriting is enabled for this key. */
+                    streamUsageAdjustmentEnabled?: boolean;
+                    /** @description Request-level hit probability in percent. */
+                    streamUsageAdjustmentProbability?: number;
+                    /** @description input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentInputTokensRatio?: number;
+                    /** @description output_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentOutputTokensRatio?: number;
+                    /** @description cache_read_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+                    /** @description cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged. */
+                    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
                 };
             };
         };

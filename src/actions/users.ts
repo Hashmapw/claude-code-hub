@@ -9,6 +9,7 @@ import { messageRequest, usageLedger, users as usersTable } from "@/drizzle/sche
 import { emitActionAudit } from "@/lib/audit/emit";
 import { getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
+import { getKeySoftBlockConfigs, type KeySoftBlockConfig } from "@/lib/key-soft-block-store";
 import { logger } from "@/lib/logger";
 import { getUnauthorizedFields } from "@/lib/permissions/user-field-permissions";
 import { clipStartByResetAt, resolveUser5hCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
@@ -185,6 +186,33 @@ function canExposeFullKey(
   return session.key.canLoginWebUi && (isAdmin || session.user.id === targetUser.id);
 }
 
+function attachSoftBlockConfigs(
+  users: UserDisplay[],
+  configMap: Map<number, KeySoftBlockConfig>
+): UserDisplay[] {
+  return users.map((user) => ({
+    ...user,
+    keys: user.keys.map((key) => {
+      const config = configMap.get(key.id);
+      return {
+        ...key,
+        softBlockEnabled: config?.enabled ?? false,
+        softBlockMessage: config?.message ?? null,
+      };
+    }),
+  }));
+}
+
+async function attachRuntimeKeyConfig(users: UserDisplay[]): Promise<UserDisplay[]> {
+  const keyIds = users.flatMap((user) => user.keys.map((key) => key.id));
+  if (keyIds.length === 0) {
+    return users;
+  }
+
+  const softBlockConfigMap = await getKeySoftBlockConfigs(keyIds);
+  return attachSoftBlockConfigs(users, softBlockConfigMap);
+}
+
 async function buildUserDisplays(
   users: User[],
   session: UserActionSession,
@@ -203,7 +231,7 @@ async function buildUserDisplays(
   ]);
   const statisticsMap = await findKeysStatisticsBatchFromKeys(keysMap);
 
-  return users.map((user) => {
+  const userDisplays: UserDisplay[] = users.map((user) => {
     try {
       const keys = keysMap.get(user.id) || [];
       const usageRecords = usageMap.get(user.id) || [];
@@ -252,7 +280,7 @@ async function buildUserDisplays(
             expiresAt: key.expiresAt
               ? key.expiresAt.toISOString().split("T")[0]
               : t("neverExpires"),
-            status: key.isEnabled ? "enabled" : ("disabled" as const),
+            status: key.isEnabled ? ("enabled" as const) : ("disabled" as const),
             createdAt: key.createdAt,
             createdAtFormatted: key.createdAt.toLocaleString(locale, {
               year: "numeric",
@@ -280,6 +308,17 @@ async function buildUserDisplays(
             limitConcurrentSessions: key.limitConcurrentSessions || 0,
             costResetAt: key.costResetAt?.toISOString() ?? null,
             providerGroup: key.providerGroup,
+            cacheTtlPreference: key.cacheTtlPreference ?? "inherit",
+            streamUsageAdjustmentEnabled: key.streamUsageAdjustment?.enabled ?? false,
+            streamUsageAdjustmentProbability: key.streamUsageAdjustment?.probability ?? 100,
+            streamUsageAdjustmentInputTokensRatio:
+              key.streamUsageAdjustment?.inputTokensRatio ?? 100,
+            streamUsageAdjustmentOutputTokensRatio:
+              key.streamUsageAdjustment?.outputTokensRatio ?? 100,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              key.streamUsageAdjustment?.cacheReadInputTokensRatio ?? 100,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              key.streamUsageAdjustment?.cacheCreationInputTokensRatio ?? 100,
           };
         }),
       };
@@ -312,6 +351,8 @@ async function buildUserDisplays(
       };
     }
   });
+
+  return attachRuntimeKeyConfig(userDisplays);
 }
 
 /**
@@ -783,7 +824,7 @@ export async function getUsersBatch(
               expiresAt: key.expiresAt
                 ? key.expiresAt.toISOString().split("T")[0]
                 : t("neverExpires"),
-              status: key.isEnabled ? "enabled" : ("disabled" as const),
+              status: key.isEnabled ? ("enabled" as const) : ("disabled" as const),
               createdAt: key.createdAt,
               createdAtFormatted: key.createdAt.toLocaleString(locale, {
                 year: "numeric",
@@ -844,7 +885,9 @@ export async function getUsersBatch(
       }
     });
 
-    return { ok: true, data: { users: userDisplays, nextCursor, hasMore } };
+    const usersWithRuntimeConfig = await attachRuntimeKeyConfig(userDisplays);
+
+    return { ok: true, data: { users: usersWithRuntimeConfig, nextCursor, hasMore } };
   } catch (error) {
     logger.error("Failed to fetch user batch data:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch user batch data";
@@ -928,7 +971,7 @@ export async function getUsersBatchCore(
           canReveal: canUserManageKey,
           canCopy: canUserManageKey,
           expiresAt: key.expiresAt ? key.expiresAt.toISOString().split("T")[0] : t("neverExpires"),
-          status: key.isEnabled ? "enabled" : ("disabled" as const),
+          status: key.isEnabled ? ("enabled" as const) : ("disabled" as const),
           createdAt: key.createdAt,
           createdAtFormatted: key.createdAt.toLocaleString(locale, {
             year: "numeric",
@@ -956,14 +999,26 @@ export async function getUsersBatchCore(
           limitConcurrentSessions: key.limitConcurrentSessions || 0,
           costResetAt: key.costResetAt?.toISOString() ?? null,
           providerGroup: key.providerGroup,
+          cacheTtlPreference: key.cacheTtlPreference ?? "inherit",
+          streamUsageAdjustmentEnabled: key.streamUsageAdjustment?.enabled ?? false,
+          streamUsageAdjustmentProbability: key.streamUsageAdjustment?.probability ?? 100,
+          streamUsageAdjustmentInputTokensRatio: key.streamUsageAdjustment?.inputTokensRatio ?? 100,
+          streamUsageAdjustmentOutputTokensRatio:
+            key.streamUsageAdjustment?.outputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheReadInputTokensRatio:
+            key.streamUsageAdjustment?.cacheReadInputTokensRatio ?? 100,
+          streamUsageAdjustmentCacheCreationInputTokensRatio:
+            key.streamUsageAdjustment?.cacheCreationInputTokensRatio ?? 100,
         })),
       };
     });
 
+    const userDisplaysWithRuntimeConfig = await attachRuntimeKeyConfig(userDisplays);
+
     return {
       ok: true,
       data: {
-        users: userDisplays.map(toActionTransportUserDisplay),
+        users: userDisplaysWithRuntimeConfig.map(toActionTransportUserDisplay),
         nextCursor,
         hasMore,
       },

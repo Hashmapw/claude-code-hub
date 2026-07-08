@@ -855,7 +855,7 @@ print_success_message() {
             if [[ -n "$np" ]]; then
                 url="http://${node_ip}:${np}"
             else
-                url="(kubectl port-forward svc/claude-code-hub -n $NAMESPACE 13500:80)"
+                url="(kubectl port-forward svc/claude-code-hub -n $NAMESPACE 3000:80)"
             fi
             ;;
     esac

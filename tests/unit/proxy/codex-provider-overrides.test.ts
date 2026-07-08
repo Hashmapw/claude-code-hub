@@ -343,6 +343,25 @@ describe("Codex 供应商级参数覆写", () => {
     expect(input.service_tier).toBe("default");
   });
 
+  it("当 service_tier 偏好为 none 时，应删除顶层 service_tier 字段", () => {
+    const provider = {
+      providerType: "codex",
+      codexServiceTierPreference: "none",
+    };
+
+    const input: Record<string, unknown> = {
+      model: "gpt-5.5",
+      input: [],
+      service_tier: "priority",
+    };
+
+    const output = applyCodexProviderOverrides(provider as any, input);
+
+    expect(output).not.toBe(input);
+    expect(output).not.toHaveProperty("service_tier");
+    expect(input.service_tier).toBe("priority");
+  });
+
   it("审计：当 providerType 不是 codex 时，应返回 audit=null 且保持引用不变", () => {
     const provider = {
       id: 123,
@@ -481,6 +500,33 @@ describe("Codex 供应商级参数覆写", () => {
       before: "priority",
       after: "priority",
       changed: false,
+    });
+  });
+
+  it("审计：当 service_tier 偏好为 none 时，应记录删除 service_tier", () => {
+    const provider = {
+      id: 3,
+      name: "codex-provider",
+      providerType: "codex",
+      codexServiceTierPreference: "none",
+    };
+
+    const input: Record<string, unknown> = {
+      model: "gpt-5.5",
+      input: [],
+      service_tier: "priority",
+    };
+
+    const result = applyCodexProviderOverridesWithAudit(provider as any, input);
+
+    expect(result.request).not.toHaveProperty("service_tier");
+    expect(result.audit?.hit).toBe(true);
+    expect(result.audit?.changed).toBe(true);
+    expect(result.audit?.changes).toContainEqual({
+      path: "service_tier",
+      before: "priority",
+      after: null,
+      changed: true,
     });
   });
 });

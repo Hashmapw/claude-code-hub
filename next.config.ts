@@ -1,11 +1,93 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+const PROJECT_ROOT = __dirname;
+
+const SII_PROXY_DISABLED_VALUES = new Set(["0", "false", "no", "off", "disabled"]);
+
+function isSiiProxySupportEnabled(): boolean {
+  const rawValue = process.env.SII_PROXY_SUPPORT ?? process.env.NEXT_PUBLIC_SII_PROXY_SUPPORT;
+  if (rawValue === undefined || rawValue === null || rawValue === "") {
+    return true;
+  }
+
+  return !SII_PROXY_DISABLED_VALUES.has(rawValue.trim().toLowerCase());
+}
+
+function collapseDuplicatedLeadingProxyPrefix(path: string): string {
+  let current = path;
+  for (let i = 0; i < 8; i++) {
+    if (!current.startsWith("/proxy/")) {
+      return current;
+    }
+
+    const firstProxyMatch = current.match(/^\/proxy\/(\d+)(?:\/|$)/);
+    const firstPort = firstProxyMatch?.[1];
+    if (!firstPort) {
+      return current;
+    }
+
+    const firstPrefix = `/proxy/${firstPort}`;
+    const rest = current.slice(firstPrefix.length);
+    if (!rest.startsWith("/")) {
+      return current;
+    }
+
+    if (/^\/ws-[^/]+(?:\/|$)/.test(rest)) {
+      current = rest;
+      continue;
+    }
+
+    const repeatedPattern = new RegExp(`/proxy/${firstPort}(?:/|$)`, "g");
+    const repeatedMatches = [...current.matchAll(repeatedPattern)];
+    if (repeatedMatches.length >= 2) {
+      current = rest;
+      continue;
+    }
+
+    return current;
+  }
+
+  return current;
+}
+
+function getAssetPrefix(): string | undefined {
+  if (!isSiiProxySupportEnabled()) {
+    return undefined;
+  }
+
+  const proxyUri = process.env.VSCODE_PROXY_URI || process.env.vscode_proxy_uri;
+  if (!proxyUri) {
+    return undefined;
+  }
+
+  const port = process.env.PORT || "3000";
+  const resolvedUri = proxyUri.replaceAll("{{port}}", port);
+
+  try {
+    const url = new URL(resolvedUri);
+    const pathname = collapseDuplicatedLeadingProxyPrefix(url.pathname.replace(/\/+$/, ""));
+    return pathname || undefined;
+  } catch {
+    const pathname = resolvedUri.startsWith("/")
+      ? resolvedUri
+      : new URL(resolvedUri, "http://localhost").pathname;
+    const normalized = collapseDuplicatedLeadingProxyPrefix(pathname.replace(/\/+$/, ""));
+    return normalized || undefined;
+  }
+}
+
 // Create next-intl plugin with i18n request configuration
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingRoot: PROJECT_ROOT,
+  assetPrefix: getAssetPrefix(),
+
+  turbopack: {
+    root: PROJECT_ROOT,
+  },
 
   // 转译 ESM 模块（@lobehub/icons 需要）
   transpilePackages: ["@lobehub/icons"],
@@ -21,6 +103,9 @@ const nextConfig: NextConfig = {
     "ioredis",
     "postgres",
     "drizzle-orm",
+    "@langfuse/otel",
+    "@langfuse/tracing",
+    "@opentelemetry/sdk-node",
   ],
 
   // 强制包含 undici 和 fetch-socks 到 standalone 输出

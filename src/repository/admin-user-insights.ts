@@ -6,6 +6,7 @@ import { providers, usageLedger } from "@/drizzle/schema";
 import { Decimal, toCostDecimal } from "@/lib/utils/currency";
 import { resolveSystemTimezone } from "@/lib/utils/timezone";
 import { LEDGER_BILLING_CONDITION } from "./_shared/ledger-conditions";
+import { buildLedgerBillingModelField } from "./_shared/usage-model-field";
 import { getSystemSettings } from "./system-config";
 
 export interface UserInsightsOverviewMetrics {
@@ -113,10 +114,7 @@ export async function getUserModelBreakdown(
   const systemSettings = await getSystemSettings();
   const billingModelSource = systemSettings.billingModelSource;
 
-  const rawModelField =
-    billingModelSource === "original"
-      ? sql<string>`COALESCE(${usageLedger.originalModel}, ${usageLedger.model})`
-      : sql<string>`COALESCE(${usageLedger.model}, ${usageLedger.originalModel})`;
+  const rawModelField = buildLedgerBillingModelField(billingModelSource);
   const modelField = sql<string>`NULLIF(TRIM(${rawModelField}), '')`;
 
   const conditions = [
@@ -163,6 +161,8 @@ export async function getUserProviderBreakdown(
   endDate?: string,
   filters?: { keyId?: number; model?: string }
 ): Promise<AdminUserProviderBreakdownItem[]> {
+  const systemSettings = await getSystemSettings();
+  const billingModelField = buildLedgerBillingModelField(systemSettings.billingModelSource);
   const conditions = [
     LEDGER_BILLING_CONDITION,
     eq(usageLedger.userId, userId),
@@ -176,9 +176,7 @@ export async function getUserProviderBreakdown(
   }
 
   if (filters?.model) {
-    conditions.push(
-      sql`(${usageLedger.model} ILIKE ${filters.model} OR ${usageLedger.originalModel} ILIKE ${filters.model})`
-    );
+    conditions.push(sql`${billingModelField} ILIKE ${filters.model}`);
   }
 
   const rows = await db

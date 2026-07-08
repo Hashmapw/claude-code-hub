@@ -226,13 +226,14 @@
         }
       },
       "serviceTier": {
-        "help": "控制 Codex（Responses API）請求的 OpenAI service_tier。priority 對應 fast 模式；「跟隨客戶端」不改寫 service_tier，其他值會強制覆寫。若上游不支援所選檔位，可能返回錯誤。",
+        "help": "控制 Codex（Responses API）請求的 OpenAI service_tier。priority 對應 fast 模式；「跟隨客戶端」不改寫 service_tier；選擇 none 會從請求體刪除 service_tier；其他值會強制覆寫。若上游不支援所選檔位，可能返回錯誤。",
         "label": "Service Tier 覆寫",
         "options": {
           "auto": "auto（專案預設）",
           "default": "default（標準檔）",
           "flex": "flex（彈性）",
           "inherit": "不覆寫（跟隨客戶端）",
+          "none": "none（刪除 service_tier）",
           "priority": "priority（fast）"
         }
       },
@@ -389,6 +390,18 @@
     "disableSessionReuse": {
       "label": "不遵循 Session 復用",
       "desc": "啟用後，下次請求不會繼續復用目前供應商的 sticky 綁定，而會重新走優先級與健康檢查。適合高優先級便宜通道恢復後盡快切回的場景。"
+    },
+    "rejectStreamingContentLength": {
+      "label": "拒絕帶 Content-Length 的串流回應",
+      "desc": "啟用後，上游 SSE 串流回應只要包含 Content-Length 回應標頭，就中斷該供應商並按 503 失敗切換到後續供應商。"
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "拒絕 0 用量的串流回應",
+      "desc": "啟用後，如果 SSE 串流中明確回傳的用量欄位全為 0，會先快取完整串流並在送給用戶端前中斷該供應商，按 503 失敗切換。未回傳用量不會觸發。"
+    },
+    "rejectStreamingEarlyError": {
+      "label": "串流首包錯誤故障轉移",
+      "desc": "開啟後，先扣住並探測 SSE 串流頭部；若在出現任何真實內容之前上游回傳錯誤事件，按 503 失敗中斷該供應商並切換到後續供應商；正常出內容則立即放行透傳。"
     },
     "options": {
       "title": "選項",

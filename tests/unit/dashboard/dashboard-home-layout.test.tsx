@@ -24,17 +24,17 @@ vi.mock("@/i18n/routing", () => ({
 const overviewMocks = vi.hoisted(() => ({
   getOverviewData: vi.fn(),
 }));
-vi.mock("@/actions/overview", () => overviewMocks);
+vi.mock("@/lib/api-client/v1/actions/overview", () => overviewMocks);
 
 const activeSessionsMocks = vi.hoisted(() => ({
   getActiveSessions: vi.fn(),
 }));
-vi.mock("@/actions/active-sessions", () => activeSessionsMocks);
+vi.mock("@/lib/api-client/v1/actions/active-sessions", () => activeSessionsMocks);
 
 const statisticsMocks = vi.hoisted(() => ({
   getUserStatistics: vi.fn(),
 }));
-vi.mock("@/actions/statistics", () => statisticsMocks);
+vi.mock("@/lib/api-client/v1/actions/statistics", () => statisticsMocks);
 
 vi.mock("@/app/[locale]/dashboard/_components/bento/live-sessions-panel", () => ({
   LiveSessionsPanel: () => <div data-testid="live-sessions-panel" />,
@@ -212,6 +212,7 @@ describe("DashboardBento admin layout", () => {
         allowGlobalUsageView={false}
         enableHighConcurrencyMode={true}
         initialStatistics={mockStatisticsData}
+        initialOverview={mockOverviewData}
       />
     );
     await flushPromises();
@@ -239,6 +240,7 @@ describe("DashboardBento admin layout", () => {
         allowGlobalUsageView={false}
         enableHighConcurrencyMode={false}
         initialStatistics={mockStatisticsData}
+        initialOverview={mockOverviewData}
       />
     );
     await flushPromises();

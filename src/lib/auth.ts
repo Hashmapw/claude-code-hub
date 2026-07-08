@@ -226,6 +226,7 @@ export async function validateKey(
       limitMonthlyUsd: null,
       limitConcurrentSessions: 0,
       cacheTtlPreference: null,
+      streamUsageAdjustment: null,
       createdAt: now,
       updatedAt: now,
     };

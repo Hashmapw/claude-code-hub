@@ -160,5 +160,12 @@
     "placeholders": "Placeholders",
     "title": "Template (JSON)"
   },
-  "title": "Push Notifications"
+  "title": "Push Notifications",
+  "vipGroupUsage": {
+    "title": "VIP high-cost group alert",
+    "description": "Send an alert when a request uses a provider in the VIP group for high-cost route auditing.",
+    "enable": "Enable VIP group usage alerts",
+    "cooldownSeconds": "Cooldown (seconds)",
+    "cooldownHelp": "The same provider and session are alerted only once within the cooldown window. Default is 300 seconds."
+  }
 }

@@ -60,6 +60,7 @@ function render(node: ReactNode) {
 
   return {
     container,
+    queryClient,
     unmount: () => {
       act(() => root.unmount());
       container.remove();
@@ -132,6 +133,63 @@ describe("EditKeyForm: 清除 expiresAt 后应携带 expiresAt 字段提交（�
     const [, payload] = call;
 
     expect("expiresAt" in payload).toBe(true);
+
+    unmount();
+  });
+
+  test("保存流式 usage token 改写后应刷新 users 查询，避免重新打开使用旧数据", async () => {
+    const messages = loadMessages();
+
+    const { queryClient, unmount } = render(
+      <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
+        <Dialog open onOpenChange={() => {}}>
+          <EditKeyForm
+            keyData={{ id: 1, name: "k", expiresAt: "" }}
+            user={{
+              id: 10,
+              name: "u",
+              description: "",
+              role: "user",
+              rpm: null,
+              dailyQuota: null,
+              providerGroup: "default",
+              tags: [],
+              dailyResetMode: "fixed",
+              dailyResetTime: "00:00",
+              isEnabled: true,
+              expiresAt: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }}
+            isAdmin
+          />
+        </Dialog>
+      </NextIntlClientProvider>
+    );
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const streamUsageSwitch = document.getElementById("edit-key-stream-usage-adjustment");
+    expect(streamUsageSwitch).toBeTruthy();
+
+    await act(async () => {
+      streamUsageSwitch?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const submit = document.body.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    expect(submit).toBeTruthy();
+
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(keysActionMocks.editKey).toHaveBeenCalledTimes(1);
+    const call = keysActionMocks.editKey.mock.calls[0] as unknown as [number, any];
+    const [, payload] = call;
+
+    expect(payload.streamUsageAdjustmentEnabled).toBe(true);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["users"] });
 
     unmount();
   });

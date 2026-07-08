@@ -20,6 +20,14 @@ export interface ModelAuditDisplay {
   dialogShowsSplitFields: boolean;
   /** 详情面板"请求模型"行要用的值(即 model,回退到 originalModel) */
   effectiveRequestModel: string | null;
+  /**
+   * 客户端是否收到了"请求的原始模型名"(即代理已把发回客户端的响应体 model 改回请求模型)。
+   *
+   * 代理现在对所有请求都会把客户端可见的 model 改回请求模型,因此只要"真实响应模型与请求模型不一致"
+   * (hasActualMismatch),或发生了配置重定向(hasRedirect),客户端看到的就和真实模型不同 —— 据此在
+   * 使用记录里给"真实响应模型"加上 `%` 标记。
+   */
+  clientReturnedRequestModel: boolean;
 }
 
 /**
@@ -55,5 +63,6 @@ export function resolveModelAuditDisplay(input: ModelAuditDisplayInput): ModelAu
     secondaryActualModel: hasActualMismatch ? input.actualResponseModel : null,
     dialogShowsSplitFields: hasActualMismatch,
     effectiveRequestModel,
+    clientReturnedRequestModel: hasActualMismatch || hasRedirect,
   };
 }

@@ -17,7 +17,7 @@ curl -i -sS \\
   -H "Authorization: Bearer <your-key>" \\
   -H "Content-Type: application/json" \\
   -d '{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"hi"}]}' \\
-  http://localhost:13500/v1/chat/completions
+  http://localhost:3000/v1/chat/completions
 ```
 
 In the response:

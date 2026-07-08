@@ -83,6 +83,14 @@ function filters(n: number): RequestFilter[] {
   return Array.from({ length: n }, () => buildFilter());
 }
 
+async function waitForPendingLoad(getResolver: () => unknown): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (getResolver()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("Timed out waiting for request filter reload to start");
+}
+
 describe("RequestFilterEngine reload queue", () => {
   afterEach(() => {
     vi.resetModules();
@@ -118,7 +126,7 @@ describe("RequestFilterEngine reload queue", () => {
 
     // Let the dynamic import inside reload() settle so load #1 actually calls
     // getActiveRequestFilters (assigning resolveFirstLoad) before we resolve it.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitForPendingLoad(() => resolveFirstLoad);
     resolveFirstLoad?.(filters(1));
     await Promise.all([firstReload, secondReload]);
 
@@ -147,11 +155,11 @@ describe("RequestFilterEngine reload queue", () => {
     const firstReload = requestFilterEngine.reload();
     mocks.eventEmitter.emit("requestFiltersUpdated");
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitForPendingLoad(() => resolveFirstLoad);
     resolveFirstLoad?.(filters(1));
     await firstReload;
     // Let the queued rerun (kicked by the event handler) settle.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitForPendingLoad(() => mocks.getActiveRequestFilters.mock.calls.length >= 2);
 
     expect(mocks.getActiveRequestFilters).toHaveBeenCalledTimes(2);
     expect(requestFilterEngine.getStats().count).toBe(3);
@@ -180,7 +188,7 @@ describe("RequestFilterEngine reload queue", () => {
     // Action's awaited reload races in while the first is still loading.
     const awaitedReload = requestFilterEngine.reload();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitForPendingLoad(() => resolveFirstLoad);
     resolveFirstLoad?.(filters(1));
     await awaitedReload;
 

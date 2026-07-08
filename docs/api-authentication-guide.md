@@ -44,10 +44,10 @@ Cookie 认证的写操作需要 CSRF 保护：先调用 `GET /api/v1/auth/csrf`�
 Cookie 写操作示例：
 
 ```bash
-csrf_token="$(curl -s 'http://localhost:13500/api/v1/auth/csrf' \
+csrf_token="$(curl -s 'http://localhost:3000/api/v1/auth/csrf' \
   -b 'auth-token=your-session-token' | jq -r '.csrfToken')"
 
-curl -X PATCH 'http://localhost:13500/api/v1/users/1' \
+curl -X PATCH 'http://localhost:3000/api/v1/users/1' \
   -H 'Content-Type: application/json' \
   -H "X-CCH-CSRF: ${csrf_token}" \
   -b 'auth-token=your-session-token' \
@@ -82,14 +82,14 @@ console.log(user);
 适合脚本、CLI 和服务端 SDK。
 
 ```bash
-curl 'http://localhost:13500/api/v1/users?limit=20' \
+curl 'http://localhost:3000/api/v1/users?limit=20' \
   -H 'Authorization: Bearer your-session-or-admin-token'
 ```
 
 Node.js 示例：
 
 ```javascript
-const response = await fetch("http://localhost:13500/api/v1/users?limit=20", {
+const response = await fetch("http://localhost:3000/api/v1/users?limit=20", {
   headers: {
     Authorization: `Bearer ${process.env.CCH_TOKEN}`,
   },
@@ -109,7 +109,7 @@ console.log(page.users ?? page.items ?? page);
 适合第三方工具读取自身范围内的数据。
 
 ```bash
-curl 'http://localhost:13500/api/v1/me/quota' \
+curl 'http://localhost:3000/api/v1/me/quota' \
   -H 'X-Api-Key: your-user-api-key'
 ```
 

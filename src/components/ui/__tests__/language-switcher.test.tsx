@@ -131,11 +131,19 @@ describe("LanguageSwitcher", () => {
   });
 
   test("keeps the pending refresh after remount when sessionStorage is blocked", () => {
-    // happy-dom 的 sessionStorage 是 Proxy 且原型并非全局 Storage,
-    // 实例级 spy 会被当成存储项写入而不生效,需在实际原型上拦截 setItem
-    const storagePrototype = Object.getPrototypeOf(window.sessionStorage) as Storage;
-    const setItemSpy = vi.spyOn(storagePrototype, "setItem").mockImplementation(() => {
-      throw new Error("blocked storage");
+    // happy-dom 的 sessionStorage 暴露为代理对象,直接 spy 实例或原型都可能绕过真实调用路径。
+    // 这里替换 window.sessionStorage getter 的返回值,稳定模拟浏览器阻止持久化的场景。
+    const originalSessionStorage = window.sessionStorage;
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: {
+        getItem: originalSessionStorage.getItem.bind(originalSessionStorage),
+        setItem: vi.fn(() => {
+          throw new Error("blocked storage");
+        }),
+        removeItem: originalSessionStorage.removeItem.bind(originalSessionStorage),
+        clear: originalSessionStorage.clear.bind(originalSessionStorage),
+      },
     });
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -157,7 +165,10 @@ describe("LanguageSwitcher", () => {
 
     view.unmount();
     view = null;
-    setItemSpy.mockRestore();
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: originalSessionStorage,
+    });
 
     testState.currentLocale = "en";
     view = render(<LanguageSwitcher />);

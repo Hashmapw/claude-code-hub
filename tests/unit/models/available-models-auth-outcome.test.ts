@@ -8,7 +8,9 @@
  * covers the same matrix on the proxy auth guard.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const getKeySoftBlockConfig = vi.hoisted(() => vi.fn());
 
 vi.mock("@/repository/key", () => ({
   resolveApiKeyAuthOutcome: vi.fn(),
@@ -32,6 +34,10 @@ vi.mock("@/app/v1/_lib/proxy/provider-selector", () => ({
 
 vi.mock("@/repository/provider", () => ({
   findAllProviders: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/key-soft-block-store", () => ({
+  getKeySoftBlockConfig,
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -81,7 +87,10 @@ async function callAuthAndCaptureResponse(ctx: ReturnType<typeof makeContext>): 
   // Because the auth helper throws the c.json response, we catch and inspect.
   const { handleAvailableModels } = await import("@/app/v1/_lib/models/available-models");
   try {
-    await handleAvailableModels(ctx as never);
+    const response = await handleAvailableModels(ctx as never);
+    if (response instanceof Response) {
+      return response;
+    }
   } catch (thrown) {
     if (thrown instanceof Response) {
       return thrown;
@@ -103,6 +112,10 @@ async function readErrorBody(response: Response) {
 }
 
 describe("handleAvailableModels auth outcomes", () => {
+  beforeEach(() => {
+    getKeySoftBlockConfig.mockResolvedValue({ enabled: false, message: null });
+  });
+
   it("returns 401 key_disabled for a disabled key", async () => {
     const { resolveApiKeyAuthOutcome } = await import("@/repository/key");
     vi.mocked(resolveApiKeyAuthOutcome).mockResolvedValueOnce({
@@ -177,5 +190,26 @@ describe("handleAvailableModels auth outcomes", () => {
     expect(response.status).toBe(401);
     const error = await readErrorBody(response);
     expect(error.type).toBe("user_expired");
+  });
+
+  it("returns 401 user_disabled for a soft-blocked API key after auth succeeds", async () => {
+    const { resolveApiKeyAuthOutcome } = await import("@/repository/key");
+    vi.mocked(resolveApiKeyAuthOutcome).mockResolvedValueOnce({
+      ok: true,
+      user: { id: 44, providerGroup: null, isEnabled: true, expiresAt: null },
+      key: { id: 100, providerGroup: null, name: "soft-blocked-key" },
+    } as never);
+    getKeySoftBlockConfig.mockResolvedValueOnce({
+      enabled: true,
+      message: "temporary key block",
+    });
+
+    const response = await callAuthAndCaptureResponse(makeContext("sk-soft-blocked"));
+
+    expect(response.status).toBe(401);
+    const error = await readErrorBody(response);
+    expect(error.type).toBe("user_disabled");
+    expect(error.message).toBe("temporary key block");
+    expect(getKeySoftBlockConfig).toHaveBeenCalledWith(100);
   });
 });

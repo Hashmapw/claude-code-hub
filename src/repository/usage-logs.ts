@@ -11,6 +11,7 @@ import { buildUnifiedSpecialSettings } from "@/lib/utils/special-settings";
 import type { HedgeLoserBilling, StoredCostBreakdown } from "@/types/cost-breakdown";
 import type { ProviderChainItem } from "@/types/message";
 import type { SpecialSetting } from "@/types/special-settings";
+import type { BillingModelSource } from "@/types/system-config";
 import { LEDGER_BILLING_CONDITION } from "./_shared/ledger-conditions";
 import { escapeLike } from "./_shared/like";
 import { EXCLUDE_WARMUP_CONDITION } from "./_shared/message-request-conditions";
@@ -21,6 +22,10 @@ import {
   buildUsageLogEndpointMatchCondition,
   RETRY_COUNT_EXPR,
 } from "./_shared/usage-log-filters";
+import {
+  buildLedgerBillingModelField,
+  buildMessageBillingModelField,
+} from "./_shared/usage-model-field";
 
 export interface UsageLogFilters {
   userId?: number;
@@ -41,6 +46,7 @@ export interface UsageLogFilters {
   endpoint?: string;
   /** 最低重试次数（按 provider_chain 中“实际请求”数量 - 1 计算；<= 0 视为不筛选） */
   minRetryCount?: number;
+  billingModelSource?: BillingModelSource;
   page?: number;
   pageSize?: number;
 }
@@ -323,7 +329,9 @@ export async function findUsageLogsBatch(
   }
 
   if (filters.model) {
-    ledgerConditions.push(eq(usageLedger.model, filters.model));
+    ledgerConditions.push(
+      sql`${buildLedgerBillingModelField(filters.billingModelSource ?? "original")} = ${filters.model}`
+    );
   }
 
   if (filters.actualResponseModelMismatch) {
@@ -476,6 +484,7 @@ interface UsageLogSlimFilters {
   endpoint?: string;
   /** 最低重试次数（按 provider_chain 中“实际请求”数量 - 1 计算；<= 0 视为不筛选） */
   minRetryCount?: number;
+  billingModelSource?: BillingModelSource;
 }
 
 interface UsageLogSlimBatchFilters extends UsageLogSlimFilters {
@@ -742,7 +751,9 @@ function buildKeyLedgerConditions(
   }
 
   if (filters.model) {
-    conditions.push(eq(usageLedger.model, filters.model));
+    conditions.push(
+      sql`${buildLedgerBillingModelField(filters.billingModelSource ?? "original")} = ${filters.model}`
+    );
   }
 
   if (filters.actualResponseModelMismatch) {
@@ -1235,26 +1246,38 @@ export async function findReadonlyUsageLogsBatchForKey(
   };
 }
 
-export async function getDistinctModelsForKey(keyString: string): Promise<string[]> {
-  const cached = distinctModelsByKeyCache.get(keyString);
+export async function getDistinctModelsForKey(
+  keyString: string,
+  billingModelSource: BillingModelSource = "original"
+): Promise<string[]> {
+  const cacheKey = `${keyString}\u0001${billingModelSource}`;
+  const cached = distinctModelsByKeyCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const ledgerConditions = buildKeyLedgerConditions(keyString, { keyString });
+  const ledgerConditions = buildKeyLedgerConditions(keyString, {
+    keyString,
+    billingModelSource,
+  });
+  const messageBillingModelField = buildMessageBillingModelField(billingModelSource);
+  const ledgerBillingModelField = buildLedgerBillingModelField(billingModelSource);
 
   const [messageModels, ledgerModels] = await Promise.all([
-    db.execute(
-      sql`select distinct ${messageRequest.model} as model
-          from ${messageRequest}
-          where ${messageRequest.key} = ${keyString}
-            and ${messageRequest.deletedAt} is null
-            and (${EXCLUDE_WARMUP_CONDITION})
-            and ${messageRequest.model} is not null`
-    ),
+    db
+      .selectDistinct({ model: messageBillingModelField })
+      .from(messageRequest)
+      .where(
+        and(
+          eq(messageRequest.key, keyString),
+          isNull(messageRequest.deletedAt),
+          EXCLUDE_WARMUP_CONDITION,
+          sql`${messageBillingModelField} is not null`
+        )
+      ),
     ledgerConditions
       ? db
-          .selectDistinct({ model: usageLedger.model })
+          .selectDistinct({ model: ledgerBillingModelField })
           .from(usageLedger)
-          .where(and(...ledgerConditions, sql`${usageLedger.model} is not null`))
+          .where(and(...ledgerConditions, sql`${ledgerBillingModelField} is not null`))
       : Promise.resolve([]),
   ]);
 
@@ -1266,7 +1289,7 @@ export async function getDistinctModelsForKey(keyString: string): Promise<string
     )
   ).sort((a, b) => a.localeCompare(b));
 
-  distinctModelsByKeyCache.set(keyString, models);
+  distinctModelsByKeyCache.set(cacheKey, models);
   return models;
 }
 
@@ -1490,18 +1513,21 @@ export async function findUsageLogsWithDetails(filters: UsageLogFilters): Promis
 /**
  * 获取所有使用过的模型列表（用于筛选器）
  */
-export async function getUsedModels(): Promise<string[]> {
+export async function getUsedModels(
+  billingModelSource: BillingModelSource = "original"
+): Promise<string[]> {
+  const billingModelField = buildMessageBillingModelField(billingModelSource);
   const results = await db
-    .selectDistinct({ model: messageRequest.model })
+    .selectDistinct({ model: billingModelField })
     .from(messageRequest)
     .where(
       and(
         isNull(messageRequest.deletedAt),
-        sql`${messageRequest.model} IS NOT NULL`,
-        sql`btrim(${messageRequest.model}) <> ''`
+        sql`${billingModelField} IS NOT NULL`,
+        sql`btrim(${billingModelField}) <> ''`
       )
     )
-    .orderBy(messageRequest.model);
+    .orderBy(billingModelField);
 
   return results.map((r) => r.model).filter(isNonBlankString);
 }
@@ -1709,7 +1735,9 @@ export async function findUsageLogsStats(
   }
 
   if (filters.model) {
-    conditions.push(eq(usageLedger.model, filters.model));
+    conditions.push(
+      sql`${buildLedgerBillingModelField(filters.billingModelSource ?? "original")} = ${filters.model}`
+    );
   }
 
   if (filters.actualResponseModelMismatch) {

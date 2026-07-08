@@ -49,12 +49,18 @@ import { GeminiAdapter } from "../gemini/adapter";
 import type { GeminiResponse } from "../gemini/types";
 import { extractActualResponseModelForProvider } from "./actual-response-model";
 import { bindClientAbortListener } from "./client-abort-listener";
+import { createClientModelMaskTransform, maskModelInJsonText } from "./client-model-mask";
 import { isClientAbortError, isTransportError } from "./errors";
+import {
+  applyKeyStreamUsageAdjustmentToStream,
+  resolveKeyStreamUsageAdjustmentDecision,
+} from "./key-stream-usage-adjustment";
 import type { ProxySession } from "./session";
 import {
   consumeDeferredStreamingFinalization,
   peekDeferredStreamingFinalization,
 } from "./stream-finalization";
+import { maybeSendVipGroupUsageAlert } from "./vip-group-usage";
 
 const CLIENT_ABORT_DRAIN_MAX_MS = 60_000;
 const STREAM_STATS_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
@@ -382,6 +388,33 @@ async function readResponseTextWithTaskActivity(
   } finally {
     reader.releaseLock();
   }
+}
+
+function createStreamTextCapture(): {
+  stream: TransformStream<Uint8Array, Uint8Array>;
+  getText: () => string;
+} {
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+
+  return {
+    stream: new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        const text = decoder.decode(chunk, { stream: true });
+        if (text) {
+          chunks.push(text);
+        }
+        controller.enqueue(chunk);
+      },
+      flush() {
+        const text = decoder.decode();
+        if (text) {
+          chunks.push(text);
+        }
+      },
+    }),
+    getText: () => chunks.join(""),
+  };
 }
 
 function takeBeforeResponseBodySnapshotSource(session: ProxySession): Response | null {
@@ -953,7 +986,11 @@ async function finalizeDeferredStreamingFinalizationIfNeeded(
   let statusCodeInferred = false;
   let statusCodeInferenceMatcherId: string | undefined;
   if (detected.isError) {
-    const inferred = inferUpstreamErrorStatusCodeFromText(allContent);
+    // 优先扫整段（前 64KB），未命中时再用检测出的错误 detail（如 error 事件的 message）兜底，
+    // 避免巨型 envelope 把错误关键字顶到 64KB 之外、导致 503 误回退成 502。
+    const inferred =
+      inferUpstreamErrorStatusCodeFromText(allContent) ??
+      (detected.detail ? inferUpstreamErrorStatusCodeFromText(detected.detail) : null);
     if (inferred) {
       effectiveStatusCode = inferred.statusCode;
       statusCodeInferred = true;
@@ -1226,6 +1263,8 @@ async function finalizeDeferredStreamingFinalizationIfNeeded(
     });
   }
 
+  await maybeSendVipGroupUsageAlert(session, providerForChain, meta.providerGroupTag);
+
   // Hedge winner: commitWinner() already performed session binding and chain logging.
   // Skip duplicate operations to avoid double entries in the provider chain.
   if (!meta.isHedgeWinner) {
@@ -1337,10 +1376,66 @@ export class ProxyResponseHandler {
     const isSSE = contentType.includes("text/event-stream");
 
     if (!isSSE) {
-      return await ProxyResponseHandler.handleNonStream(session, fixedResponse);
+      const nonStreamResponse = await ProxyResponseHandler.handleNonStream(session, fixedResponse);
+      return await ProxyResponseHandler.maskClientModelForNonStream(session, nonStreamResponse);
     }
 
-    return await ProxyResponseHandler.handleStream(session, fixedResponse);
+    const streamResponse = await ProxyResponseHandler.handleStream(session, fixedResponse);
+    return ProxyResponseHandler.maskClientModelForStream(session, streamResponse);
+  }
+
+  /**
+   * 让客户端始终看到自己请求的模型（非流式）：把"发回客户端"的 JSON 响应体里的 model 字段改写为
+   * 用户请求的原始模型。无论是配置重定向、还是上游直接返回了不同的模型名，只要与请求模型不一致就改回；
+   * 模型本来就一致时改写为零操作（值相同不变）。
+   *
+   * 内部统计/计费分支读取的是上游真实响应（responseForLog 克隆），actualResponseModel 等审计字段
+   * 仍记录上游真实模型，因此使用记录依旧能正确显示请求模型与真实模型的不一致。
+   */
+  private static async maskClientModelForNonStream(
+    session: ProxySession,
+    response: Response
+  ): Promise<Response> {
+    const maskedModel = session.getOriginalModel();
+    if (!maskedModel) return response;
+
+    // 只改写 JSON 响应体，避免把非 JSON / 二进制内容当作文本破坏。
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("json")) return response;
+
+    try {
+      const text = await response.text();
+      const masked = maskModelInJsonText(text, maskedModel);
+      return new Response(masked, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: cleanResponseHeaders(response.headers),
+      });
+    } catch (error) {
+      logger.warn("[ResponseHandler] Failed to mask client model in non-stream response", {
+        sessionId: session.sessionId ?? null,
+        requestSequence: session.requestSequence ?? null,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return response;
+    }
+  }
+
+  /**
+   * 让客户端始终看到自己请求的模型（流式）：把"发回客户端"的 SSE 响应体里的 model 字段改写为
+   * 用户请求的原始模型（与上游真实模型不一致时才会变，一致时为零操作）。仅作用于客户端分支
+   * （handleStream 内部已 tee 出独立的统计分支），不影响内部审计读取的上游真实内容。
+   */
+  private static maskClientModelForStream(session: ProxySession, response: Response): Response {
+    if (!response.body) return response;
+    const maskedModel = session.getOriginalModel();
+    if (!maskedModel) return response;
+
+    return new Response(response.body.pipeThrough(createClientModelMaskTransform(maskedModel)), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: cleanResponseHeaders(response.headers),
+    });
   }
 
   private static async handleNonStream(
@@ -2084,6 +2179,11 @@ export class ProxyResponseHandler {
     }
 
     let processedStream: ReadableStream<Uint8Array> = response.body;
+    let getPreKeyStreamUsageAdjustmentContent: (() => string) | null = null;
+    const keyStreamUsageAdjustmentDecision = resolveKeyStreamUsageAdjustmentDecision(session);
+    if (keyStreamUsageAdjustmentDecision) {
+      session.addSpecialSetting(keyStreamUsageAdjustmentDecision.audit);
+    }
 
     // --- GEMINI STREAM HANDLING ---
     if (provider.providerType === "gemini" || provider.providerType === "gemini-cli") {
@@ -2092,7 +2192,7 @@ export class ProxyResponseHandler {
         (session.originalFormat === "gemini" || session.originalFormat === "gemini-cli") &&
         (provider.providerType === "gemini" || provider.providerType === "gemini-cli");
 
-      if (isGeminiPassthrough) {
+      if (isGeminiPassthrough && !keyStreamUsageAdjustmentDecision?.hit) {
         // 完全透传：clone 用于后台统计，返回原始 response
         logger.debug(
           "[ResponseHandler] Gemini stream passthrough (clone for stats, return original)",
@@ -2493,6 +2593,13 @@ export class ProxyResponseHandler {
 
         discardBeforeResponseBodySnapshot(session);
         return response;
+      } else if (isGeminiPassthrough) {
+        logger.debug("[ResponseHandler] Gemini stream passthrough with key usage adjustment", {
+          originalFormat: session.originalFormat,
+          providerType: provider.providerType,
+          model: session.request.model,
+          statusCode: response.status,
+        });
       } else {
         // ❌ 需要转换：客户端不是 Gemini 格式（如 OpenAI/Claude）
         logger.debug("[ResponseHandler] Transforming Gemini stream to client format", {
@@ -2543,6 +2650,17 @@ export class ProxyResponseHandler {
         processedStream = response.body.pipeThrough(transformStream);
       }
     }
+
+    if (keyStreamUsageAdjustmentDecision?.hit) {
+      const preKeyUsageAdjustmentCapture = createStreamTextCapture();
+      processedStream = processedStream.pipeThrough(preKeyUsageAdjustmentCapture.stream);
+      getPreKeyStreamUsageAdjustmentContent = preKeyUsageAdjustmentCapture.getText;
+    }
+
+    processedStream = applyKeyStreamUsageAdjustmentToStream(
+      processedStream,
+      keyStreamUsageAdjustmentDecision
+    );
 
     // 使用 TransformStream 包装流，以便在 idle timeout 时能关闭客户端流
     // 这解决了 tee() 后 internalStream abort 不影响 clientStream 的问题
@@ -2799,6 +2917,21 @@ export class ProxyResponseHandler {
             provider.swapCacheTtlBilling
           );
         }
+        let usageForRequestRecord = usageForCost;
+        const preKeyUsageAdjustmentContent = getPreKeyStreamUsageAdjustmentContent?.() ?? "";
+        if (preKeyUsageAdjustmentContent) {
+          const actualUsageResult = parseUsageFromResponseText(
+            preKeyUsageAdjustmentContent,
+            provider.providerType
+          );
+          if (actualUsageResult.usageMetrics) {
+            usageForRequestRecord = normalizeUsageWithSwap(
+              actualUsageResult.usageMetrics,
+              session,
+              provider.swapCacheTtlBilling
+            );
+          }
+        }
 
         maybeSetCodexContext1m(session, provider, usageForCost?.input_tokens);
 
@@ -2983,14 +3116,14 @@ export class ProxyResponseHandler {
         // 保存扩展信息（status code, tokens, provider chain）
         await updateMessageRequestDetails(messageContext.id, {
           statusCode: effectiveStatusCode,
-          inputTokens: usageForCost?.input_tokens,
-          outputTokens: usageForCost?.output_tokens,
+          inputTokens: usageForRequestRecord?.input_tokens,
+          outputTokens: usageForRequestRecord?.output_tokens,
           ttfbMs: session.ttfbMs,
-          cacheCreationInputTokens: usageForCost?.cache_creation_input_tokens,
-          cacheReadInputTokens: usageForCost?.cache_read_input_tokens,
-          cacheCreation5mInputTokens: usageForCost?.cache_creation_5m_input_tokens,
-          cacheCreation1hInputTokens: usageForCost?.cache_creation_1h_input_tokens,
-          cacheTtlApplied: usageForCost?.cache_ttl ?? null,
+          cacheCreationInputTokens: usageForRequestRecord?.cache_creation_input_tokens,
+          cacheReadInputTokens: usageForRequestRecord?.cache_read_input_tokens,
+          cacheCreation5mInputTokens: usageForRequestRecord?.cache_creation_5m_input_tokens,
+          cacheCreation1hInputTokens: usageForRequestRecord?.cache_creation_1h_input_tokens,
+          cacheTtlApplied: usageForRequestRecord?.cache_ttl ?? null,
           providerChain: session.getProviderChain(),
           ...(streamErrorMessage ? { errorMessage: streamErrorMessage } : {}),
           model: currentRequestedModel ?? undefined, // 更新重定向后的模型
@@ -3682,6 +3815,74 @@ export function parseUsageFromResponseText(
     }
   } catch {
     // Fallback to SSE parsing when body is not valid JSON
+  }
+
+  // Gemini 透传流可能是 NDJSON：每行一个 JSON chunk，没有 data:/event: SSE 前缀。
+  // 这里需要与 SSE 的 usageMetadata last-wins 语义一致，避免 key 级流式 usage 改写
+  // 后进入通用 tee 路径时丢失 Gemini 统计。
+  if (!usageMetrics && responseText.includes("\n")) {
+    let lastGeminiUsage: UsageMetrics | null = null;
+    let lastGeminiUsageRecord: Record<string, unknown> | null = null;
+
+    const applyNdjsonRecord = (record: Record<string, unknown>, source: string) => {
+      applyUsageValue(record.usage, `${source}.usage`);
+
+      if (record.usageMetadata && typeof record.usageMetadata === "object") {
+        const extracted = extractUsageMetrics(record.usageMetadata);
+        if (extracted) {
+          lastGeminiUsage = extracted;
+          lastGeminiUsageRecord = record.usageMetadata as Record<string, unknown>;
+        }
+      }
+
+      if (record.response && typeof record.response === "object") {
+        const responseObj = record.response as Record<string, unknown>;
+        applyUsageValue(responseObj.usage, `${source}.response.usage`);
+        if (responseObj.usageMetadata && typeof responseObj.usageMetadata === "object") {
+          const extracted = extractUsageMetrics(responseObj.usageMetadata);
+          if (extracted) {
+            lastGeminiUsage = extracted;
+            lastGeminiUsageRecord = responseObj.usageMetadata as Record<string, unknown>;
+          }
+        }
+      }
+    };
+
+    for (const [index, rawLine] of responseText.split(/\r?\n/).entries()) {
+      if (usageMetrics) {
+        break;
+      }
+
+      const line = rawLine.trim();
+      if (!line || line.startsWith("data:")) {
+        continue;
+      }
+
+      try {
+        const parsedLine = JSON.parse(line);
+        if (parsedLine && typeof parsedLine === "object" && !Array.isArray(parsedLine)) {
+          applyNdjsonRecord(parsedLine as Record<string, unknown>, `ndjson.${index}`);
+        } else if (Array.isArray(parsedLine)) {
+          for (const item of parsedLine) {
+            if (!item || typeof item !== "object" || Array.isArray(item)) {
+              continue;
+            }
+            applyNdjsonRecord(item as Record<string, unknown>, `ndjson.${index}.array`);
+          }
+        }
+      } catch {
+        // Ignore non-JSON lines; SSE fallback below may still handle the body.
+      }
+    }
+
+    if (!usageMetrics && lastGeminiUsage) {
+      usageMetrics = adjustUsageForProviderType(lastGeminiUsage, providerType);
+      usageRecord = lastGeminiUsageRecord;
+      logger.debug("[ResponseHandler] Final usage from Gemini NDJSON (last line)", {
+        providerType,
+        usage: usageMetrics,
+      });
+    }
   }
 
   // SSE 解析：支持两种格式

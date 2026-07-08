@@ -85,7 +85,7 @@ function mockEnvConfig(tz = "Asia/Shanghai") {
   getEnvConfigMock.mockReturnValue({
     NODE_ENV: "test",
     TZ: tz,
-    PORT: 23000,
+    PORT: 3000,
     AUTO_MIGRATE: true,
     ENABLE_RATE_LIMIT: true,
     ENABLE_SECURE_COOKIES: true,

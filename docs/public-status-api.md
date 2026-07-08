@@ -85,7 +85,7 @@ OpenAPI 与在线文档入口：
 ### 示例：正常过滤请求
 
 ```bash
-curl "http://localhost:23000/api/public-status?groupSlug=anthropic&status=failed&include=meta,defaults,groups,timeline"
+curl "http://localhost:3000/api/public-status?groupSlug=anthropic&status=failed&include=meta,defaults,groups,timeline"
 ```
 
 ```json
@@ -167,7 +167,7 @@ curl "http://localhost:23000/api/public-status?groupSlug=anthropic&status=failed
 ### 示例：非法过滤参数
 
 ```bash
-curl "http://localhost:23000/api/public-status?status=unknown"
+curl "http://localhost:3000/api/public-status?status=unknown"
 ```
 
 ```json
@@ -207,7 +207,7 @@ curl "http://localhost:23000/api/public-status?status=unknown"
 ### 示例：projection 可用
 
 ```bash
-curl "http://localhost:23000/api/public-site-meta"
+curl "http://localhost:3000/api/public-site-meta"
 ```
 
 ```json

@@ -14,14 +14,14 @@
  *
  * E2E 模式（可选）:
  *   设置 API_E2E_BASE_URL 后，将改为真实 HTTP 访问（需要先启动服务与依赖）
- *   例如：API_E2E_BASE_URL=http://localhost:13500/api/actions
+ *   例如：API_E2E_BASE_URL=http://localhost:3000/api/actions
  */
 
 import { describe, expect, test } from "vitest";
 import { callActionsRoute } from "../test-utils";
 
 const E2E_API_BASE_URL = process.env.API_E2E_BASE_URL || "";
-const API_BASE_URL = E2E_API_BASE_URL || "http://localhost:13500/api/actions";
+const API_BASE_URL = E2E_API_BASE_URL || "http://localhost:3000/api/actions";
 
 // 辅助函数：发送 API 请求
 async function callApi(

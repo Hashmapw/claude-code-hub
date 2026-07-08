@@ -44,6 +44,18 @@
       "label": "不遵循会话复用",
       "desc": "开启后，下次请求不会继续复用当前供应商的 sticky 绑定，而是重新走优先级与健康检查。适合高优先级便宜渠道恢复后尽快切回的场景。"
     },
+    "rejectStreamingContentLength": {
+      "label": "拒绝带 Content-Length 的流式响应",
+      "desc": "开启后，上游 SSE 流式响应只要包含 Content-Length 响应头，就中断该供应商并按 503 失败切换到后续供应商。"
+    },
+    "rejectStreamingZeroUsage": {
+      "label": "拒绝 0 用量的流式响应",
+      "desc": "开启后，如果 SSE 流中显式返回的用量字段全为 0，会先缓存完整流并在发送给客户端前中断该供应商，按 503 失败切换。未返回用量不会触发。"
+    },
+    "rejectStreamingEarlyError": {
+      "label": "流式首包错误故障转移",
+      "desc": "开启后，先扣住并探测 SSE 流头部；若在出任何真实内容之前上游返回错误事件，按 503 失败中断该供应商并切换到后续供应商；正常出内容则立即放行透传。"
+    },
     "options": {
       "title": "选项",
       "desc": "附加供应商选项和覆写设置"
@@ -215,9 +227,10 @@
       },
       "serviceTier": {
         "label": "Service Tier 覆写",
-        "help": "控制 Codex（Responses API）请求的 OpenAI service_tier。priority 对应 fast 模式；选择“跟随客户端”表示不改写 service_tier，其他值则强制覆写。若上游不支持所选档位，可能返回错误。",
+        "help": "控制 Codex（Responses API）请求的 OpenAI service_tier。priority 对应 fast 模式；选择“跟随客户端”表示不改写 service_tier；选择 none 会从请求体删除 service_tier；其他值则强制覆写。若上游不支持所选档位，可能返回错误。",
         "options": {
           "inherit": "不覆写（跟随客户端）",
+          "none": "none（删除 service_tier）",
           "auto": "auto（项目默认）",
           "default": "default（标准档）",
           "flex": "flex（弹性）",

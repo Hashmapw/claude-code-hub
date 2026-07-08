@@ -36,7 +36,7 @@ Write-Host ""
 Write-Host "🚀 启动 Next.js 开发服务器..." -ForegroundColor Cyan
 
 # 后台启动服务器
-$env:PORT = "13500"
+$env:PORT = "3000"
 $serverProcess = Start-Process -FilePath "bun" -ArgumentList "run", "dev" -PassThru -NoNewWindow -RedirectStandardOutput "$env:TEMP\nextjs-dev.log" -RedirectStandardError "$env:TEMP\nextjs-dev-error.log"
 
 Write-Host "   服务器 PID: $($serverProcess.Id)" -ForegroundColor Gray
@@ -49,7 +49,7 @@ $serverReady = $false
 
 while ($counter -lt $timeout) {
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:13500/api/actions/health" -UseBasicParsing -ErrorAction SilentlyContinue
+        $response = Invoke-WebRequest -Uri "http://localhost:3000/api/actions/health" -UseBasicParsing -ErrorAction SilentlyContinue
         if ($response.StatusCode -eq 200) {
             Write-Host ""
             Write-Host "✅ 服务器已就绪" -ForegroundColor Green
@@ -80,7 +80,7 @@ Write-Host "🧪 运行 E2E 测试..." -ForegroundColor Cyan
 Write-Host ""
 
 # 设置环境变量
-$env:API_BASE_URL = "http://localhost:13500/api/actions"
+$env:API_BASE_URL = "http://localhost:3000/api/actions"
 $env:AUTO_CLEANUP_TEST_DATA = "true"
 
 # 运行 E2E 测试

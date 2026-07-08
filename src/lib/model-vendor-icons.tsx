@@ -80,6 +80,7 @@ import {
   Yi,
   Zhipu,
 } from "@lobehub/icons";
+import { MimoIcon } from "@/lib/mimo-icon";
 import { resolveByDashPrefix } from "@/lib/model-vendor/dash-prefix-lookup";
 import { iconFileForVendor, type VendorIconFileEntry } from "@/lib/model-vendor/vendor-icon-files";
 import {
@@ -134,6 +135,8 @@ const VENDOR_ICON_COMPONENTS: Record<string, VendorIconComponent> = {
   kling: Kling.Color,
   recraft: Recraft,
   longcat: LongCat.Color,
+  xiaomi: MimoIcon,
+  xiaomimimo: MimoIcon,
   // LobeHub 品牌兜底集
   alephalpha: AlephAlpha,
   antgroup: AntGroup.Color,
@@ -183,6 +186,9 @@ const VENDOR_ICON_COMPONENTS: Record<string, VendorIconComponent> = {
   bedrock: Bedrock.Color,
   "amazon-bedrock": Bedrock.Color,
   "google-vertex": Google.Color,
+  "xiaomi-token-plan-ams": MimoIcon,
+  "xiaomi-token-plan-cn": MimoIcon,
+  "xiaomi-token-plan-sgp": MimoIcon,
 };
 
 /** slug 精确命中 -> 最长 dash 前缀家族回退(与云端 icon 解析规则一致) */

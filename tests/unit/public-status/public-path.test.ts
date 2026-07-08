@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { localeCookieName } from "@/i18n/config";
 
 const mockIntlMiddleware = vi.hoisted(() =>
@@ -36,6 +36,17 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 describe("public status proxy path", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SII_PROXY_SUPPORT", "false");
+    vi.stubEnv("SII_PROXY_SUPPORT", "false");
+    vi.stubEnv("VSCODE_PROXY_URI", "");
+    vi.stubEnv("vscode_proxy_uri", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("allows locale-prefixed public status without redirect", async () => {
     const { default: proxyHandler } = await import("@/proxy");
     const response = proxyHandler(new NextRequest("http://localhost/en/status"));

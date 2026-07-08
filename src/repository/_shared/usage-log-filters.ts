@@ -2,6 +2,8 @@ import type { SQL, SQLWrapper } from "drizzle-orm";
 import { eq, gte, lt, sql } from "drizzle-orm";
 import { messageRequest } from "@/drizzle/schema";
 import { NON_BILLING_ENDPOINTS } from "@/lib/utils/performance-formatter";
+import type { BillingModelSource } from "@/types/system-config";
+import { buildMessageBillingModelField } from "./usage-model-field";
 
 export interface UsageLogFilterParams {
   sessionId?: string;
@@ -13,6 +15,7 @@ export interface UsageLogFilterParams {
   actualResponseModelMismatch?: boolean;
   endpoint?: string;
   minRetryCount?: number;
+  billingModelSource?: BillingModelSource;
 }
 
 export const DEFAULT_HIDDEN_USAGE_LOG_ENDPOINTS = [...NON_BILLING_ENDPOINTS];
@@ -160,7 +163,9 @@ export function buildUsageLogConditions(filters: UsageLogFilterParams): SQL[] {
   }
 
   if (filters.model) {
-    conditions.push(eq(messageRequest.model, filters.model));
+    conditions.push(
+      sql`${buildMessageBillingModelField(filters.billingModelSource ?? "original")} = ${filters.model}`
+    );
   }
 
   if (filters.actualResponseModelMismatch) {

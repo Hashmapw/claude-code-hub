@@ -9,6 +9,8 @@ import { keys as keysTable, users as usersTable } from "@/drizzle/schema";
 import { emitActionAudit } from "@/lib/audit/emit";
 import { type AuthSession, getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
+import { getKeySoftBlockConfigs, setKeySoftBlockConfig } from "@/lib/key-soft-block-store";
+import { buildStreamUsageAdjustmentConfigFromForm } from "@/lib/key-stream-usage-adjustment-config";
 import { logger } from "@/lib/logger";
 import { resolveKeyConcurrentSessionLimit } from "@/lib/rate-limit/concurrent-session-limit";
 import { resolveKeyCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
@@ -52,7 +54,70 @@ function denyKeyWriteForReadOnlySession(
   };
 }
 
+type KeyWithSoftBlock = Key & {
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
+};
+
+type KeyStatisticsWithSoftBlock = KeyStatistics & {
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
+};
+
 type TranslationFunction = (key: string, values?: Record<string, string>) => string;
+
+function normalizeSoftBlockMessage(message: string | null | undefined): string | null {
+  if (typeof message !== "string") {
+    return null;
+  }
+  const trimmed = message.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function keySoftBlockSaveFailureResult(
+  errorCode: string,
+  tError: TranslationFunction
+): ActionResult<never> {
+  return {
+    ok: false,
+    error: tError("KEY_SOFT_BLOCK_PARTIAL_FAILURE"),
+    errorCode,
+  };
+}
+
+async function attachSoftBlockConfigsToKeys<T extends { id: number }>(
+  keys: T[]
+): Promise<Array<T & { softBlockEnabled?: boolean; softBlockMessage?: string | null }>> {
+  if (keys.length === 0) {
+    return keys;
+  }
+  const configs = await getKeySoftBlockConfigs(keys.map((key) => key.id));
+  return keys.map((key) => {
+    const config = configs.get(key.id);
+    return {
+      ...key,
+      softBlockEnabled: config?.enabled ?? false,
+      softBlockMessage: config?.message ?? null,
+    };
+  });
+}
+
+async function attachSoftBlockConfigsToStatistics(
+  stats: KeyStatistics[]
+): Promise<KeyStatisticsWithSoftBlock[]> {
+  if (stats.length === 0) {
+    return stats;
+  }
+  const configs = await getKeySoftBlockConfigs(stats.map((stat) => stat.keyId));
+  return stats.map((stat) => {
+    const config = configs.get(stat.keyId);
+    return {
+      ...stat,
+      softBlockEnabled: config?.enabled ?? false,
+      softBlockMessage: config?.message ?? null,
+    };
+  });
+}
 
 function validateNonAdminProviderGroup(
   userProviderGroup: string,
@@ -113,6 +178,8 @@ export async function addKey(data: {
   expiresAt?: string;
   isEnabled?: boolean;
   canLoginWebUi?: boolean;
+  softBlockEnabled?: boolean;
+  softBlockMessage?: string | null;
   limit5hUsd?: number | null;
   limit5hResetMode?: "fixed" | "rolling";
   limitDailyUsd?: number | null;
@@ -124,6 +191,12 @@ export async function addKey(data: {
   limitConcurrentSessions?: number;
   providerGroup?: string | null;
   cacheTtlPreference?: "inherit" | "5m" | "1h";
+  streamUsageAdjustmentEnabled?: boolean;
+  streamUsageAdjustmentProbability?: number;
+  streamUsageAdjustmentInputTokensRatio?: number;
+  streamUsageAdjustmentOutputTokensRatio?: number;
+  streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+  streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
 }): Promise<ActionResult<{ id: number; generatedKey: string; name: string }>> {
   try {
     // NOTE(#400): providerGroup 安全模型（废弃 null 语义）：
@@ -187,6 +260,8 @@ export async function addKey(data: {
       name: data.name,
       expiresAt: data.expiresAt,
       canLoginWebUi: data.canLoginWebUi,
+      softBlockEnabled: data.softBlockEnabled,
+      softBlockMessage: data.softBlockMessage,
       limit5hUsd: data.limit5hUsd,
       limit5hResetMode: data.limit5hResetMode,
       limitDailyUsd: data.limitDailyUsd,
@@ -198,6 +273,21 @@ export async function addKey(data: {
       limitConcurrentSessions: data.limitConcurrentSessions,
       providerGroup: providerGroupForKey,
       cacheTtlPreference: data.cacheTtlPreference,
+      // streamUsageAdjustment 为 admin-only 字段：非 admin 创建 Key 时一律落到禁用默认值，
+      // 防止普通用户通过自助 Key 配置改写流式 token 用量、绕过计费 / 配额
+      // （与 providerGroup 的 admin-only 口径一致）。
+      ...(isAdmin
+        ? {
+            streamUsageAdjustmentEnabled: data.streamUsageAdjustmentEnabled,
+            streamUsageAdjustmentProbability: data.streamUsageAdjustmentProbability,
+            streamUsageAdjustmentInputTokensRatio: data.streamUsageAdjustmentInputTokensRatio,
+            streamUsageAdjustmentOutputTokensRatio: data.streamUsageAdjustmentOutputTokensRatio,
+            streamUsageAdjustmentCacheReadInputTokensRatio:
+              data.streamUsageAdjustmentCacheReadInputTokensRatio,
+            streamUsageAdjustmentCacheCreationInputTokensRatio:
+              data.streamUsageAdjustmentCacheCreationInputTokensRatio,
+          }
+        : { streamUsageAdjustmentEnabled: false }),
     });
 
     // 检查是否存在同名的生效key
@@ -367,7 +457,21 @@ export async function addKey(data: {
       limit_concurrent_sessions: validatedData.limitConcurrentSessions,
       provider_group: validatedData.providerGroup,
       cache_ttl_preference: validatedData.cacheTtlPreference,
+      stream_usage_adjustment: buildStreamUsageAdjustmentConfigFromForm(validatedData),
     });
+
+    if (
+      validatedData.softBlockEnabled ||
+      normalizeSoftBlockMessage(validatedData.softBlockMessage)
+    ) {
+      const softBlockResult = await setKeySoftBlockConfig(createdKey.id, {
+        enabled: validatedData.softBlockEnabled === true,
+        message: validatedData.softBlockMessage ?? null,
+      });
+      if (!softBlockResult.ok) {
+        return keySoftBlockSaveFailureResult(softBlockResult.errorCode, tError);
+      }
+    }
 
     // 自动同步用户分组（用户分组 = Key 分组并集）
     if (session.user.role === "admin") {
@@ -400,6 +504,7 @@ export async function addKey(data: {
         dailyResetMode: createdKey.dailyResetMode,
         dailyResetTime: createdKey.dailyResetTime,
         cacheTtlPreference: createdKey.cacheTtlPreference,
+        streamUsageAdjustment: createdKey.streamUsageAdjustment,
       },
       success: true,
       redactExtraKeys: ["key"],
@@ -432,6 +537,8 @@ export async function editKey(
     name: string;
     expiresAt?: string;
     canLoginWebUi?: boolean;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
     isEnabled?: boolean;
     limit5hUsd?: number | null;
     limit5hResetMode?: "fixed" | "rolling";
@@ -444,6 +551,12 @@ export async function editKey(
     limitConcurrentSessions?: number;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
   }
 ): Promise<ActionResult> {
   try {
@@ -513,6 +626,15 @@ export async function editKey(
     // 仅当调用方显式携带 expiresAt 字段时才更新/清除该字段：
     // - 避免像“仅修改限额”这类局部更新把 expiresAt 意外清空
     const hasExpiresAtField = Object.hasOwn(data, "expiresAt");
+    const hasSoftBlockConfigField =
+      Object.hasOwn(data, "softBlockEnabled") || Object.hasOwn(data, "softBlockMessage");
+    const hasStreamUsageAdjustmentConfigField =
+      Object.hasOwn(data, "streamUsageAdjustmentEnabled") ||
+      Object.hasOwn(data, "streamUsageAdjustmentProbability") ||
+      Object.hasOwn(data, "streamUsageAdjustmentInputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentOutputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentCacheReadInputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentCacheCreationInputTokensRatio");
 
     const validatedData = KeyFormSchema.parse(data);
 
@@ -670,7 +792,26 @@ export async function editKey(
           }
         : {}),
       cache_ttl_preference: validatedData.cacheTtlPreference,
+      // streamUsageAdjustment 为 admin-only 字段：非 admin 不允许更新该字段
+      // （防止普通用户改写流式 token 用量、绕过计费 / 配额）。非 admin 携带该字段时静默忽略，
+      // 保留原值，避免影响其它字段的局部更新。
+      ...(isAdmin && hasStreamUsageAdjustmentConfigField
+        ? { stream_usage_adjustment: buildStreamUsageAdjustmentConfigFromForm(validatedData) }
+        : {}),
     });
+    // Key 表里的多数字段都会进入 API Key 鉴权缓存（包括流式 usage token 改写配置）。
+    // 保存后立即清缓存，避免管理端已写库但代理热路径继续读到旧配置。
+    await invalidateCachedKey(key.key).catch(() => null);
+
+    if (hasSoftBlockConfigField) {
+      const softBlockResult = await setKeySoftBlockConfig(keyId, {
+        enabled: validatedData.softBlockEnabled === true,
+        message: validatedData.softBlockMessage ?? null,
+      });
+      if (!softBlockResult.ok) {
+        return keySoftBlockSaveFailureResult(softBlockResult.errorCode, tError);
+      }
+    }
 
     // 自动同步用户分组（用户分组 = Key 分组并集）
     if (providerGroupChanged) {
@@ -682,7 +823,6 @@ export async function editKey(
       validatedData.limit5hResetMode !== key.limit5hResetMode
     ) {
       const { clearSingleKeyCostCache } = await import("@/lib/redis/cost-cache-cleanup");
-      await invalidateCachedKey(key.key).catch(() => null);
       await clearSingleKeyCostCache({
         keyId,
         keyHash: key.key,
@@ -714,6 +854,7 @@ export async function editKey(
         dailyResetMode: key.dailyResetMode,
         dailyResetTime: key.dailyResetTime,
         cacheTtlPreference: key.cacheTtlPreference,
+        streamUsageAdjustment: key.streamUsageAdjustment,
       },
       after: {
         name: validatedData.name,
@@ -731,6 +872,10 @@ export async function editKey(
         dailyResetMode: validatedData.dailyResetMode,
         dailyResetTime: validatedData.dailyResetTime,
         cacheTtlPreference: validatedData.cacheTtlPreference,
+        streamUsageAdjustment:
+          isAdmin && hasStreamUsageAdjustmentConfigField
+            ? buildStreamUsageAdjustmentConfigFromForm(validatedData)
+            : undefined,
       },
       success: true,
       redactExtraKeys: ["key"],
@@ -875,7 +1020,7 @@ export async function removeKey(keyId: number): Promise<ActionResult> {
 }
 
 // 获取用户的密钥列表
-export async function getKeys(userId: number): Promise<ActionResult<Key[]>> {
+export async function getKeys(userId: number): Promise<ActionResult<KeyWithSoftBlock[]>> {
   try {
     const session = await getSession();
     if (!session) {
@@ -888,7 +1033,8 @@ export async function getKeys(userId: number): Promise<ActionResult<Key[]>> {
     }
 
     const keys = await findKeyList(userId);
-    return { ok: true, data: keys };
+    const keysWithSoftBlock = await attachSoftBlockConfigsToKeys(keys);
+    return { ok: true, data: keysWithSoftBlock };
   } catch (error) {
     logger.error("获取密钥列表失败:", error);
     return { ok: false, error: "获取密钥列表失败" };
@@ -898,7 +1044,7 @@ export async function getKeys(userId: number): Promise<ActionResult<Key[]>> {
 // 获取用户密钥的统计信息
 export async function getKeysWithStatistics(
   userId: number
-): Promise<ActionResult<KeyStatistics[]>> {
+): Promise<ActionResult<KeyStatisticsWithSoftBlock[]>> {
   try {
     const session = await getSession();
     if (!session) {
@@ -911,7 +1057,8 @@ export async function getKeysWithStatistics(
     }
 
     const stats = await findKeysWithStatistics(userId);
-    return { ok: true, data: stats };
+    const statsWithSoftBlock = await attachSoftBlockConfigsToStatistics(stats);
+    return { ok: true, data: statsWithSoftBlock };
   } catch (error) {
     logger.error("获取密钥统计失败:", error);
     return { ok: false, error: "获取密钥统计失败" };

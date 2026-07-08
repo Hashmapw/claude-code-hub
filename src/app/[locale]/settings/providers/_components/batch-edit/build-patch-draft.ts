@@ -49,6 +49,15 @@ export function buildPatchDraftFromFormState(
   if (dirtyFields.has("routing.disableSessionReuse")) {
     draft.disable_session_reuse = { set: state.routing.disableSessionReuse };
   }
+  if (dirtyFields.has("routing.rejectStreamingContentLength")) {
+    draft.reject_streaming_content_length = { set: state.routing.rejectStreamingContentLength };
+  }
+  if (dirtyFields.has("routing.rejectStreamingZeroUsage")) {
+    draft.reject_streaming_zero_usage = { set: state.routing.rejectStreamingZeroUsage };
+  }
+  if (dirtyFields.has("routing.rejectStreamingEarlyError")) {
+    draft.reject_streaming_early_error = { set: state.routing.rejectStreamingEarlyError };
+  }
   if (dirtyFields.has("routing.activeTimeStart")) {
     if (state.routing.activeTimeStart === null) {
       draft.active_time_start = { clear: true };

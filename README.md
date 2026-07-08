@@ -210,9 +210,9 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
 启动成功后：
 
-- **管理后台**：`http://localhost:23000`（使用 `.env` 中的 `ADMIN_TOKEN` 登录）
-- **API 文档（Scalar UI）**：`http://localhost:23000/api/actions/scalar`
-- **API 文档（Swagger UI）**：`http://localhost:23000/api/actions/docs`
+- **管理后台**：`http://localhost:3000`（使用 `.env` 中的 `ADMIN_TOKEN` 登录）
+- **API 文档（Scalar UI）**：`http://localhost:3000/api/actions/scalar`
+- **API 文档（Swagger UI）**：`http://localhost:3000/api/actions/docs`
 - **公开状态 API**：[docs/public-status-api.md](docs/public-status-api.md)
 - **API 认证指南**：[docs/api-authentication-guide.md](docs/api-authentication-guide.md)
 
@@ -363,7 +363,7 @@ cch doctor            # 诊断集群与部署状态
 | `SESSION_TTL`                              | `300`                    | 代理请求上下文缓存时间（秒），影响供应商复用策略；不控制 Web UI 登录态。       |
 | `ENABLE_SECURE_COOKIES`                    | `true`                   | 仅 HTTPS 场景能设置 Secure Cookie；HTTP 访问（非 localhost）需改为 `false`。 |
 | `ENABLE_CIRCUIT_BREAKER_ON_NETWORK_ERRORS` | `false`                  | 是否将网络错误计入熔断器；开启后能更激进地阻断异常线路。                     |
-| `APP_PORT`                                 | `23000`                  | 生产端口，可被容器或进程管理器覆盖。                                         |
+| `APP_PORT`                                 | `3000`                  | 生产端口，可被容器或进程管理器覆盖。                                         |
 | `APP_URL`                                  | 空                       | 设置后 OpenAPI 文档 `servers` 将展示正确域名/端口。                          |
 | `API_TEST_TIMEOUT_MS`                      | `15000`                  | 供应商 API 测试超时时间（毫秒，范围 5000-120000），跨境网络可适当提高。      |
 

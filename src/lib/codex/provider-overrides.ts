@@ -37,6 +37,13 @@ function normalizeStringPreference(value: string | null | undefined): string | n
   return value;
 }
 
+function normalizeServiceTierPreference(
+  value: CodexServiceTierPreference | null | undefined
+): CodexServiceTierPreference | null {
+  if (!value || value === "inherit") return null;
+  return value;
+}
+
 function normalizeParallelToolCallsPreference(
   value: CodexParallelToolCallsPreference | null | undefined
 ): boolean | null {
@@ -198,6 +205,7 @@ function applyImageGenerationToolChoicePreference(
  * 约定：
  * - providerType !== "codex" 时不做任何处理
  * - 偏好值为 null/undefined/"inherit" 表示“遵循客户端”
+ * - service_tier 偏好值为 "none" 表示从请求体删除 service_tier
  * - 覆写仅影响以下字段：
  *   - parallel_tool_calls
  *   - tools / tool_choice 中与 image_generation 相关的能力声明
@@ -261,9 +269,14 @@ export function applyCodexProviderOverrides(
     target.text = nextText;
   }
 
-  const serviceTier = normalizeStringPreference(provider.codexServiceTierPreference);
+  const serviceTier = normalizeServiceTierPreference(provider.codexServiceTierPreference);
   if (serviceTier !== null) {
-    ensureCloned().service_tier = serviceTier;
+    ensureCloned();
+    if (serviceTier === "none") {
+      delete output.service_tier;
+    } else {
+      output.service_tier = serviceTier;
+    }
   }
 
   return output;
@@ -286,7 +299,7 @@ export function applyCodexProviderOverridesWithAudit(
   const imageGeneration = normalizeImageGenerationPreference(
     provider.codexImageGenerationPreference
   );
-  const serviceTier = normalizeStringPreference(provider.codexServiceTierPreference);
+  const serviceTier = normalizeServiceTierPreference(provider.codexServiceTierPreference);
 
   const beforeServiceTier = toAuditValue(request.service_tier);
   const beforeImageGeneration = hasImageGenerationTool(request.tools);

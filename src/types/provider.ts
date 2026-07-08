@@ -35,7 +35,14 @@ export type CodexParallelToolCallsPreference = "inherit" | "true" | "false";
 // - "false": 强制移除 type="image_generation" 的工具能力
 export type CodexImageGenerationPreference = "inherit" | "true" | "false";
 
-export type CodexServiceTierPreference = "inherit" | "auto" | "default" | "flex" | "priority";
+// service_tier 的 "none" 表示删除请求体字段，不是写入字符串 "none"
+export type CodexServiceTierPreference =
+  | "inherit"
+  | "none"
+  | "auto"
+  | "default"
+  | "flex"
+  | "priority";
 
 // Anthropic (Messages API) parameter overrides
 // - "inherit": follow client request (default)
@@ -96,6 +103,9 @@ export type ProviderBatchPatchField =
   | "active_time_end"
   | "preserve_client_ip"
   | "disable_session_reuse"
+  | "reject_streaming_content_length"
+  | "reject_streaming_zero_usage"
+  | "reject_streaming_early_error"
   | "group_priorities"
   | "cache_ttl_preference"
   | "swap_cache_ttl_billing"
@@ -151,6 +161,9 @@ export interface ProviderBatchPatchDraft {
   active_time_end?: ProviderPatchDraftInput<string>;
   preserve_client_ip?: ProviderPatchDraftInput<boolean>;
   disable_session_reuse?: ProviderPatchDraftInput<boolean>;
+  reject_streaming_content_length?: ProviderPatchDraftInput<boolean>;
+  reject_streaming_zero_usage?: ProviderPatchDraftInput<boolean>;
+  reject_streaming_early_error?: ProviderPatchDraftInput<boolean>;
   group_priorities?: ProviderPatchDraftInput<Record<string, number>>;
   cache_ttl_preference?: ProviderPatchDraftInput<CacheTtlPreference>;
   swap_cache_ttl_billing?: ProviderPatchDraftInput<boolean>;
@@ -207,6 +220,9 @@ export interface ProviderBatchPatch {
   active_time_end: ProviderPatchOperation<string>;
   preserve_client_ip: ProviderPatchOperation<boolean>;
   disable_session_reuse: ProviderPatchOperation<boolean>;
+  reject_streaming_content_length: ProviderPatchOperation<boolean>;
+  reject_streaming_zero_usage: ProviderPatchOperation<boolean>;
+  reject_streaming_early_error: ProviderPatchOperation<boolean>;
   group_priorities: ProviderPatchOperation<Record<string, number>>;
   cache_ttl_preference: ProviderPatchOperation<CacheTtlPreference>;
   swap_cache_ttl_billing: ProviderPatchOperation<boolean>;
@@ -263,6 +279,9 @@ export interface ProviderBatchApplyUpdates {
   active_time_end?: string | null;
   preserve_client_ip?: boolean;
   disable_session_reuse?: boolean;
+  reject_streaming_content_length?: boolean;
+  reject_streaming_zero_usage?: boolean;
+  reject_streaming_early_error?: boolean;
   group_priorities?: Record<string, number> | null;
   cache_ttl_preference?: CacheTtlPreference | null;
   swap_cache_ttl_billing?: boolean;
@@ -337,6 +356,12 @@ export interface Provider {
   preserveClientIp: boolean;
   // 是否跳过当前供应商的 sticky session 复用
   disableSessionReuse: boolean;
+  // 是否拒绝带有 Content-Length 的流式响应
+  rejectStreamingContentLength: boolean;
+  // 是否拒绝显式返回 0 用量的流式响应
+  rejectStreamingZeroUsage: boolean;
+  // 流式首包错误故障转移：出真实内容前若上游报错则按 503 切换后续供应商
+  rejectStreamingEarlyError: boolean;
   modelRedirects: ProviderModelRedirectRule[] | null;
 
   // Scheduled active time window (HH:mm format, null = always active)
@@ -460,6 +485,12 @@ export interface ProviderDisplay {
   preserveClientIp: boolean;
   // 是否跳过当前供应商的 sticky session 复用
   disableSessionReuse: boolean;
+  // 是否拒绝带有 Content-Length 的流式响应
+  rejectStreamingContentLength: boolean;
+  // 是否拒绝显式返回 0 用量的流式响应
+  rejectStreamingZeroUsage: boolean;
+  // 流式首包错误故障转移：出真实内容前若上游报错则按 503 切换后续供应商
+  rejectStreamingEarlyError: boolean;
   modelRedirects: ProviderModelRedirectRule[] | null;
   // Scheduled active time window
   activeTimeStart: string | null;
@@ -579,6 +610,9 @@ export interface CreateProviderData {
   provider_type?: ProviderType;
   preserve_client_ip?: boolean;
   disable_session_reuse?: boolean;
+  reject_streaming_content_length?: boolean;
+  reject_streaming_zero_usage?: boolean;
+  reject_streaming_early_error?: boolean;
   model_redirects?: ProviderModelRedirectRule[] | null;
   active_time_start?: string | null;
   active_time_end?: string | null;
@@ -664,6 +698,9 @@ export interface UpdateProviderData {
   provider_type?: ProviderType;
   preserve_client_ip?: boolean;
   disable_session_reuse?: boolean;
+  reject_streaming_content_length?: boolean;
+  reject_streaming_zero_usage?: boolean;
+  reject_streaming_early_error?: boolean;
   model_redirects?: ProviderModelRedirectRule[] | null;
   active_time_start?: string | null;
   active_time_end?: string | null;

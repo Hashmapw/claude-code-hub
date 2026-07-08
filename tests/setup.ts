@@ -15,6 +15,19 @@ config({ path: ".env.test", quiet: true });
 // 降级加载 .env
 config({ path: ".env", quiet: true });
 
+// ==================== 环境变量默认值 ====================
+//
+// 这些默认值必须在 setup 文件导入业务模块前写入。部分全局 mock 会间接导入
+// env.schema 并缓存 getEnvConfig() 结果；如果此时 ADMIN_TOKEN 还未设置，后续
+// v1 管理 API 测试会把 Bearer admin-token 误分类为普通 user-api-key。
+process.env.NODE_ENV = process.env.NODE_ENV || "test";
+process.env.API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000/api/actions";
+// 便于 API 测试复用 ADMIN_TOKEN（validateKey 支持该 token 直通管理员会话）。
+// Vitest 不能继承本地 .env 中的真实 ADMIN_TOKEN，否则大量硬编码
+// Bearer admin-token 的单测会被误判为普通 user-api-key。
+process.env.ADMIN_TOKEN = "admin-token";
+process.env.TEST_ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+
 // ==================== 全局前置钩子 ====================
 
 beforeAll(async () => {
@@ -50,7 +63,7 @@ beforeAll(async () => {
   console.log("测试配置:");
   console.log(`   - 数据库: ${dbName || "未配置"}`);
   console.log(`   - Redis: ${process.env.REDIS_URL?.split("//")[1]?.split("@")[1] || "未配置"}`);
-  console.log(`   - API Base: ${process.env.API_BASE_URL || "http://localhost:13500"}`);
+  console.log(`   - API Base: ${process.env.API_BASE_URL || "http://localhost:3000"}`);
   console.log("");
 
   // 初始化默认错误规则（如果数据库可用）
@@ -350,15 +363,6 @@ global.console.error = (...args: unknown[]) => {
     originalConsoleError(...args);
   }
 };
-
-// ==================== 环境变量默认值 ====================
-
-// 设置测试环境默认值（如果未配置）
-process.env.NODE_ENV = process.env.NODE_ENV || "test";
-process.env.API_BASE_URL = process.env.API_BASE_URL || "http://localhost:13500/api/actions";
-// 便于 API 测试复用 ADMIN_TOKEN（validateKey 支持该 token 直通管理员会话）
-process.env.ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-token";
-process.env.TEST_ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || process.env.ADMIN_TOKEN;
 
 // ==================== React act 环境标记 ====================
 // React 18+ 在测试环境中会检查该标记，避免出现 “not configured to support act(...)” 的噪声警告。

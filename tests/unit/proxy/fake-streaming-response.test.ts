@@ -5,6 +5,7 @@ import {
   emitStreamError,
 } from "@/app/v1/_lib/proxy/fake-streaming/emitters";
 import type { ProtocolFamily } from "@/app/v1/_lib/proxy/fake-streaming/response-validator";
+import { buildFakeStreamingNonStreamResponse } from "@/app/v1/_lib/proxy/fake-streaming/runner";
 
 function parseSseEvents(body: string): Array<{ event: string | null; data: string }> {
   const events: Array<{ event: string | null; data: string }> = [];
@@ -281,6 +282,46 @@ describe("emitFinalStream — gemini", () => {
     const events = parseSseEvents(sse);
     expect(events.length).toBe(1);
     expect(JSON.parse(events[0].data)).toEqual(finalObj);
+  });
+});
+
+describe("fake streaming runner — client model masking (hide redirect)", () => {
+  const upstreamBody = JSON.stringify({
+    id: "msg_1",
+    type: "message",
+    model: "glm-4.6",
+    content: [{ type: "text", text: "ok" }],
+  });
+
+  const performAttempt = async () => ({
+    status: 200,
+    body: upstreamBody,
+    providerId: "p1",
+  });
+
+  test("rewrites client-facing model to the requested model when redirected", async () => {
+    const resp = await buildFakeStreamingNonStreamResponse({
+      family: "anthropic",
+      performAttempt,
+      abortSignal: new AbortController().signal,
+      maxAttempts: 1,
+      resolveMaskedModel: () => "claude-sonnet-4-5-20250929",
+    });
+    expect(resp.status).toBe(200);
+    const body = JSON.parse(await resp.text());
+    expect(body.model).toBe("claude-sonnet-4-5-20250929");
+  });
+
+  test("leaves the upstream model untouched when there is no redirect", async () => {
+    const resp = await buildFakeStreamingNonStreamResponse({
+      family: "anthropic",
+      performAttempt,
+      abortSignal: new AbortController().signal,
+      maxAttempts: 1,
+      resolveMaskedModel: () => null,
+    });
+    const body = JSON.parse(await resp.text());
+    expect(body.model).toBe("glm-4.6");
   });
 });
 

@@ -37,6 +37,27 @@ export interface KeyEditTranslations {
         "1h": string;
       };
     };
+    softBlock: {
+      label: string;
+      descriptionEnabled: string;
+      descriptionDisabled: string;
+      messageLabel: string;
+      messagePlaceholder: string;
+      messageDescription: string;
+    };
+    streamUsageAdjustment: {
+      label: string;
+      descriptionEnabled: string;
+      descriptionDisabled: string;
+      probabilityLabel: string;
+      probabilityDescription: string;
+      inputRatioLabel: string;
+      outputRatioLabel: string;
+      cacheReadRatioLabel: string;
+      cacheCreationRatioLabel: string;
+      ratioDescription: string;
+      example: string;
+    };
     enableStatus: {
       label: string;
       description: string;
@@ -167,6 +188,31 @@ export function useKeyTranslations(): KeyEditTranslations {
             "5m": t("keyEditSection.fields.cacheTtl.options.5m"),
             "1h": t("keyEditSection.fields.cacheTtl.options.1h"),
           },
+        },
+        softBlock: {
+          label: t("keyEditSection.fields.softBlock.label"),
+          descriptionEnabled: t("keyEditSection.fields.softBlock.descriptionEnabled"),
+          descriptionDisabled: t("keyEditSection.fields.softBlock.descriptionDisabled"),
+          messageLabel: t("keyEditSection.fields.softBlock.messageLabel"),
+          messagePlaceholder: t("keyEditSection.fields.softBlock.messagePlaceholder"),
+          messageDescription: t("keyEditSection.fields.softBlock.messageDescription"),
+        },
+        streamUsageAdjustment: {
+          label: t("keyEditSection.fields.streamUsageAdjustment.label"),
+          descriptionEnabled: t("keyEditSection.fields.streamUsageAdjustment.descriptionEnabled"),
+          descriptionDisabled: t("keyEditSection.fields.streamUsageAdjustment.descriptionDisabled"),
+          probabilityLabel: t("keyEditSection.fields.streamUsageAdjustment.probabilityLabel"),
+          probabilityDescription: t(
+            "keyEditSection.fields.streamUsageAdjustment.probabilityDescription"
+          ),
+          inputRatioLabel: t("keyEditSection.fields.streamUsageAdjustment.inputRatioLabel"),
+          outputRatioLabel: t("keyEditSection.fields.streamUsageAdjustment.outputRatioLabel"),
+          cacheReadRatioLabel: t("keyEditSection.fields.streamUsageAdjustment.cacheReadRatioLabel"),
+          cacheCreationRatioLabel: t(
+            "keyEditSection.fields.streamUsageAdjustment.cacheCreationRatioLabel"
+          ),
+          ratioDescription: t("keyEditSection.fields.streamUsageAdjustment.ratioDescription"),
+          example: t("keyEditSection.fields.streamUsageAdjustment.example"),
         },
         enableStatus: {
           label: t("keyEditSection.fields.enableStatus.label"),

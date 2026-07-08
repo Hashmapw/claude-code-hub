@@ -23,6 +23,7 @@ describe("getModelVendor", () => {
     { modelId: "hunyuan-pro", expectedVendor: "tencent" },
     { modelId: "ernie-4.0-8k", expectedVendor: "baidu" },
     { modelId: "spark-max-32k", expectedVendor: "iflytek" },
+    { modelId: "mimo-vl-7b", expectedVendor: "xiaomi" },
     { modelId: "anthropic/claude-sonnet-4-5", expectedVendor: "anthropic" },
     { modelId: "openrouter/deepseek/deepseek-chat", expectedVendor: "deepseek" },
     { modelId: "unknown-model-xyz", expectedVendor: null },
@@ -50,6 +51,7 @@ describe("getModelVendor", () => {
     expect(getModelVendor("claude-3")?.iconFile?.file).toBe("anthropic.svg");
     expect(getModelVendor("claude-3")?.iconFile?.mono).toBe(true);
     expect(getModelVendor("deepseek-chat")?.iconFile?.file).toBe("deepseek-color.svg");
+    expect(getModelVendor("mimo-vl-7b")?.iconFile?.file).toBe("xiaomimimo.svg");
   });
 });
 
@@ -57,6 +59,7 @@ describe("getVendorIconComponent", () => {
   it("resolves exact vendor slugs", () => {
     expect(getVendorIconComponent("anthropic")).toBeTruthy();
     expect(getVendorIconComponent("openai")).toBeTruthy();
+    expect(getVendorIconComponent("xiaomi")).toBeTruthy();
     expect(getVendorIconComponent("amazon-bedrock")).toBeTruthy();
   });
 

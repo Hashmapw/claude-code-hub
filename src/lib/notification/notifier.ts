@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getRedisClient } from "@/lib/redis/client";
-import type { CircuitBreakerAlertData } from "@/lib/webhook";
+import type { CircuitBreakerAlertData, VipGroupUsageData } from "@/lib/webhook";
 import { generateCostAlerts } from "./tasks/cost-alert";
 import { generateDailyLeaderboard } from "./tasks/daily-leaderboard";
 
@@ -123,6 +123,91 @@ export async function sendCircuitBreakerAlert(data: CircuitBreakerAlertData): Pr
       action: "send_circuit_breaker_alert_error",
       providerId: data.providerId,
       incidentSource: data.incidentSource ?? "provider",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * 发送 VIP 高成本分组使用提醒。
+ *
+ * 该提醒是请求链路上的 best-effort runtime event：
+ * - 配置与冷却窗口存放在 Redis；
+ * - 通知目标使用现有 target/binding 体系；
+ * - 任何错误都只记录日志，不影响代理响应。
+ */
+export async function sendVipGroupUsageAlert(data: VipGroupUsageData): Promise<void> {
+  const sessionId = data.sessionId || "no-session";
+
+  try {
+    const { loadVipGroupUsageAlertConfig } = await import("@/lib/redis/vip-group-usage-config");
+    const config = await loadVipGroupUsageAlertConfig();
+
+    if (!config.enabled) {
+      logger.info({
+        action: "vip_group_usage_alert_disabled",
+        providerId: data.providerId,
+        sessionId,
+        reason: "vip_group_usage_disabled",
+      });
+      return;
+    }
+
+    const { getEnabledBindingsByType } = await import("@/repository/notification-bindings");
+    const bindings = await getEnabledBindingsByType("vip_group_usage");
+
+    if (bindings.length === 0) {
+      logger.info({
+        action: "vip_group_usage_alert_skipped",
+        providerId: data.providerId,
+        sessionId,
+        reason: "no_bindings",
+      });
+      return;
+    }
+
+    const redisClient = getRedisClient({ allowWhenRateLimitDisabled: true });
+    if (redisClient) {
+      try {
+        const dedupKey = `vip-group-usage-alert:${data.providerId}:${sessionId}`;
+        const reserved = await redisClient.set(dedupKey, "1", "EX", config.cooldownSeconds, "NX");
+
+        if (reserved !== "OK") {
+          logger.info({
+            action: "vip_group_usage_alert_suppressed",
+            providerId: data.providerId,
+            sessionId,
+            reason: "cooldown",
+            cooldownSeconds: config.cooldownSeconds,
+          });
+          return;
+        }
+      } catch (error) {
+        logger.warn({
+          action: "vip_group_usage_alert_dedup_failed",
+          providerId: data.providerId,
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const { addNotificationJobForTarget } = await import("./notification-queue");
+    for (const binding of bindings) {
+      await addNotificationJobForTarget("vip-group-usage", binding.targetId, binding.id, data);
+    }
+
+    logger.info({
+      action: "vip_group_usage_alert_enqueued",
+      providerId: data.providerId,
+      sessionId,
+      targets: bindings.length,
+    });
+  } catch (error) {
+    logger.error({
+      action: "send_vip_group_usage_alert_error",
+      providerId: data.providerId,
+      sessionId,
       error: error instanceof Error ? error.message : String(error),
     });
   }

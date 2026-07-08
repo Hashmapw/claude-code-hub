@@ -259,7 +259,9 @@
         "secondaryLineAriaLabel": "实际响应模型：{model}",
         "arrowPrefix": "↳",
         "noSignatureBadge": "无思考签名",
-        "noSignatureTooltip": "请求开启了思考但响应流中没有 thinking signature，实际响应模型回退到 message_start 明文字段。"
+        "noSignatureTooltip": "请求开启了思考但响应流中没有 thinking signature，实际响应模型回退到 message_start 明文字段。",
+        "clientMaskedTooltip": "已对客户端隐藏模型重定向：客户端收到的是所请求的模型名。此处显示实际应答的模型（带 % 后缀）。计费仍按请求的模型计算。",
+        "clientMaskedAriaLabel": "实际响应模型：{model}；已向客户端返回所请求的模型名"
       },
       "errorMessage": "错误信息",
       "fake200ForwardedNotice": "提示：对于流式请求，该失败可能在流结束后才被识别；响应内容可能已原样透传给客户端。",
@@ -1928,7 +1930,9 @@
       "clickToDisableKey": "点击禁用密钥",
       "clickToEnableKey": "点击启用密钥",
       "operationFailed": "操作失败",
-      "clickToQuickRenew": "点击快捷续期"
+      "clickToQuickRenew": "点击快捷续期",
+      "softBlocked": "临时限制",
+      "softBlockedDescription": "此 Key 当前被运行时策略临时限制。"
     },
     "userStatus": {
       "enabled": "启用",
@@ -2073,6 +2077,27 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "softBlock": {
+          "label": "Key 临时限制",
+          "descriptionEnabled": "使用此 Key 的请求会被拒绝，并返回配置的提示词。",
+          "descriptionDisabled": "关闭后，此 Key 只遵循普通启用/禁用状态。",
+          "messageLabel": "限制提示词",
+          "messagePlaceholder": "输入返回给客户端的提示词",
+          "messageDescription": "Key 被临时限制时展示给客户端，最多 500 个字符。"
+        },
+        "streamUsageAdjustment": {
+          "label": "流式 Usage Token 改写",
+          "descriptionEnabled": "命中概率后，会在流式返回中同时按比例改写四类 usage token，并用于内部统计与计费。",
+          "descriptionDisabled": "关闭后，此 Key 的流式 usage token 保持上游原始值。",
+          "probabilityLabel": "命中概率（%）",
+          "probabilityDescription": "每次请求只采样一次；命中后四类 token 同时按各自比例改写。",
+          "inputRatioLabel": "input_tokens 比例（%）",
+          "outputRatioLabel": "output_tokens 比例（%）",
+          "cacheReadRatioLabel": "cache_read_input_tokens 比例（%）",
+          "cacheCreationRatioLabel": "cache_creation_input_tokens 比例（%）",
+          "ratioDescription": "100 表示不变，50 表示减半，200 表示翻倍。",
+          "example": "示例：input_tokens=1000、output_tokens=500、cache_read_input_tokens=200、cache_creation_input_tokens=100 时，命中后按下面比例同时改写。"
         }
       },
       "limitRules": {

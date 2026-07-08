@@ -60,7 +60,7 @@ Commands:
 Due to environment limitations (no GUI/browser automation in this run), screenshots are not attached here.
 
 Recommended steps:
-1. Start dev server: `bun run dev` (port 13500)
+1. Start dev server: `bun run dev` (port 3000)
 2. Open pages for both `ja` and `zh-TW` locales:
    - Settings: `/settings` (providers list/form, request filters, notifications)
    - Dashboard: `/dashboard` (key widgets)

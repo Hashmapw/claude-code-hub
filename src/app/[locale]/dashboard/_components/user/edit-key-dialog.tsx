@@ -30,6 +30,14 @@ export interface EditKeyDialogProps {
     limitTotalUsd?: number | null;
     limitConcurrentSessions?: number;
     costResetAt?: string | null;
+    softBlockEnabled?: boolean;
+    softBlockMessage?: string | null;
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
   };
   user?: KeyDialogUserContext;
   isAdmin?: boolean;

@@ -14,6 +14,8 @@ function createBatchState(): ProviderFormState {
       groupTag: [],
       preserveClientIp: false,
       disableSessionReuse: false,
+      rejectStreamingContentLength: false,
+      rejectStreamingZeroUsage: false,
       modelRedirects: [],
       allowedModels: [],
       allowedClients: [],
@@ -265,6 +267,26 @@ describe("buildPatchDraftFromFormState", () => {
     expect(draft.disable_session_reuse).toEqual({ set: true });
   });
 
+  it("sets rejectStreamingContentLength when dirty", () => {
+    const state = createBatchState();
+    state.routing.rejectStreamingContentLength = true;
+    const dirty = new Set(["routing.rejectStreamingContentLength"]);
+
+    const draft = buildPatchDraftFromFormState(state, dirty);
+
+    expect(draft.reject_streaming_content_length).toEqual({ set: true });
+  });
+
+  it("sets rejectStreamingZeroUsage when dirty", () => {
+    const state = createBatchState();
+    state.routing.rejectStreamingZeroUsage = true;
+    const dirty = new Set(["routing.rejectStreamingZeroUsage"]);
+
+    const draft = buildPatchDraftFromFormState(state, dirty);
+
+    expect(draft.reject_streaming_zero_usage).toEqual({ set: true });
+  });
+
   it("sets swapCacheTtlBilling when dirty", () => {
     const state = createBatchState();
     state.routing.swapCacheTtlBilling = true;
@@ -330,6 +352,16 @@ describe("buildPatchDraftFromFormState", () => {
     const draft = buildPatchDraftFromFormState(state, dirty);
 
     expect(draft.codex_image_generation_preference).toEqual({ set: "false" });
+  });
+
+  it("sets codexServiceTierPreference to none instead of clearing it", () => {
+    const state = createBatchState();
+    state.routing.codexServiceTierPreference = "none";
+    const dirty = new Set(["routing.codexServiceTierPreference"]);
+
+    const draft = buildPatchDraftFromFormState(state, dirty);
+
+    expect(draft.codex_service_tier_preference).toEqual({ set: "none" });
   });
 
   it("clears anthropicThinkingBudgetPreference when dirty and inherit", () => {
