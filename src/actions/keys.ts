@@ -799,6 +799,9 @@ export async function editKey(
         ? { stream_usage_adjustment: buildStreamUsageAdjustmentConfigFromForm(validatedData) }
         : {}),
     });
+    // Key 表里的多数字段都会进入 API Key 鉴权缓存（包括流式 usage token 改写配置）。
+    // 保存后立即清缓存，避免管理端已写库但代理热路径继续读到旧配置。
+    await invalidateCachedKey(key.key).catch(() => null);
 
     if (hasSoftBlockConfigField) {
       const softBlockResult = await setKeySoftBlockConfig(keyId, {
@@ -820,7 +823,6 @@ export async function editKey(
       validatedData.limit5hResetMode !== key.limit5hResetMode
     ) {
       const { clearSingleKeyCostCache } = await import("@/lib/redis/cost-cache-cleanup");
-      await invalidateCachedKey(key.key).catch(() => null);
       await clearSingleKeyCostCache({
         keyId,
         keyHash: key.key,

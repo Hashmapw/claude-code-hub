@@ -7,6 +7,7 @@ const getSessionMock = vi.fn();
 const findKeyByIdMock = vi.fn();
 const updateKeyMock = vi.fn();
 const findUserByIdMock = vi.fn();
+const invalidateCachedKeyMock = vi.fn(async () => null);
 
 vi.mock("@/lib/auth", () => ({ getSession: () => getSessionMock() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -37,7 +38,7 @@ vi.mock("@/lib/key-soft-block-store", () => ({
   setKeySoftBlockConfig: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/security/api-key-auth-cache", () => ({
-  invalidateCachedKey: vi.fn(async () => null),
+  invalidateCachedKey: (...args: unknown[]) => invalidateCachedKeyMock(...args),
 }));
 vi.mock("@/actions/users", () => ({
   syncUserProviderGroupFromKeys: vi.fn(async () => {}),
@@ -71,6 +72,7 @@ describe("editKey streamUsageAdjustment admin gate", () => {
     });
     findUserByIdMock.mockResolvedValue({ id: 2, limit5hUsd: null, dailyQuota: null });
     updateKeyMock.mockResolvedValue(undefined);
+    invalidateCachedKeyMock.mockClear();
   });
 
   it("ignores streamUsageAdjustment when a non-admin edits their own key", async () => {
@@ -106,5 +108,6 @@ describe("editKey streamUsageAdjustment admin gate", () => {
       cacheReadInputTokensRatio: 0,
       cacheCreationInputTokensRatio: 0,
     });
+    expect(invalidateCachedKeyMock).toHaveBeenCalledWith("khash");
   });
 });
