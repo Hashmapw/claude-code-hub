@@ -219,6 +219,71 @@ describe("ResponseFixer", () => {
     expect(session.getSpecialSettings()).toBeNull();
   });
 
+  test("流式 OpenAI SSE：将 reasoning 规范为 reasoning_content 并保留其他思维块", async () => {
+    const { ResponseFixer } = await import("./index");
+
+    mocks.getCachedSystemSettings.mockResolvedValueOnce({
+      enableResponseFixer: true,
+      enableHighConcurrencyMode: false,
+      responseFixerConfig: {
+        fixTruncatedJson: false,
+        fixSseFormat: true,
+        fixEncoding: true,
+        maxJsonDepth: 200,
+        maxFixSize: 1024 * 1024,
+      },
+    });
+
+    const session = createSession();
+    session.originalFormat = "openai";
+    const legacyReasoning = {
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: { reasoning: "legacy reasoning" } }],
+    };
+    const canonicalReasoning = {
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: { reasoning_content: "canonical reasoning" } }],
+    };
+    const duplicateReasoning = {
+      object: "chat.completion.chunk",
+      choices: [
+        {
+          index: 0,
+          delta: { reasoning: "legacy duplicate", reasoning_content: "canonical duplicate" },
+        },
+      ],
+    };
+    const anthropicThinking = {
+      type: "content_block_delta",
+      delta: { thinking: "preserve this thinking block" },
+    };
+
+    const fixed = await ResponseFixer.process(
+      session,
+      createSseResponse([
+        `data: ${JSON.stringify(legacyReasoning)}`,
+        "",
+        `data: ${JSON.stringify(canonicalReasoning)}`,
+        "",
+        `data: ${JSON.stringify(duplicateReasoning)}`,
+        "",
+        "event: content_block_delta",
+        `data: ${JSON.stringify(anthropicThinking)}`,
+        "",
+      ])
+    );
+    const payloads = (await fixed.text())
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => JSON.parse(line.slice(6)));
+
+    expect(payloads[0].choices[0].delta).toEqual({ reasoning_content: "legacy reasoning" });
+    expect(payloads[1].choices[0].delta).toEqual({ reasoning_content: "canonical reasoning" });
+    expect(payloads[2].choices[0].delta).toEqual({ reasoning_content: "canonical duplicate" });
+    expect(payloads[3]).toEqual(anthropicThinking);
+    expect(session.getSpecialSettings()).not.toBeNull();
+  });
+
   test("流式 Responses SSE：应过滤上游混入的空 Chat Completions chunk", async () => {
     const { ResponseFixer } = await import("./index");
 

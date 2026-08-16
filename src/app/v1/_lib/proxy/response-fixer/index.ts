@@ -29,6 +29,7 @@ const UTF8_ENCODER = new TextEncoder();
 
 // '"chat.completion.chunk"' 的 ASCII 字节序列：用于解码前的字节级预扫描
 const CHAT_COMPLETION_CHUNK_MARKER = UTF8_ENCODER.encode('"chat.completion.chunk"');
+const REASONING_DELTA_MARKER = UTF8_ENCODER.encode('"reasoning"');
 
 function nowMs(): number {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -39,6 +40,34 @@ function nowMs(): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeOpenAIChatReasoningPayload(payload: unknown): boolean {
+  if (!isRecord(payload)) return false;
+  if (payload.object !== undefined && payload.object !== "chat.completion.chunk") {
+    return false;
+  }
+
+  const choices = payload.choices;
+  if (!Array.isArray(choices)) return false;
+
+  let applied = false;
+  for (const choice of choices) {
+    if (!isRecord(choice) || !isRecord(choice.delta)) continue;
+
+    const delta = choice.delta;
+    if (typeof delta.reasoning !== "string") continue;
+
+    // DeepSeek Flash uses `reasoning`, while OpenAI-compatible clients (including
+    // DeepSeek Harness) consume the canonical `reasoning_content` field.
+    if (typeof delta.reasoning_content !== "string" || delta.reasoning_content.length === 0) {
+      delta.reasoning_content = delta.reasoning;
+    }
+    delete delta.reasoning;
+    applied = true;
+  }
+
+  return applied;
 }
 
 function hasMeaningfulValue(value: unknown): boolean {
@@ -405,6 +434,13 @@ export class ResponseFixer {
         }
       }
 
+      const reasoning = ResponseFixer.normalizeSseReasoningDeltas(data);
+      if (reasoning.applied) {
+        applied.sse.applied = true;
+        applied.sse.details ??= reasoning.details;
+        data = reasoning.data;
+      }
+
       // inert chunk 过滤是序列的固定末步，审计上计入 sse 修复
       const filtered = ResponseFixer.filterInertResponsesChatCompletionChunks(session, data);
       if (filtered.applied) {
@@ -664,5 +700,59 @@ export class ResponseFixer {
     out.set(SSE_DATA_PREFIX_WITH_SPACE, 0);
     out.set(res.data, SSE_DATA_PREFIX_WITH_SPACE.length);
     return { line: out, applied: true };
+  }
+
+  private static normalizeSseReasoningDeltas(data: Uint8Array): {
+    data: Uint8Array;
+    applied: boolean;
+    details?: string;
+  } {
+    if (ResponseFixer.byteIndexOf(data, REASONING_DELTA_MARKER) < 0) {
+      return { data, applied: false };
+    }
+
+    const text = UTF8_DECODER.decode(data);
+    const lines = text.split("\n");
+    let applied = false;
+
+    const output = lines.map((line) => {
+      const normalized = ResponseFixer.normalizeReasoningDataLine(line);
+      if (!normalized.applied) return line;
+      applied = true;
+      return normalized.line;
+    });
+
+    if (!applied) return { data, applied: false };
+
+    return {
+      data: UTF8_ENCODER.encode(output.join("\n")),
+      applied: true,
+      details: "normalized_reasoning_delta",
+    };
+  }
+
+  private static normalizeReasoningDataLine(line: string): { line: string; applied: boolean } {
+    if (!line.startsWith("data:") || !line.includes('"reasoning"')) {
+      return { line, applied: false };
+    }
+
+    const payloadText = line.slice(5).trim();
+    if (!payloadText.startsWith("{")) return { line, applied: false };
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(payloadText);
+    } catch {
+      return { line, applied: false };
+    }
+
+    if (!normalizeOpenAIChatReasoningPayload(payload)) {
+      return { line, applied: false };
+    }
+
+    return {
+      line: `data: ${JSON.stringify(payload)}`,
+      applied: true,
+    };
   }
 }
