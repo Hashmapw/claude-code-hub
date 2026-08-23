@@ -106,6 +106,7 @@ import {
   syncOpenAIImageMultipartFromLogicalBody,
   validateOpenAIImageRequest,
 } from "./openai-image-compat";
+import { appendOpenCodeBetaQuery } from "./opencode-beta";
 import { ProxyProviderResolver } from "./provider-selector";
 import { abortReplayOwnership, releaseReplayOwnership } from "./replay/replay-spool";
 import { isJsonResponseContentType, isMalformedJsonResponseBody } from "./response-content-type";
@@ -3184,6 +3185,12 @@ export class ProxyForwarder {
       // 移除了强制 /v1/responses 路径重写，解决 Issue #139
       // buildProxyUrl() 会检测 base_url 是否已包含完整路径，避免重复拼接
       proxyUrl = buildProxyUrl(effectiveBaseUrl, session.requestUrl);
+      proxyUrl = appendOpenCodeBetaQuery({
+        upstreamUrl: proxyUrl,
+        userAgent: session.userAgent,
+        providerType: provider.providerType,
+        requestPath,
+      });
 
       // Host header must match actual request target for undici TLS cert validation
       // When provider has multiple endpoints, provider.url and proxyUrl hosts may differ
