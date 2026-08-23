@@ -60,6 +60,7 @@ function render(node: ReactNode) {
 
   return {
     container,
+    queryClient,
     unmount: () => {
       act(() => root.unmount());
       container.remove();
@@ -132,6 +133,48 @@ describe("EditKeyForm: 清除 expiresAt 后应携带 expiresAt 字段提交（�
     const [, payload] = call;
 
     expect("expiresAt" in payload).toBe(true);
+
+    unmount();
+  });
+
+  test("管理员保存流式 usage 改写时提交配置并刷新 users 查询", async () => {
+    const messages = loadMessages();
+    const { queryClient, unmount } = render(
+      <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
+        <Dialog open onOpenChange={() => {}}>
+          <EditKeyForm keyData={{ id: 1, name: "k", expiresAt: "" }} isAdmin />
+        </Dialog>
+      </NextIntlClientProvider>
+    );
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const adjustmentSwitch = document.getElementById("edit-key-stream-usage-adjustment");
+    expect(adjustmentSwitch).toBeTruthy();
+
+    await act(async () => {
+      adjustmentSwitch?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const submit = document.body.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(keysActionMocks.editKey).toHaveBeenCalledTimes(1);
+    const [, payload] = keysActionMocks.editKey.mock.calls[0] as unknown as [
+      number,
+      Record<string, unknown>,
+    ];
+    expect(payload).toMatchObject({
+      streamUsageAdjustmentEnabled: true,
+      streamUsageAdjustmentProbability: 100,
+      streamUsageAdjustmentInputTokensRatio: 100,
+      streamUsageAdjustmentOutputTokensRatio: 100,
+      streamUsageAdjustmentCacheReadInputTokensRatio: 100,
+      streamUsageAdjustmentCacheCreationInputTokensRatio: 100,
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["users"] });
 
     unmount();
   });

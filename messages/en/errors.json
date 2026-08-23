@@ -100,5 +100,7 @@
   "KEY_LIMIT_TOTAL_EXCEEDS_USER_LIMIT": "Key total limit ({keyLimit}) cannot exceed user limit ({userLimit})",
   "KEY_LIMIT_CONCURRENT_EXCEEDS_USER_LIMIT": "Key concurrent session limit ({keyLimit}) cannot exceed user limit ({userLimit})",
   "NO_DEFAULT_GROUP_PERMISSION": "No permission to use default group. You don't have a Key with default group",
-  "NO_GROUP_PERMISSION": "No permission to use the following groups: {groups}"
+  "NO_GROUP_PERMISSION": "No permission to use the following groups: {groups}",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "Streaming usage rewrite probability must be between 0 and 100.",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "Streaming usage rewrite ratio must be between 0 and 10000."
 }

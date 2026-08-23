@@ -469,6 +469,103 @@ describe("ProxyResponseHandler.dispatch stream terminal behavior", () => {
     );
   });
 
+  it("keeps native Gemini NDJSON format when key usage adjustment hits", async () => {
+    const { session } = await createSession({});
+    session.setProvider({ ...createProvider(), providerType: "gemini" });
+    session.originalFormat = "gemini";
+    session.setMessageContext({
+      ...MESSAGE,
+      key: {
+        ...KEY,
+        streamUsageAdjustment: {
+          enabled: true,
+          probability: 100,
+          inputTokensRatio: 50,
+          outputTokensRatio: 200,
+          cacheReadInputTokensRatio: 100,
+          cacheCreationInputTokensRatio: 100,
+        },
+      },
+    });
+    const body = [
+      '{"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}',
+      '{"candidates":[{"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":2,"totalTokenCount":12}}',
+      "",
+    ].join("\n");
+
+    const returned = await ProxyResponseHandler.dispatch(session, sseResponse(body));
+    const clientText = await returned.text();
+    await settleTasks();
+
+    expect(clientText).not.toContain("data:");
+    const finalPayload = JSON.parse(clientText.trimEnd().split("\n").at(-1) ?? "{}");
+    expect(finalPayload.usageMetadata).toEqual({
+      promptTokenCount: 5,
+      candidatesTokenCount: 4,
+      totalTokenCount: 9,
+    });
+    expect(mocks.durable).toHaveBeenCalledWith(
+      MESSAGE.id,
+      expect.objectContaining({
+        inputTokens: 10,
+        outputTokens: 2,
+        specialSettings: expect.arrayContaining([
+          expect.objectContaining({ type: "key_stream_usage_adjustment", hit: true }),
+        ]),
+      }),
+      expect.objectContaining({ onCommitted: expect.any(Function) })
+    );
+  });
+
+  it("preserves Gemini cached-input subsets after converting an adjusted stream", async () => {
+    const { session } = await createSession({});
+    session.setProvider({ ...createProvider(), providerType: "gemini" });
+    session.originalFormat = "claude";
+    session.setMessageContext({
+      ...MESSAGE,
+      key: {
+        ...KEY,
+        streamUsageAdjustment: {
+          enabled: true,
+          probability: 100,
+          inputTokensRatio: 50,
+          outputTokensRatio: 200,
+          cacheReadInputTokensRatio: 10,
+          cacheCreationInputTokensRatio: 100,
+        },
+      },
+    });
+    const body = [
+      'data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}\n\n',
+      'data: {"candidates":[{"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1200,"candidatesTokenCount":500,"cachedContentTokenCount":200,"totalTokenCount":1700}}\n\n',
+    ].join("");
+
+    const returned = await ProxyResponseHandler.dispatch(session, sseResponse(body));
+    const clientText = await returned.text();
+    await settleTasks();
+
+    const usageLine = clientText
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => JSON.parse(line.slice("data: ".length)))
+      .find((payload) => payload.usage);
+    expect(usageLine?.usage).toEqual({
+      prompt_tokens: 520,
+      completion_tokens: 1000,
+      total_tokens: 1520,
+      cache_read_input_tokens: 20,
+    });
+    expect(mocks.durable).toHaveBeenCalledWith(
+      MESSAGE.id,
+      expect.objectContaining({
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadInputTokens: 200,
+      }),
+      expect.objectContaining({ onCommitted: expect.any(Function) })
+    );
+  });
+
   it("observes native Gemini failures before transforming the client stream", async () => {
     const { session } = await createSession({});
     session.setProvider({ ...createProvider(), providerType: "gemini" });
@@ -890,6 +987,20 @@ describe("ProxyResponseHandler.dispatch stream terminal behavior", () => {
     const { session } = await createSession({});
     session.setProvider({ ...createProvider(), providerType: "codex" });
     session.originalFormat = "response";
+    session.setMessageContext({
+      ...MESSAGE,
+      key: {
+        ...KEY,
+        streamUsageAdjustment: {
+          enabled: true,
+          probability: 100,
+          inputTokensRatio: 50,
+          outputTokensRatio: 200,
+          cacheReadInputTokensRatio: 100,
+          cacheCreationInputTokensRatio: 100,
+        },
+      },
+    });
     session.replayState = {
       role: "owner",
       ownerToken: "owner-token-overflow",
@@ -925,7 +1036,8 @@ describe("ProxyResponseHandler.dispatch stream terminal behavior", () => {
     ].join("");
 
     const returned = await ProxyResponseHandler.dispatch(session, sseResponse(body));
-    expect((await returned.text()).length).toBe(body.length);
+    const clientText = await returned.text();
+    expect(clientText).toContain('"usage":{"input_tokens":5,"output_tokens":4}');
     await settleTasks();
 
     expect(mocks.durable).toHaveBeenCalledWith(

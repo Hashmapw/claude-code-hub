@@ -2270,6 +2270,19 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "streamUsageAdjustment": {
+          "label": "流式 Usage Token 改写",
+          "descriptionEnabled": "命中概率后，会在流式返回中同时按比例改写四类 usage token，并用于内部统计与计费。",
+          "descriptionDisabled": "关闭后，此 Key 的流式 usage token 保持上游原始值。",
+          "probabilityLabel": "命中概率（%）",
+          "probabilityDescription": "每次请求只采样一次；命中后四类 token 同时按各自比例改写。",
+          "inputRatioLabel": "input_tokens 比例（%）",
+          "outputRatioLabel": "output_tokens 比例（%）",
+          "cacheReadRatioLabel": "cache_read_input_tokens 比例（%）",
+          "cacheCreationRatioLabel": "cache_creation_input_tokens 比例（%）",
+          "ratioDescription": "100 表示不变，50 表示减半，200 表示翻倍。",
+          "example": "示例：input_tokens=1000、output_tokens=500、cache_read_input_tokens=200、cache_creation_input_tokens=100 时，命中后按下面比例同时改写。"
         }
       },
       "limitRules": {

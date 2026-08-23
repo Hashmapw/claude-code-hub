@@ -1,3 +1,4 @@
+import { normalizeStreamUsageAdjustmentConfig } from "@/lib/key-stream-usage-adjustment-config";
 import { logger } from "@/lib/logger";
 import type { Key } from "@/types/key";
 import type { User } from "@/types/user";
@@ -160,6 +161,7 @@ function hydrateKeyFromCache(keyString: string, payload: CachedKeyPayloadV1): Ke
     expiresAt: expiresAt === undefined ? undefined : expiresAt,
     deletedAt: deletedAt === undefined ? undefined : deletedAt,
     costResetAt: costResetAt === undefined ? undefined : costResetAt,
+    streamUsageAdjustment: normalizeStreamUsageAdjustmentConfig(key.streamUsageAdjustment),
   } as Key;
 }
 

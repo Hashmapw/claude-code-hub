@@ -163,6 +163,17 @@ function buildSettingKey(setting: SpecialSetting): string {
       ]);
     case "response_input_rectifier":
       return JSON.stringify([setting.type, setting.hit, setting.action, setting.originalType]);
+    case "key_stream_usage_adjustment":
+      return JSON.stringify([
+        setting.type,
+        setting.hit,
+        setting.keyId,
+        setting.probability,
+        setting.ratios.inputTokens,
+        setting.ratios.outputTokens,
+        setting.ratios.cacheReadInputTokens,
+        setting.ratios.cacheCreationInputTokens,
+      ]);
     case "thinking_signature_model_detection":
       return JSON.stringify([
         setting.type,

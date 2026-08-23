@@ -2295,6 +2295,19 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "streamUsageAdjustment": {
+          "label": "Перезапись streaming usage tokens",
+          "descriptionEnabled": "После срабатывания вероятности все четыре счетчика usage token в streaming-ответе переписываются по коэффициентам и используются во внутренней статистике и биллинге.",
+          "descriptionDisabled": "Если выключено, этот Key оставляет streaming usage token из upstream без изменений.",
+          "probabilityLabel": "Вероятность срабатывания (%)",
+          "probabilityDescription": "Выборка выполняется один раз на запрос; при срабатывании все четыре счетчика token переписываются вместе по своим коэффициентам.",
+          "inputRatioLabel": "Коэффициент input_tokens (%)",
+          "outputRatioLabel": "Коэффициент output_tokens (%)",
+          "cacheReadRatioLabel": "Коэффициент cache_read_input_tokens (%)",
+          "cacheCreationRatioLabel": "Коэффициент cache_creation_input_tokens (%)",
+          "ratioDescription": "100 означает без изменений, 50 уменьшает вдвое, 200 увеличивает вдвое.",
+          "example": "Пример: если input_tokens=1000, output_tokens=500, cache_read_input_tokens=200 и cache_creation_input_tokens=100, при срабатывании все они одновременно переписываются по коэффициентам ниже."
         }
       },
       "limitRules": {

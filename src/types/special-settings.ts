@@ -25,6 +25,7 @@ export type SpecialSetting =
   | PricingResolutionSpecialSetting
   | CodexServiceTierResultSpecialSetting
   | ResponseInputRectifierSpecialSetting
+  | KeyStreamUsageAdjustmentSpecialSetting
   | ThinkingSignatureModelDetectionSpecialSetting;
 
 export type SpecialSettingChangeValue = string | number | boolean | null;
@@ -328,6 +329,20 @@ export type ResponseInputRectifierSpecialSetting = {
   hit: boolean;
   action: "string_to_array" | "object_to_array" | "empty_string_to_empty_array" | "passthrough";
   originalType: "string" | "object" | "array" | "other";
+};
+
+export type KeyStreamUsageAdjustmentSpecialSetting = {
+  type: "key_stream_usage_adjustment";
+  scope: "response";
+  hit: boolean;
+  keyId: number | null;
+  probability: number;
+  ratios: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
+  };
 };
 
 /**
