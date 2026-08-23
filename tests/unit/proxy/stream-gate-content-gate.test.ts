@@ -333,6 +333,23 @@ describe("runStreamContentGate", () => {
     expect(result.readerDone).toBe(false);
   });
 
+  it("openai-chat: ds-flash reasoning commits before the default event cap", async () => {
+    const reasoningFrames = Array.from(
+      { length: 65 },
+      (_, index) => `data: {"choices":[{"delta":{"reasoning":"reasoning step ${index}"}}]}\n\n`
+    );
+    const reader = readerFromChunks(reasoningFrames);
+    const result = await runStreamContentGate(reader, {
+      ...GATE_OPTIONS,
+      family: "openai-chat",
+    });
+
+    expect(result.committed).toBe(true);
+    if (!result.committed) return;
+    expect(await drainPrefix(result.prefixChunks)).toBe(reasoningFrames[0]);
+    expect(result.readerDone).toBe(false);
+  });
+
   it("openai-responses: commits a compaction item before response.completed", async () => {
     const compaction =
       'event: response.output_item.done\ndata: {"type":"response.output_item.done","item":{"type":"compaction","encrypted_content":"opaque-state"}}\n\n';

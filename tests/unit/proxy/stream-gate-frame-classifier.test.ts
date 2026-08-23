@@ -171,6 +171,9 @@ describe("classifyFrame: openai-chat", () => {
       )
     ).toBe("content");
     expect(
+      classifyFrame("openai-chat", null, '{"choices":[{"delta":{"reasoning":"reasoning step"}}]}')
+    ).toBe("content");
+    expect(
       classifyFrame(
         "openai-chat",
         null,
@@ -211,6 +214,9 @@ describe("classifyFrame: openai-chat", () => {
     expect(
       classifyFrame("openai-chat", null, '{"choices":[{"delta":{"reasoning_content":""}}]}')
     ).toBe("neutral");
+    expect(classifyFrame("openai-chat", null, '{"choices":[{"delta":{"reasoning":""}}]}')).toBe(
+      "neutral"
+    );
   });
 
   it("error: in-stream error payload", () => {
