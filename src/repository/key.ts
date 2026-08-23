@@ -41,6 +41,7 @@ export async function findKeyById(id: number): Promise<Key | null> {
       limitConcurrentSessions: keys.limitConcurrentSessions,
       providerGroup: keys.providerGroup,
       cacheTtlPreference: keys.cacheTtlPreference,
+      streamUsageAdjustment: keys.streamUsageAdjustment,
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
       deletedAt: keys.deletedAt,
@@ -74,6 +75,7 @@ export async function findKeyList(userId: number): Promise<Key[]> {
       limitConcurrentSessions: keys.limitConcurrentSessions,
       providerGroup: keys.providerGroup,
       cacheTtlPreference: keys.cacheTtlPreference,
+      streamUsageAdjustment: keys.streamUsageAdjustment,
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
       deletedAt: keys.deletedAt,
@@ -115,6 +117,7 @@ export async function findKeyListBatch(userIds: number[]): Promise<Map<number, K
       limitConcurrentSessions: keys.limitConcurrentSessions,
       providerGroup: keys.providerGroup,
       cacheTtlPreference: keys.cacheTtlPreference,
+      streamUsageAdjustment: keys.streamUsageAdjustment,
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
       deletedAt: keys.deletedAt,
@@ -160,6 +163,7 @@ export async function createKey(keyData: CreateKeyData): Promise<Key> {
     limitConcurrentSessions: keyData.limit_concurrent_sessions,
     providerGroup: keyData.provider_group ?? null,
     cacheTtlPreference: keyData.cache_ttl_preference ?? null,
+    streamUsageAdjustment: keyData.stream_usage_adjustment ?? null,
   };
 
   const [key] = await db.insert(keys).values(dbData).returning({
@@ -182,6 +186,7 @@ export async function createKey(keyData: CreateKeyData): Promise<Key> {
     limitConcurrentSessions: keys.limitConcurrentSessions,
     providerGroup: keys.providerGroup,
     cacheTtlPreference: keys.cacheTtlPreference,
+    streamUsageAdjustment: keys.streamUsageAdjustment,
     createdAt: keys.createdAt,
     updatedAt: keys.updatedAt,
     deletedAt: keys.deletedAt,
@@ -255,6 +260,8 @@ export async function updateKey(id: number, keyData: UpdateKeyData): Promise<Key
   if (keyData.provider_group !== undefined) dbData.providerGroup = keyData.provider_group;
   if (keyData.cache_ttl_preference !== undefined)
     dbData.cacheTtlPreference = keyData.cache_ttl_preference ?? null;
+  if (keyData.stream_usage_adjustment !== undefined)
+    dbData.streamUsageAdjustment = keyData.stream_usage_adjustment ?? null;
 
   const [key] = await db
     .update(keys)
@@ -280,6 +287,7 @@ export async function updateKey(id: number, keyData: UpdateKeyData): Promise<Key
       limitConcurrentSessions: keys.limitConcurrentSessions,
       providerGroup: keys.providerGroup,
       cacheTtlPreference: keys.cacheTtlPreference,
+      streamUsageAdjustment: keys.streamUsageAdjustment,
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
       deletedAt: keys.deletedAt,
@@ -324,6 +332,7 @@ export async function findActiveKeyByUserIdAndName(
       limitConcurrentSessions: keys.limitConcurrentSessions,
       providerGroup: keys.providerGroup,
       cacheTtlPreference: keys.cacheTtlPreference,
+      streamUsageAdjustment: keys.streamUsageAdjustment,
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
       deletedAt: keys.deletedAt,
@@ -521,6 +530,7 @@ export async function findActiveKeyByKeyString(keyString: string): Promise<Key |
       limitConcurrentSessions: keys.limitConcurrentSessions,
       providerGroup: keys.providerGroup,
       cacheTtlPreference: keys.cacheTtlPreference,
+      streamUsageAdjustment: keys.streamUsageAdjustment,
       createdAt: keys.createdAt,
       updatedAt: keys.updatedAt,
       deletedAt: keys.deletedAt,
@@ -656,6 +666,7 @@ export async function resolveApiKeyAuthOutcome(keyString: string): Promise<ApiKe
       keyLimitConcurrentSessions: keys.limitConcurrentSessions,
       keyProviderGroup: keys.providerGroup,
       keyCacheTtlPreference: keys.cacheTtlPreference,
+      keyStreamUsageAdjustment: keys.streamUsageAdjustment,
       keyCreatedAt: keys.createdAt,
       keyUpdatedAt: keys.updatedAt,
       keyDeletedAt: keys.deletedAt,
@@ -761,6 +772,7 @@ export async function resolveApiKeyAuthOutcome(keyString: string): Promise<ApiKe
     limitConcurrentSessions: row.keyLimitConcurrentSessions,
     providerGroup: row.keyProviderGroup,
     cacheTtlPreference: row.keyCacheTtlPreference,
+    streamUsageAdjustment: row.keyStreamUsageAdjustment,
     createdAt: row.keyCreatedAt,
     updatedAt: row.keyUpdatedAt,
     deletedAt: row.keyDeletedAt,

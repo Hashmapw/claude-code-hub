@@ -99,5 +99,7 @@
   "EXPIRES_AT_TOO_FAR": "過期時間不能超過10年",
   "CANNOT_DISABLE_SELF": "不能禁用自己的帳戶",
   "NO_DEFAULT_GROUP_PERMISSION": "無權使用 default 分組，您當前沒有 default 分組的 Key",
-  "NO_GROUP_PERMISSION": "無權使用以下分組: {groups}"
+  "NO_GROUP_PERMISSION": "無權使用以下分組: {groups}",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "串流 usage 改寫機率必須介於 0 到 100 之間。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "串流 usage 改寫比例必須介於 0 到 10000 之間。"
 }

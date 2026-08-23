@@ -457,6 +457,37 @@ export const KeyFormSchema = z.object({
     .optional()
     .default(""),
   cacheTtlPreference: CACHE_TTL_PREFERENCE.optional().default("inherit"),
+  streamUsageAdjustmentEnabled: z.boolean().optional().default(false),
+  streamUsageAdjustmentProbability: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID")
+    .max(100, "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10_000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentOutputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10_000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentCacheReadInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10_000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
+  streamUsageAdjustmentCacheCreationInputTokensRatio: z.coerce
+    .number()
+    .min(0, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .max(10_000, "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID")
+    .optional()
+    .default(100),
 });
 
 // 共享：静态自定义请求头的 zod 校验器，复用 normalizeCustomHeadersRecord 中的全部规则。

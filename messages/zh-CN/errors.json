@@ -99,5 +99,7 @@
   "KEY_LIMIT_TOTAL_EXCEEDS_USER_LIMIT": "Key的总消费上限（{keyLimit}）不能超过用户限额（{userLimit}）",
   "KEY_LIMIT_CONCURRENT_EXCEEDS_USER_LIMIT": "Key的并发Session上限（{keyLimit}）不能超过用户限额（{userLimit}）",
   "NO_DEFAULT_GROUP_PERMISSION": "无权使用 default 分组，您当前没有 default 分组的 Key",
-  "NO_GROUP_PERMISSION": "无权使用以下分组: {groups}"
+  "NO_GROUP_PERMISSION": "无权使用以下分组: {groups}",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "流式 usage 改写概率必须在 0 到 100 之间。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "流式 usage 改写比例必须在 0 到 10000 之间。"
 }

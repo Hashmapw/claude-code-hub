@@ -246,6 +246,14 @@ describe("getUsers compatibility", () => {
               limitConcurrentSessions: 0,
               costResetAt: null,
               providerGroup: "default",
+              streamUsageAdjustment: {
+                enabled: true,
+                probability: 25,
+                inputTokensRatio: 125,
+                outputTokensRatio: 250,
+                cacheReadInputTokensRatio: 75,
+                cacheCreationInputTokensRatio: 50,
+              },
             },
           ],
         ],
@@ -261,6 +269,14 @@ describe("getUsers compatibility", () => {
     expect(result.data.users[0]?.expiresAt).toBe("2026-05-07T07:41:10.000Z");
     expect(result.data.users[0]?.costResetAt).toBe("2026-04-30T00:00:00.000Z");
     expect(result.data.users[0]?.keys[0]?.createdAt).toBe("2026-04-30T07:41:10.000Z");
+    expect(result.data.users[0]?.keys[0]).toMatchObject({
+      streamUsageAdjustmentEnabled: true,
+      streamUsageAdjustmentProbability: 25,
+      streamUsageAdjustmentInputTokensRatio: 125,
+      streamUsageAdjustmentOutputTokensRatio: 250,
+      streamUsageAdjustmentCacheReadInputTokensRatio: 75,
+      streamUsageAdjustmentCacheCreationInputTokensRatio: 50,
+    });
   });
 
   test("getUsersBatchCore returns null for invalid date transport fields", async () => {

@@ -99,5 +99,7 @@
   "EXPIRES_AT_TOO_FAR": "有効期限は10年を超えることはできません",
   "CANNOT_DISABLE_SELF": "自分のアカウントを無効にすることはできません",
   "NO_DEFAULT_GROUP_PERMISSION": "defaultグループを使用する権限がありません。defaultグループのキーを持っていません",
-  "NO_GROUP_PERMISSION": "以下のグループを使用する権限がありません: {groups}"
+  "NO_GROUP_PERMISSION": "以下のグループを使用する権限がありません: {groups}",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "ストリーミング usage の書き換え確率は 0 から 100 の範囲である必要があります。",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "ストリーミング usage の書き換え比率は 0 から 10000 の範囲である必要があります。"
 }

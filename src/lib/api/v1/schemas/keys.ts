@@ -3,6 +3,43 @@ import { z } from "@hono/zod-openapi";
 const ResetModeSchema = z.enum(["fixed", "rolling"]);
 const CacheTtlPreferenceSchema = z.enum(["inherit", "5m", "1h"]);
 
+const StreamUsageAdjustmentMutationFields = {
+  streamUsageAdjustmentEnabled: z
+    .boolean()
+    .optional()
+    .describe("Whether streaming usage token rewriting is enabled for this key."),
+  streamUsageAdjustmentProbability: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe("Request-level hit probability in percent."),
+  streamUsageAdjustmentInputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("input_tokens rewrite ratio in percent; 100 means unchanged."),
+  streamUsageAdjustmentOutputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("output_tokens rewrite ratio in percent; 100 means unchanged."),
+  streamUsageAdjustmentCacheReadInputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("cache_read_input_tokens rewrite ratio in percent; 100 means unchanged."),
+  streamUsageAdjustmentCacheCreationInputTokensRatio: z
+    .number()
+    .min(0)
+    .max(10_000)
+    .optional()
+    .describe("cache_creation_input_tokens rewrite ratio in percent; 100 means unchanged."),
+};
+
 export const KeyIdParamSchema = z.object({
   keyId: z.coerce.number().int().positive().describe("Key id."),
 });
@@ -58,7 +95,7 @@ const KeyMutationFields = {
 export const KeyCreateSchema = z.object(KeyMutationFields).strict();
 
 export const KeyUpdateSchema = z
-  .object(KeyMutationFields)
+  .object({ ...KeyMutationFields, ...StreamUsageAdjustmentMutationFields })
   .partial()
   .extend({
     name: z.string().trim().min(1).max(64).describe("Key name."),

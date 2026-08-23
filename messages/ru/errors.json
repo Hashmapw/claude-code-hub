@@ -99,5 +99,7 @@
   "EXPIRES_AT_TOO_FAR": "Дата истечения не может превышать 10 лет",
   "CANNOT_DISABLE_SELF": "Невозможно отключить свой собственный аккаунт",
   "NO_DEFAULT_GROUP_PERMISSION": "Нет разрешения на использование группы default. У вас нет ключа с группой default",
-  "NO_GROUP_PERMISSION": "Нет разрешения на использование следующих групп: {groups}"
+  "NO_GROUP_PERMISSION": "Нет разрешения на использование следующих групп: {groups}",
+  "STREAM_USAGE_ADJUSTMENT_PROBABILITY_INVALID": "Вероятность перезаписи потокового usage должна быть от 0 до 100.",
+  "STREAM_USAGE_ADJUSTMENT_RATIO_INVALID": "Коэффициент перезаписи потокового usage должен быть от 0 до 10000."
 }

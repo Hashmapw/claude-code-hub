@@ -1,3 +1,4 @@
+import type { StreamUsageAdjustmentConfig } from "@/lib/key-stream-usage-adjustment-config";
 import type { CacheTtlPreference } from "./cache";
 
 /**
@@ -32,6 +33,9 @@ export interface Key {
   // Cache TTL override (inherit -> follow provider/client)
   cacheTtlPreference: CacheTtlPreference | null;
 
+  // Stream usage token rewrite config (percent ratios; null/disabled = passthrough)
+  streamUsageAdjustment?: StreamUsageAdjustmentConfig | null;
+
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -64,6 +68,9 @@ export interface CreateKeyData {
 
   // Cache TTL override
   cache_ttl_preference?: CacheTtlPreference;
+
+  // Stream usage token rewrite config
+  stream_usage_adjustment?: StreamUsageAdjustmentConfig | null;
 }
 
 /**
@@ -91,4 +98,7 @@ export interface UpdateKeyData {
 
   // Cache TTL override
   cache_ttl_preference?: CacheTtlPreference;
+
+  // Stream usage token rewrite config
+  stream_usage_adjustment?: StreamUsageAdjustmentConfig | null;
 }

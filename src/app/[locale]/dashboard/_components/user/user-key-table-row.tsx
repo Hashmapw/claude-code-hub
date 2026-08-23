@@ -720,6 +720,17 @@ export function UserKeyTableRow({
                 limitMonthlyUsd: editingKey.limitMonthlyUsd,
                 limitTotalUsd: editingKey.limitTotalUsd,
                 limitConcurrentSessions: editingKey.limitConcurrentSessions,
+                streamUsageAdjustmentEnabled: editingKey.streamUsageAdjustmentEnabled ?? false,
+                streamUsageAdjustmentProbability:
+                  editingKey.streamUsageAdjustmentProbability ?? 100,
+                streamUsageAdjustmentInputTokensRatio:
+                  editingKey.streamUsageAdjustmentInputTokensRatio ?? 100,
+                streamUsageAdjustmentOutputTokensRatio:
+                  editingKey.streamUsageAdjustmentOutputTokensRatio ?? 100,
+                streamUsageAdjustmentCacheReadInputTokensRatio:
+                  editingKey.streamUsageAdjustmentCacheReadInputTokensRatio ?? 100,
+                streamUsageAdjustmentCacheCreationInputTokensRatio:
+                  editingKey.streamUsageAdjustmentCacheCreationInputTokensRatio ?? 100,
                 costResetAt:
                   typeof editingKey.costResetAt === "string"
                     ? editingKey.costResetAt

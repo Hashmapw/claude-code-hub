@@ -855,6 +855,13 @@
       "when": 1788182990280,
       "tag": "0121_legacy_hedge_abort_health",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1788462317622,
+      "tag": "0122_wide_phalanx",
+      "breakpoints": true
     }
   ]
 }
