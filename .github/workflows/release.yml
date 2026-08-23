@@ -245,8 +245,21 @@ jobs:
         if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && success()
         run: |
           NEW_TAG="${{ steps.next_version.outputs.new_tag }}"
-          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin HEAD:main "$NEW_TAG"
+          RELEASE_BRANCH="${GITHUB_REF#refs/heads/}"
+
+          if [ "$RELEASE_BRANCH" = "$GITHUB_REF" ] || [ -z "$RELEASE_BRANCH" ]; then
+            echo "::error::Release workflow must run from a branch ref, got: $GITHUB_REF"
+            exit 1
+          fi
+
+          git push origin "HEAD:refs/heads/$RELEASE_BRANCH"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$NEW_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEW_TAG already exists; preserving it for this retry."
+          else
+            git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
+            git push origin "refs/tags/$NEW_TAG"
+          fi
 
       - name: Prepare image names
         id: image_names
@@ -289,7 +302,7 @@ jobs:
 
           # 获取所有版本tag并按版本号排序(从旧到新)
           echo "正在获取所有tags..."
-          ALL_TAGS=$(git ls-remote --tags origin | grep -E 'refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$' | awk '{print $2}' | sed 's|refs/tags/||' | sort -V)
+          ALL_TAGS=$(git ls-remote --tags origin | grep -E 'refs/tags/v[0-9]+(\.[0-9]+){2,3}$' | awk '{print $2}' | sed 's|refs/tags/||' | sort -V)
 
           # 检查是否获取到tags
           if [ -z "$ALL_TAGS" ]; then
@@ -356,7 +369,7 @@ jobs:
             # 重新获取并显示保留的版本范围
             echo ""
             echo "正在验证清理结果..."
-            REMAINING_TAGS=$(git ls-remote --tags origin | grep -E 'refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$' | awk '{print $2}' | sed 's|refs/tags/||' | sort -V)
+            REMAINING_TAGS=$(git ls-remote --tags origin | grep -E 'refs/tags/v[0-9]+(\.[0-9]+){2,3}$' | awk '{print $2}' | sed 's|refs/tags/||' | sort -V)
             REMAINING_COUNT=$(echo "$REMAINING_TAGS" | wc -l)
             OLDEST=$(echo "$REMAINING_TAGS" | head -1)
             NEWEST=$(echo "$REMAINING_TAGS" | tail -1)
@@ -418,7 +431,7 @@ jobs:
 
       # 同步 main 分支到 dev 分支 (rebase dev onto main) - 仅正式版本触发
       - name: Sync main to dev branch
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && github.ref_name == 'main' && success()
         id: sync_dev
         continue-on-error: true
         env:
@@ -496,7 +509,7 @@ jobs:
 
       # 如果同步失败(冲突)，触发 autofix workflow
       - name: Trigger autofix for sync conflicts
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.sync_dev.outputs.sync_status == 'conflict' && success()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && github.ref_name == 'main' && steps.sync_dev.outputs.sync_status == 'conflict' && success()
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
@@ -517,7 +530,7 @@ jobs:
 
       # 同步结果汇总 - 仅正式版本显示
       - name: Sync summary
-        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && always()
+        if: (steps.check.outputs.needs_bump == 'true' || github.event_name == 'workflow_dispatch') && steps.next_version.outputs.is_prerelease != 'true' && github.ref_name == 'main' && always()
         run: |
           echo "=========================================="
           echo "Dev Branch Sync Summary"
