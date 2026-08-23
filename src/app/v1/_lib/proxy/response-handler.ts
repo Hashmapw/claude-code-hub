@@ -72,6 +72,10 @@ import {
 import { isDiscoveryProtocolErrorPayload } from "./discovery-validity";
 import { isClientAbortError, isTransportError } from "./errors";
 import {
+  applyKeyStreamUsageAdjustmentToStream,
+  resolveKeyStreamUsageAdjustmentDecision,
+} from "./key-stream-usage-adjustment";
+import {
   abortReplayOwnership,
   createReplaySpoolIfOwner,
   releaseReplayOwnership,
@@ -895,6 +899,23 @@ export class BoundedStreamTextAccumulator {
     }
     return offset === totalBytes ? out : out.slice(0, offset);
   }
+}
+
+function createBoundedStreamTextCapture(): {
+  stream: TransformStream<Uint8Array, Uint8Array>;
+  getSnapshot: () => BoundedStreamTextSnapshot;
+} {
+  const accumulator = new BoundedStreamTextAccumulator();
+
+  return {
+    stream: new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        accumulator.pushBytes(chunk);
+        controller.enqueue(chunk);
+      },
+    }),
+    getSnapshot: () => accumulator.finish(),
+  };
 }
 
 /**
@@ -3588,6 +3609,12 @@ export class ProxyResponseHandler {
     startHedgeBindingHeartbeat(session);
 
     let processedStream: ReadableStream<Uint8Array> = response.body;
+    let getPreKeyUsageAdjustmentSnapshot: (() => BoundedStreamTextSnapshot) | null = null;
+    let streamWasConvertedFromGemini = false;
+    const keyStreamUsageAdjustmentDecision = resolveKeyStreamUsageAdjustmentDecision(session);
+    if (keyStreamUsageAdjustmentDecision) {
+      session.addSpecialSetting(keyStreamUsageAdjustmentDecision.audit);
+    }
     const nativeStreamProtocolFamily =
       session.getEndpointPolicy().kind === "raw_passthrough"
         ? null
@@ -3621,7 +3648,7 @@ export class ProxyResponseHandler {
         (session.originalFormat === "gemini" || session.originalFormat === "gemini-cli") &&
         (provider.providerType === "gemini" || provider.providerType === "gemini-cli");
 
-      if (isGeminiPassthrough) {
+      if (isGeminiPassthrough && !keyStreamUsageAdjustmentDecision?.hit) {
         logger.debug("[ResponseHandler] Gemini stream passthrough (demand-driven stats)", {
           originalFormat: session.originalFormat,
           providerType: provider.providerType,
@@ -4193,8 +4220,16 @@ export class ProxyResponseHandler {
           statusText: response.statusText,
           headers: cleanResponseHeaders(response.headers),
         });
+      } else if (isGeminiPassthrough) {
+        logger.debug("[ResponseHandler] Gemini stream passthrough with key usage adjustment", {
+          originalFormat: session.originalFormat,
+          providerType: provider.providerType,
+          model: session.request.model,
+          statusCode: response.status,
+        });
       } else {
         // ❌ 需要转换：客户端不是 Gemini 格式（如 OpenAI/Claude）
+        streamWasConvertedFromGemini = true;
         logger.debug("[ResponseHandler] Transforming Gemini stream to client format", {
           originalFormat: session.originalFormat,
           providerType: provider.providerType,
@@ -4249,6 +4284,21 @@ export class ProxyResponseHandler {
         processedStream = response.body.pipeThrough(transformStream);
       }
     }
+
+    if (keyStreamUsageAdjustmentDecision?.hit) {
+      const capture = createBoundedStreamTextCapture();
+      processedStream = processedStream.pipeThrough(capture.stream);
+      getPreKeyUsageAdjustmentSnapshot = capture.getSnapshot;
+    }
+    processedStream = applyKeyStreamUsageAdjustmentToStream(
+      processedStream,
+      keyStreamUsageAdjustmentDecision,
+      { directCacheReadIsInputSubset: streamWasConvertedFromGemini }
+    );
+    const processedUsageProviderType =
+      streamWasConvertedFromGemini && keyStreamUsageAdjustmentDecision?.hit
+        ? "openai-compatible"
+        : provider.providerType;
 
     const statusCode = response.status;
 
@@ -4722,9 +4772,9 @@ export class ProxyResponseHandler {
 
         // U11：门控已在 finalize 内解析过同一份 allContent，类型一致时直接复用
         const usageResult =
-          finalized.clientAbortGateUsage?.providerType === provider.providerType
+          finalized.clientAbortGateUsage?.providerType === processedUsageProviderType
             ? { usageMetrics: finalized.clientAbortGateUsage.usageMetrics }
-            : parseUsageFromResponseText(allContent, provider.providerType);
+            : parseUsageFromResponseText(allContent, processedUsageProviderType);
         usageForCost = usageResult.usageMetrics;
 
         const actualServiceTier = parseServiceTierFromResponseText(allContent);
@@ -4742,6 +4792,21 @@ export class ProxyResponseHandler {
             session,
             provider.swapCacheTtlBilling
           );
+        }
+        let usageForRequestRecord = usageForCost;
+        const preAdjustmentSnapshot = getPreKeyUsageAdjustmentSnapshot?.();
+        if (preAdjustmentSnapshot?.text) {
+          const actualUsageResult = parseUsageFromResponseText(
+            preAdjustmentSnapshot.text,
+            processedUsageProviderType
+          );
+          if (actualUsageResult.usageMetrics) {
+            usageForRequestRecord = normalizeUsageWithSwap(
+              actualUsageResult.usageMetrics,
+              session,
+              provider.swapCacheTtlBilling
+            );
+          }
         }
 
         maybeSetCodexContext1m(session, provider, usageForCost?.input_tokens);
@@ -5032,15 +5097,15 @@ export class ProxyResponseHandler {
             {
               statusCode: effectiveStatusCode,
               durationMs: duration,
-              inputTokens: usageForCost?.input_tokens,
-              outputTokens: usageForCost?.output_tokens,
+              inputTokens: usageForRequestRecord?.input_tokens,
+              outputTokens: usageForRequestRecord?.output_tokens,
               ttftMs: session.ttftMs,
               firstByteMs: session.firstByteMs,
-              cacheCreationInputTokens: usageForCost?.cache_creation_input_tokens,
-              cacheReadInputTokens: usageForCost?.cache_read_input_tokens,
-              cacheCreation5mInputTokens: usageForCost?.cache_creation_5m_input_tokens,
-              cacheCreation1hInputTokens: usageForCost?.cache_creation_1h_input_tokens,
-              cacheTtlApplied: usageForCost?.cache_ttl ?? null,
+              cacheCreationInputTokens: usageForRequestRecord?.cache_creation_input_tokens,
+              cacheReadInputTokens: usageForRequestRecord?.cache_read_input_tokens,
+              cacheCreation5mInputTokens: usageForRequestRecord?.cache_creation_5m_input_tokens,
+              cacheCreation1hInputTokens: usageForRequestRecord?.cache_creation_1h_input_tokens,
+              cacheTtlApplied: usageForRequestRecord?.cache_ttl ?? null,
               providerChain: session.getProviderChain(),
               routingTrace: session.finalizeRoutingTrace(effectiveStatusCode),
               ...(streamErrorMessage ? { errorMessage: streamErrorMessage } : {}),

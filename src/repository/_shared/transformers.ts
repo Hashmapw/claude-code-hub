@@ -1,4 +1,5 @@
 import { PROVIDER_TIMEOUT_DEFAULTS } from "@/lib/constants/provider.constants";
+import { normalizeStreamUsageAdjustmentConfig } from "@/lib/key-stream-usage-adjustment-config";
 import { normalizeProviderModelRedirectRules } from "@/lib/provider-model-redirects";
 import { DEFAULT_SITE_TITLE } from "@/lib/site-title";
 import { formatCostForStorage } from "@/lib/utils/currency";
@@ -93,6 +94,7 @@ export function toKey(dbKey: any): Key {
     limitConcurrentSessions: dbKey?.limitConcurrentSessions ?? 0,
     providerGroup: dbKey?.providerGroup ?? null,
     cacheTtlPreference: dbKey?.cacheTtlPreference ?? null,
+    streamUsageAdjustment: normalizeStreamUsageAdjustmentConfig(dbKey?.streamUsageAdjustment),
     createdAt: dbKey?.createdAt ? new Date(dbKey.createdAt) : new Date(),
     updatedAt: dbKey?.updatedAt ? new Date(dbKey.updatedAt) : new Date(),
   };

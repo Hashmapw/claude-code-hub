@@ -9,6 +9,7 @@ import { keys as keysTable, users as usersTable } from "@/drizzle/schema";
 import { emitActionAudit } from "@/lib/audit/emit";
 import { type AuthSession, getSession } from "@/lib/auth";
 import { PROVIDER_GROUP } from "@/lib/constants/provider.constants";
+import { buildStreamUsageAdjustmentConfigFromForm } from "@/lib/key-stream-usage-adjustment-config";
 import { logger } from "@/lib/logger";
 import { resolveKeyConcurrentSessionLimit } from "@/lib/rate-limit/concurrent-session-limit";
 import { resolveKeyCostResetAt } from "@/lib/rate-limit/cost-reset-utils";
@@ -444,6 +445,12 @@ export async function editKey(
     limitConcurrentSessions?: number;
     providerGroup?: string | null;
     cacheTtlPreference?: "inherit" | "5m" | "1h";
+    streamUsageAdjustmentEnabled?: boolean;
+    streamUsageAdjustmentProbability?: number;
+    streamUsageAdjustmentInputTokensRatio?: number;
+    streamUsageAdjustmentOutputTokensRatio?: number;
+    streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+    streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
   }
 ): Promise<ActionResult> {
   try {
@@ -524,8 +531,25 @@ export async function editKey(
     const hasLimitTotalUsdField = Object.hasOwn(data, "limitTotalUsd");
     const hasLimitConcurrentSessionsField = Object.hasOwn(data, "limitConcurrentSessions");
     const hasCacheTtlPreferenceField = Object.hasOwn(data, "cacheTtlPreference");
+    const isAdmin = session.user.role === "admin";
+    const hasStreamUsageAdjustmentConfigField =
+      Object.hasOwn(data, "streamUsageAdjustmentEnabled") ||
+      Object.hasOwn(data, "streamUsageAdjustmentProbability") ||
+      Object.hasOwn(data, "streamUsageAdjustmentInputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentOutputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentCacheReadInputTokensRatio") ||
+      Object.hasOwn(data, "streamUsageAdjustmentCacheCreationInputTokensRatio");
 
-    const validatedData = KeyFormSchema.parse(data);
+    const validationData = { ...data };
+    if (!isAdmin) {
+      delete validationData.streamUsageAdjustmentEnabled;
+      delete validationData.streamUsageAdjustmentProbability;
+      delete validationData.streamUsageAdjustmentInputTokensRatio;
+      delete validationData.streamUsageAdjustmentOutputTokensRatio;
+      delete validationData.streamUsageAdjustmentCacheReadInputTokensRatio;
+      delete validationData.streamUsageAdjustmentCacheCreationInputTokensRatio;
+    }
+    const validatedData = KeyFormSchema.parse(validationData);
 
     // 服务端验证：Key限额不能超过用户限额
     const { findUserById } = await import("@/repository/user");
@@ -655,7 +679,6 @@ export async function editKey(
       }
     }
 
-    const isAdmin = session.user.role === "admin";
     const prevProviderGroup = normalizeProviderGroup(key.providerGroup);
     const nextProviderGroup =
       isAdmin && providerGroupProvided ? normalizeProviderGroup(validatedData.providerGroup) : null;
@@ -687,7 +710,14 @@ export async function editKey(
       ...(hasCacheTtlPreferenceField
         ? { cache_ttl_preference: validatedData.cacheTtlPreference }
         : {}),
+      ...(isAdmin && hasStreamUsageAdjustmentConfigField
+        ? { stream_usage_adjustment: buildStreamUsageAdjustmentConfigFromForm(validatedData) }
+        : {}),
     });
+
+    if (isAdmin && hasStreamUsageAdjustmentConfigField) {
+      await invalidateCachedKey(key.key).catch(() => null);
+    }
 
     // 自动同步用户分组（用户分组 = Key 分组并集）
     if (providerGroupChanged) {
@@ -728,6 +758,7 @@ export async function editKey(
         dailyResetMode: key.dailyResetMode,
         dailyResetTime: key.dailyResetTime,
         cacheTtlPreference: key.cacheTtlPreference,
+        streamUsageAdjustment: key.streamUsageAdjustment,
       },
       after: {
         name: validatedData.name,
@@ -752,6 +783,10 @@ export async function editKey(
         cacheTtlPreference: hasCacheTtlPreferenceField
           ? validatedData.cacheTtlPreference
           : undefined,
+        streamUsageAdjustment:
+          isAdmin && hasStreamUsageAdjustmentConfigField
+            ? buildStreamUsageAdjustmentConfigFromForm(validatedData)
+            : undefined,
       },
       success: true,
       redactExtraKeys: ["key"],

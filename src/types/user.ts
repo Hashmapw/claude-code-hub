@@ -141,6 +141,13 @@ export interface UserKeyDisplay {
   costResetAt?: string | null; // 软重置时间
   // Provider group override (null = inherit from user)
   providerGroup?: string | null;
+  // Stream usage token rewrite config (percent values)
+  streamUsageAdjustmentEnabled?: boolean;
+  streamUsageAdjustmentProbability?: number;
+  streamUsageAdjustmentInputTokensRatio?: number;
+  streamUsageAdjustmentOutputTokensRatio?: number;
+  streamUsageAdjustmentCacheReadInputTokensRatio?: number;
+  streamUsageAdjustmentCacheCreationInputTokensRatio?: number;
 }
 
 /**

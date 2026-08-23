@@ -2260,6 +2260,19 @@
             "5m": "5m",
             "1h": "1h"
           }
+        },
+        "streamUsageAdjustment": {
+          "label": "串流 Usage Token 改寫",
+          "descriptionEnabled": "命中機率後，會在串流回傳中同時按比例改寫四類 usage token，並用於內部統計與計費。",
+          "descriptionDisabled": "關閉後，此 Key 的串流 usage token 保持上游原始值。",
+          "probabilityLabel": "命中機率（%）",
+          "probabilityDescription": "每次請求只取樣一次；命中後四類 token 同時按各自比例改寫。",
+          "inputRatioLabel": "input_tokens 倍率（%）",
+          "outputRatioLabel": "output_tokens 倍率（%）",
+          "cacheReadRatioLabel": "cache_read_input_tokens 倍率（%）",
+          "cacheCreationRatioLabel": "cache_creation_input_tokens 倍率（%）",
+          "ratioDescription": "100 表示不變，50 表示減半，200 表示翻倍。",
+          "example": "範例：input_tokens=1000、output_tokens=500、cache_read_input_tokens=200、cache_creation_input_tokens=100 時，命中後按下面比例同時改寫。"
         }
       },
       "limitRules": {

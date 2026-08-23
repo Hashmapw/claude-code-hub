@@ -160,6 +160,7 @@ function createSession(opts: {
   pathname?: string;
   providerType?: "claude" | "codex";
   originalFormat?: "claude" | "response";
+  streamUsageAdjustment?: unknown;
 }): ProxySession {
   const {
     originalModel,
@@ -169,6 +170,7 @@ function createSession(opts: {
     pathname = "/v1/messages",
     providerType = "claude",
     originalFormat = "claude",
+    streamUsageAdjustment = null,
   } = opts;
 
   const session = Object.create(ProxySession.prototype) as ProxySession;
@@ -261,6 +263,7 @@ function createSession(opts: {
     name: "test-key",
     dailyResetTime: "00:00",
     dailyResetMode: "fixed",
+    streamUsageAdjustment,
   } as unknown;
 
   session.setProvider(provider);
@@ -676,6 +679,49 @@ describe("Lease Budget Decrement after trackCostToRedis", () => {
 
     expect(RateLimitService.settleLeaseBudgets).toHaveBeenCalledTimes(1);
     expect(RateLimitService.decrementLeaseBudget).not.toHaveBeenCalled();
+  });
+
+  it("persists actual stream usage while adjustment affects client and billing", async () => {
+    const session = createSession({
+      originalModel,
+      redirectedModel: originalModel,
+      sessionId: "sess-key-usage-adjustment",
+      messageId: 5022,
+      streamUsageAdjustment: {
+        enabled: true,
+        probability: 100,
+        inputTokensRatio: 50,
+        outputTokensRatio: 200,
+        cacheReadInputTokensRatio: 100,
+        cacheCreationInputTokensRatio: 100,
+      },
+    });
+
+    const clientResponse = await ProxyResponseHandler.dispatch(
+      session,
+      createStreamResponse(usage)
+    );
+    const clientText = await clientResponse.text();
+    await drainAsyncTasks();
+
+    const dataLine = clientText.split("\n").find((line) => line.startsWith("data: "));
+    const clientPayload = JSON.parse(dataLine?.slice("data: ".length) ?? "{}");
+    expect(clientPayload.usage).toEqual({ input_tokens: 500, output_tokens: 1000 });
+
+    expect(updateMessageRequestDetailsDurably).toHaveBeenCalledWith(
+      5022,
+      expect.objectContaining({
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        specialSettings: expect.arrayContaining([
+          expect.objectContaining({ type: "key_stream_usage_adjustment", hit: true }),
+        ]),
+      }),
+      expect.objectContaining({ onCommitted: expect.any(Function) })
+    );
+    expect(RateLimitService.settleLeaseBudgets).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: 5022, cost: 0.0165 })
+    );
   });
 
   it("should NOT settle lease budgets when cost is zero", async () => {
