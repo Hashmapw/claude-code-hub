@@ -21,6 +21,23 @@
 
 ---
 
+## v0.9.4.1 (2026-08-23)
+
+### 新增
+
+- 新增 Key 级流式 Usage Token 改写：管理员可为单个 Key 配置请求命中概率以及输入、输出、缓存读取和缓存创建的独立倍率；支持 Anthropic、OpenAI Chat、OpenAI Responses 和 Gemini 流协议，客户端、计费与限流使用改写值，使用记录保留上游实际 usage。
+
+### 修复
+
+- 修复 OpenCode 通过 Claude 或 Claude Auth 供应商访问 `/v1/messages` 时的 Beta 转发兼容：自动在上游 URL 追加 `beta=true`，同时保留现有查询参数和已设置的 `beta` 值。
+- 修复 OpenAI 兼容流仅返回 `choices[].delta.reasoning` 时被 Stream Gate 判定为空响应的问题，非空 reasoning 现在会正常触发内容提交。
+
+### 其他
+
+- 维护分支发布流程现在会将发布提交推回触发分支，支持四段版本标签并在重试时保留已存在的标签；只有 `main` 会同步 `dev`。
+
+---
+
 ## v0.8.7 (2026-06-14)
 
 ### 新增
