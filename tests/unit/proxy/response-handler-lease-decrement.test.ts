@@ -120,6 +120,7 @@ import { RateLimitService } from "@/lib/rate-limit";
 import { SessionTracker } from "@/lib/session-tracker";
 import {
   updateMessageRequestCost,
+  updateMessageRequestCostWithBreakdown,
   updateMessageRequestDetails,
   updateMessageRequestDetailsDurably,
   updateMessageRequestDuration,
@@ -681,7 +682,7 @@ describe("Lease Budget Decrement after trackCostToRedis", () => {
     expect(RateLimitService.decrementLeaseBudget).not.toHaveBeenCalled();
   });
 
-  it("persists actual stream usage while adjustment affects client and billing", async () => {
+  it("persists adjusted stream usage and cost for client-facing billing", async () => {
     const session = createSession({
       originalModel,
       redirectedModel: originalModel,
@@ -711,13 +712,22 @@ describe("Lease Budget Decrement after trackCostToRedis", () => {
     expect(updateMessageRequestDetailsDurably).toHaveBeenCalledWith(
       5022,
       expect.objectContaining({
-        inputTokens: usage.input_tokens,
-        outputTokens: usage.output_tokens,
+        inputTokens: 500,
+        outputTokens: 1000,
         specialSettings: expect.arrayContaining([
           expect.objectContaining({ type: "key_stream_usage_adjustment", hit: true }),
         ]),
       }),
       expect.objectContaining({ onCommitted: expect.any(Function) })
+    );
+    expect(updateMessageRequestCostWithBreakdown).toHaveBeenCalledWith(
+      5022,
+      expect.objectContaining({ toString: expect.any(Function) }),
+      expect.objectContaining({
+        input: "0.0015",
+        output: "0.015",
+        total: "0.0165",
+      })
     );
     expect(RateLimitService.settleLeaseBudgets).toHaveBeenCalledWith(
       expect.objectContaining({ requestId: 5022, cost: 0.0165 })

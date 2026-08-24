@@ -751,8 +751,8 @@ describe("ProxyResponseHandler.dispatch stream terminal behavior", () => {
     expect(mocks.durable).toHaveBeenCalledWith(
       MESSAGE.id,
       expect.objectContaining({
-        inputTokens: 10,
-        outputTokens: 2,
+        inputTokens: 5,
+        outputTokens: 4,
         specialSettings: expect.arrayContaining([
           expect.objectContaining({ type: "key_stream_usage_adjustment", hit: true }),
         ]),
@@ -802,9 +802,9 @@ describe("ProxyResponseHandler.dispatch stream terminal behavior", () => {
     expect(mocks.durable).toHaveBeenCalledWith(
       MESSAGE.id,
       expect.objectContaining({
-        inputTokens: 1000,
-        outputTokens: 500,
-        cacheReadInputTokens: 200,
+        inputTokens: 500,
+        outputTokens: 1000,
+        cacheReadInputTokens: 20,
       }),
       expect.objectContaining({ onCommitted: expect.any(Function) })
     );
@@ -1334,7 +1334,7 @@ describe("ProxyResponseHandler.dispatch stream terminal behavior", () => {
 
     expect(mocks.durable).toHaveBeenCalledWith(
       MESSAGE.id,
-      expect.objectContaining({ inputTokens: 10, outputTokens: 2, statusCode: 200 }),
+      expect.objectContaining({ inputTokens: 5, outputTokens: 4, statusCode: 200 }),
       expect.objectContaining({ onCommitted: expect.any(Function) })
     );
     expect(mocks.replayAbort).not.toHaveBeenCalled();

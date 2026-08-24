@@ -1004,23 +1004,6 @@ export class BoundedStreamTextAccumulator {
   }
 }
 
-function createBoundedStreamTextCapture(): {
-  stream: TransformStream<Uint8Array, Uint8Array>;
-  getSnapshot: () => BoundedStreamTextSnapshot;
-} {
-  const accumulator = new BoundedStreamTextAccumulator();
-
-  return {
-    stream: new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        accumulator.pushBytes(chunk);
-        controller.enqueue(chunk);
-      },
-    }),
-    getSnapshot: () => accumulator.finish(),
-  };
-}
-
 /**
  * Idempotent helper to release the agent pool reference count attached to a session.
  * Prevents double-release by clearing the callback after first invocation.
@@ -3892,7 +3875,6 @@ export class ProxyResponseHandler {
     startHedgeBindingHeartbeat(session);
 
     let processedStream: ReadableStream<Uint8Array> = response.body;
-    let getPreKeyUsageAdjustmentSnapshot: (() => BoundedStreamTextSnapshot) | null = null;
     let streamWasConvertedFromGemini = false;
     const keyStreamUsageAdjustmentDecision = resolveKeyStreamUsageAdjustmentDecision(session);
     if (keyStreamUsageAdjustmentDecision) {
@@ -4568,11 +4550,6 @@ export class ProxyResponseHandler {
       }
     }
 
-    if (keyStreamUsageAdjustmentDecision?.hit) {
-      const capture = createBoundedStreamTextCapture();
-      processedStream = processedStream.pipeThrough(capture.stream);
-      getPreKeyUsageAdjustmentSnapshot = capture.getSnapshot;
-    }
     processedStream = applyKeyStreamUsageAdjustmentToStream(
       processedStream,
       keyStreamUsageAdjustmentDecision,
@@ -5076,22 +5053,6 @@ export class ProxyResponseHandler {
             provider.swapCacheTtlBilling
           );
         }
-        let usageForRequestRecord = usageForCost;
-        const preAdjustmentSnapshot = getPreKeyUsageAdjustmentSnapshot?.();
-        if (preAdjustmentSnapshot?.text) {
-          const actualUsageResult = parseUsageFromResponseText(
-            preAdjustmentSnapshot.text,
-            processedUsageProviderType
-          );
-          if (actualUsageResult.usageMetrics) {
-            usageForRequestRecord = normalizeUsageWithSwap(
-              actualUsageResult.usageMetrics,
-              session,
-              provider.swapCacheTtlBilling
-            );
-          }
-        }
-
         maybeSetCodexContext1m(session, provider, usageForCost?.input_tokens);
 
         let codexCacheBinding:
@@ -5374,15 +5335,17 @@ export class ProxyResponseHandler {
             {
               statusCode: effectiveStatusCode,
               durationMs: duration,
-              inputTokens: usageForRequestRecord?.input_tokens,
-              outputTokens: usageForRequestRecord?.output_tokens,
+              // Usage-log and usage-ledger token fields are the public billing view.
+              // Keep them aligned with the adjusted response and cost calculation.
+              inputTokens: usageForCost?.input_tokens,
+              outputTokens: usageForCost?.output_tokens,
               ttftMs: session.ttftMs,
               firstByteMs: session.firstByteMs,
-              cacheCreationInputTokens: usageForRequestRecord?.cache_creation_input_tokens,
-              cacheReadInputTokens: usageForRequestRecord?.cache_read_input_tokens,
-              cacheCreation5mInputTokens: usageForRequestRecord?.cache_creation_5m_input_tokens,
-              cacheCreation1hInputTokens: usageForRequestRecord?.cache_creation_1h_input_tokens,
-              cacheTtlApplied: usageForRequestRecord?.cache_ttl ?? null,
+              cacheCreationInputTokens: usageForCost?.cache_creation_input_tokens,
+              cacheReadInputTokens: usageForCost?.cache_read_input_tokens,
+              cacheCreation5mInputTokens: usageForCost?.cache_creation_5m_input_tokens,
+              cacheCreation1hInputTokens: usageForCost?.cache_creation_1h_input_tokens,
+              cacheTtlApplied: usageForCost?.cache_ttl ?? null,
               providerChain: session.getProviderChain(),
               routingTrace: session.finalizeRoutingTrace(
                 effectiveStatusCode,
