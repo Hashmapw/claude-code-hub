@@ -84,14 +84,14 @@ Gemini 客户端访问 Gemini 供应商时，未命中继续使用原生快速�
 | --- | --- |
 | 客户端流式响应 | 命中时为改写值，否则为上游原值 |
 | 计费、配额和限流 | 命中时为改写值，否则为上游原值 |
-| 请求使用记录 | 始终保存上游实际 usage |
+| 请求使用记录和 usage ledger | 命中时为改写值，否则为上游原值 |
 
 例如上游返回 `input_tokens=1000`、`output_tokens=500`，输入倍率为 `50`、输出倍率为 `200`：
 
-- 客户端、计费和限流使用 `input_tokens=500`、`output_tokens=1000`。
-- 请求记录仍保存 `input_tokens=1000`、`output_tokens=500`。
+- 客户端、计费、限流、请求记录和 usage ledger 均使用
+  `input_tokens=500`、`output_tokens=1000`。
 
-响应处理器在改写前使用 `BoundedStreamTextAccumulator` 捕获原始流，最多保留 10 MiB 的头尾窗口，用于提取上游真实 usage；不会使用无界字符串数组。改写后的客户端流进入统计、计费和 replay spool。
+改写后的客户端流进入统计、计费和 replay spool。终态持久化复用同一份改写后 usage，避免客户端返回值、费用、配额结算、请求记录和 usage ledger 之间出现口径差异。
 
 ## 保存与回显
 
@@ -118,7 +118,7 @@ where id = <key_id>;
 - `enabled=false`：配置存在但关闭。
 - 所有倍率为 `100`：功能命中时 token 数值仍不变。
 
-数据库迁移文件为 `drizzle/0121_salty_menace.sql`。
+数据库迁移文件为 `drizzle/0122_wide_phalanx.sql`。
 
 ## 相关代码
 
